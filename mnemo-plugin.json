@@ -1,0 +1,516 @@
+{
+  "name": "@mnemosyne-plugins/artisan-studio",
+  "displayName": "Vitrine Studio",
+  "version": "0.1.0",
+  "vendor": "Mnemosyne OS",
+  "category": "Productivity",
+  "icon": "icon.svg",
+  "description": "Stage your own pieces in rooms generated for you, in three beats: the place, the piece, the life around it. For any craftsperson: ceramics, lighting, woodwork, jewellery. Your files, on your machine.",
+  "descriptionI18n": {
+    "en": "Stage your own pieces in rooms generated for you, in three beats: the place, the piece, the life around it. For any craftsperson: ceramics, lighting, woodwork, jewellery. Your files, on your machine.",
+    "fr": "Mettez en scène vos propres pièces dans des intérieurs générés pour vous, en trois temps : le lieu, la pièce, la vie autour. Pour tous les artisans : céramique, luminaires, bois, bijoux. Vos fichiers, sur votre machine.",
+    "es": "Pon en escena tus propias piezas en interiores generados para ti, en tres tiempos: el lugar, la pieza, la vida alrededor. Para cualquier artesano: cerámica, iluminación, madera, joyería. Tus archivos, en tu equipo."
+  },
+  "keywords": [
+    "artisan",
+    "craft",
+    "ceramics",
+    "staging",
+    "product photo",
+    "website",
+    "atelier",
+    "vitrine"
+  ],
+  "permissions": [
+    "dialog:open",
+    "vault:write",
+    "image:generate",
+    "video:generate",
+    "site:publish"
+  ],
+  "updateStrategy": "git",
+  "entrypoints": {
+    "renderer": "index.html"
+  },
+  "widgets": [
+    {
+      "id": "artisan-studio-main",
+      "icon": "🏺",
+      "name": "Vitrine Studio",
+      "route": "index.html",
+      "defaultWidth": 900,
+      "defaultHeight": 720
+    }
+  ],
+  "agentGuide": [
+    "Name a piece or a scene the way the person says it (« vase bleu », « vase bleu salon »): the studio finds it by its words. Several matches are refused with their names (AMBIGUOUS): pick one and call again.",
+    "To look at something: showTab for a screen, showScene for a scene full screen, showPiece for a piece, previewSite for the site as published, closeView to close.",
+    "A change of price, name or « sold »: editPiece. Her name, her texts, her e-mail: setBrand. Quality and picture shape: setSettings.",
+    "A new scene asked without its piece or its place (« crée une nouvelle scène dans le jardin »): newScene opens the studio's form with what was said and she finishes it. Never invent the piece or the place.",
+    "A scene whose piece and place were both said: createScene, then makeScene (spends credits, about 0.18 $ a picture, three pictures). One scene is made at a time (BUSY). It answers started: follow with scenes.",
+    "cutoutPieces takes the backgrounds off on this computer, free; the first one takes minutes.",
+    "setMotion living cuts the scene into layers (free): the scene then opens directly on its animation.",
+    "validateScene puts a scene on the site, publishSite publishes it. Look at the pictures before calling them good: the piece's fidelity is seen, not measured."
+  ],
+  "agentActions": [
+    {
+      "id": "pieces",
+      "summary": "List the pieces: id, name, series or unique, price, status, whether it has a photo, and whether its background is on or off.",
+      "effect": "read",
+      "details": "cutting says a background is being taken off (true) or waiting (queued); cutoutError is the last refusal for that piece."
+    },
+    {
+      "id": "cutoutPieces",
+      "summary": "Take the background off the pieces' photos, on this computer and for free: the piece cut out becomes the photo on show.",
+      "details": "Runs one piece after the other and answers « started » at once (the first one can take minutes while the engine prepares). Follow it with pieces. A piece already cut out is skipped; an earlier cut-out of her own photo is reused. The photo before stays in the piece's versions.",
+      "effect": "write",
+      "params": {
+        "pieceIds": {
+          "type": "list",
+          "description": "The pieces, by name or id. Absent = every piece with a photo.",
+          "maxItems": 200
+        }
+      }
+    },
+    {
+      "id": "scenes",
+      "summary": "List the scenes: their piece, place, which pictures are made or missing, on the site or not, how they move, and what is being made now.",
+      "details": "making / clipping / layering say a job is running; error is the last refusal (an i18n code). Call it to follow makeScene, makeClip and setMotion.",
+      "effect": "read"
+    },
+    {
+      "id": "createScene",
+      "summary": "Create a scene for a piece: the place it is shown in and what brings it to life. No picture is made yet.",
+      "details": "universe is the room (\"Salon\"), variant a spot in it (\"Console\"). Make its pictures with makeScene.",
+      "effect": "write",
+      "params": {
+        "pieceId": {
+          "type": "string",
+          "description": "The piece: its name as the person says it (« vase bleu ») or its id.",
+          "maxLength": 80
+        },
+        "universe": {
+          "type": "string",
+          "description": "The room or place.",
+          "maxLength": 60
+        },
+        "variant": {
+          "type": "string",
+          "description": "A spot inside it.",
+          "maxLength": 60
+        },
+        "placeDescription": {
+          "type": "string",
+          "description": "The place, described in words.",
+          "maxLength": 1500
+        },
+        "animation": {
+          "type": "string",
+          "description": "What moves in the third picture (a plant, a light).",
+          "maxLength": 500
+        }
+      },
+      "required": [
+        "pieceId",
+        "universe",
+        "placeDescription"
+      ]
+    },
+    {
+      "id": "newScene",
+      "summary": "Open the studio's « new scene » form, as its button does, with the piece and the room already said. She chooses the rest on screen. Nothing is made or spent.",
+      "details": "For a scene asked without its piece or its place. A piece named and not found, or without a photo, leaves the choice of the piece to her. Answers what the orb says next.",
+      "effect": "write",
+      "params": {
+        "piece": {
+          "type": "string",
+          "description": "The piece, if the person named it: its name as she says it (« vase bleu ») or its id.",
+          "maxLength": 80
+        },
+        "universe": {
+          "type": "string",
+          "description": "The room or place, if the person said it (« Jardin »).",
+          "maxLength": 60
+        }
+      }
+    },
+    {
+      "id": "makeScene",
+      "summary": "Make the missing pictures of a scene (up to 3), as the studio’s « Faire » button does.",
+      "details": "Spends credits: one generated picture per missing step. One scene at a time: refused BUSY while another scene is being made. Answers « started »; follow it with scenes.",
+      "effect": "spend",
+      "params": {
+        "sceneId": {
+          "type": "string",
+          "description": "The scene: its piece's name, with the room or the spot when the piece has several scenes (« vase bleu salon »), or its id.",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "sceneId"
+      ]
+    },
+    {
+      "id": "validateScene",
+      "summary": "Put a scene on the website, or take it off (online: false).",
+      "details": "Only a scene with its three pictures goes on. Publishing the site itself is publishSite.",
+      "effect": "write",
+      "params": {
+        "sceneId": {
+          "type": "string",
+          "description": "The scene: its piece's name, with the room or the spot when the piece has several scenes (« vase bleu salon »), or its id.",
+          "maxLength": 80
+        },
+        "online": {
+          "type": "boolean",
+          "description": "true puts it on the site (default), false takes it off."
+        }
+      },
+      "required": [
+        "sceneId"
+      ]
+    },
+    {
+      "id": "setMotion",
+      "summary": "Choose how a scene moves on the site: images, living (the layers, free), or video (its clip).",
+      "details": "living makes the layers on this machine when they are missing (a few seconds to a minute).",
+      "effect": "write",
+      "params": {
+        "sceneId": {
+          "type": "string",
+          "description": "The scene: its piece's name, with the room or the spot when the piece has several scenes (« vase bleu salon »), or its id.",
+          "maxLength": 80
+        },
+        "motion": {
+          "type": "string",
+          "description": "images, living or video.",
+          "enum": [
+            "images",
+            "living",
+            "video"
+          ]
+        }
+      },
+      "required": [
+        "sceneId",
+        "motion"
+      ]
+    },
+    {
+      "id": "makeClip",
+      "summary": "Make the clip of a scene, from its second picture to its third.",
+      "details": "Spends credits (a short video). Answers « started »; the clip takes a few minutes, follow it with scenes.",
+      "effect": "spend",
+      "params": {
+        "sceneId": {
+          "type": "string",
+          "description": "The scene: its piece's name, with the room or the spot when the piece has several scenes (« vase bleu salon »), or its id.",
+          "maxLength": 80
+        },
+        "camera": {
+          "type": "string",
+          "description": "still, push or pan.",
+          "enum": [
+            "still",
+            "push",
+            "pan"
+          ]
+        },
+        "light": {
+          "type": "string",
+          "description": "steady or sun.",
+          "enum": [
+            "steady",
+            "sun"
+          ]
+        },
+        "note": {
+          "type": "string",
+          "description": "A word on how it should move.",
+          "maxLength": 300
+        }
+      },
+      "required": [
+        "sceneId"
+      ]
+    },
+    {
+      "id": "addPage",
+      "summary": "Add a page to the website: scenes, blog, catalogue, text or form.",
+      "details": "text, for a text or form page, is its words in Markdown. The studio opens the new page.",
+      "effect": "write",
+      "params": {
+        "type": {
+          "type": "string",
+          "description": "The kind of page.",
+          "enum": [
+            "scenes",
+            "blog",
+            "catalogue",
+            "text",
+            "form"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "description": "Its name in the menu.",
+          "maxLength": 40
+        },
+        "text": {
+          "type": "string",
+          "description": "A text or form page: its words, in Markdown.",
+          "maxLength": 20000
+        }
+      },
+      "required": [
+        "type",
+        "name"
+      ]
+    },
+    {
+      "id": "publishSite",
+      "summary": "Export the website and put it online, as the Site tab’s « Publish » does.",
+      "details": "Answers « started »; follow it with siteStatus. The site must have been set up once by the person (its host and token).",
+      "effect": "write"
+    },
+    {
+      "id": "siteStatus",
+      "summary": "Where the website stands: what is running, the last publication and its address, the pages, how many scenes are on it.",
+      "effect": "read"
+    },
+    {
+      "id": "showTab",
+      "summary": "Show one of the studio's screens, as a click on its menu does.",
+      "details": "pieces (the creations), scenes, blog, about, contact, film, logo, site, hosting, costs, settings, or the name of a page she added. Closes what was open over the screen.",
+      "effect": "write",
+      "params": {
+        "tab": {
+          "type": "string",
+          "description": "The screen: pieces, scenes, blog, about, contact, film, logo, site, hosting, costs, settings, or an added page's name.",
+          "maxLength": 80
+        }
+      },
+      "required": [
+        "tab"
+      ]
+    },
+    {
+      "id": "showScene",
+      "summary": "Show a scene full screen, as a click on its picture does.",
+      "details": "Opens on its last picture made, or on the beat asked: place (the room alone), piece (the piece in it), alive (with what moves).",
+      "effect": "write",
+      "params": {
+        "scene": {
+          "type": "string",
+          "description": "The scene: its piece's name, with the room or the spot when the piece has several scenes (« vase bleu salon »), or its id.",
+          "maxLength": 160
+        },
+        "beat": {
+          "type": "string",
+          "description": "place, piece or alive. Absent = its last picture.",
+          "enum": [
+            "place",
+            "piece",
+            "alive"
+          ]
+        }
+      },
+      "required": [
+        "scene"
+      ]
+    },
+    {
+      "id": "showPiece",
+      "summary": "Show a piece full screen: its photos and its scenes over time.",
+      "effect": "write",
+      "params": {
+        "piece": {
+          "type": "string",
+          "description": "The piece: its name as the person says it (« vase bleu ») or its id.",
+          "maxLength": 160
+        }
+      },
+      "required": [
+        "piece"
+      ]
+    },
+    {
+      "id": "closeView",
+      "summary": "Close what is open over the studio: a scene or a piece full screen, the site preview, a wizard or a dialog.",
+      "effect": "write"
+    },
+    {
+      "id": "previewSite",
+      "summary": "Show the site as it would be published, inside the studio or in its own window. Nothing is published.",
+      "effect": "write",
+      "params": {
+        "window": {
+          "type": "boolean",
+          "description": "true opens it in its own window."
+        }
+      }
+    },
+    {
+      "id": "editPiece",
+      "summary": "Change a piece: its name, its description, its price, or whether it is available, reserved or sold.",
+      "effect": "write",
+      "params": {
+        "piece": {
+          "type": "string",
+          "description": "The piece: its name as the person says it (« vase bleu ») or its id.",
+          "maxLength": 160
+        },
+        "name": {
+          "type": "string",
+          "description": "Its new name.",
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "description": "Its new description.",
+          "maxLength": 4000
+        },
+        "price": {
+          "type": "number",
+          "description": "Its price, in the site's currency.",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "status": {
+          "type": "string",
+          "description": "available, reserved or sold.",
+          "enum": [
+            "available",
+            "reserved",
+            "sold"
+          ]
+        }
+      },
+      "required": [
+        "piece"
+      ]
+    },
+    {
+      "id": "setBrand",
+      "summary": "Change what the site says about the person: her name, her tagline, her About text, her e-mail, her Instagram, the home page sentence, the note beside the contact form.",
+      "details": "Only the fields given change. Saved at once.",
+      "effect": "write",
+      "params": {
+        "name": {
+          "type": "string",
+          "description": "Her name or her workshop's.",
+          "maxLength": 300
+        },
+        "tagline": {
+          "type": "string",
+          "description": "The line under her name.",
+          "maxLength": 300
+        },
+        "about": {
+          "type": "string",
+          "description": "Her About text.",
+          "maxLength": 20000
+        },
+        "email": {
+          "type": "string",
+          "description": "Her e-mail address.",
+          "maxLength": 300
+        },
+        "instagram": {
+          "type": "string",
+          "description": "Her Instagram name or address.",
+          "maxLength": 300
+        },
+        "introLine": {
+          "type": "string",
+          "description": "The sentence beside the film on the home page.",
+          "maxLength": 300
+        },
+        "contactNote": {
+          "type": "string",
+          "description": "The note beside the contact form.",
+          "maxLength": 20000
+        }
+      }
+    },
+    {
+      "id": "setSettings",
+      "summary": "Change the studio's settings: picture quality, picture shape, showing what each picture costs, the advanced tools.",
+      "details": "quality is « quality » (the better model, dearer) or « fast ». Only the fields given change.",
+      "effect": "write",
+      "params": {
+        "quality": {
+          "type": "string",
+          "description": "quality or fast.",
+          "enum": [
+            "quality",
+            "fast"
+          ]
+        },
+        "aspectRatio": {
+          "type": "string",
+          "description": "The pictures' shape.",
+          "enum": [
+            "16:9",
+            "9:16",
+            "1:1",
+            "4:3",
+            "3:4"
+          ]
+        },
+        "showCosts": {
+          "type": "boolean",
+          "description": "Show what each picture costs."
+        },
+        "advanced": {
+          "type": "boolean",
+          "description": "Show the advanced tools."
+        }
+      }
+    },
+    {
+      "id": "moveScene",
+      "summary": "Move a scene to another room (its universe), as a drag to another group does.",
+      "effect": "write",
+      "params": {
+        "scene": {
+          "type": "string",
+          "description": "The scene: its piece's name, with the room or the spot when the piece has several scenes (« vase bleu salon »), or its id.",
+          "maxLength": 160
+        },
+        "universe": {
+          "type": "string",
+          "description": "The room it goes to.",
+          "maxLength": 60
+        }
+      },
+      "required": [
+        "scene",
+        "universe"
+      ]
+    }
+  ],
+  "voiceCommands": {
+    "fr": [
+      "montre la scène du vase bleu",
+      "mets le vase bleu en vendu",
+      "change le prix du vase bleu à 40 euros",
+      "prévisualise le site",
+      "ferme la vue"
+    ],
+    "en": [
+      "show the blue vase scene",
+      "mark the blue vase as sold",
+      "change the price of the blue vase to 40 euros",
+      "preview the site",
+      "close the view"
+    ],
+    "es": [
+      "muestra la escena del jarrón azul",
+      "marca el jarrón azul como vendido",
+      "cambia el precio del jarrón azul a 40 euros",
+      "previsualiza el sitio",
+      "cierra la vista"
+    ]
+  }
+}
