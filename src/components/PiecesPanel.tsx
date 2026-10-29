@@ -18,8 +18,6 @@ import type { Piece } from '../model/types';
 import type { Upload } from '../data/photos';
 import { DropZone } from './DropZone';
 import { Thumb } from './Thumb';
-import { PagePreview, type PreviewProgress } from './PagePreview';
-import type { MenuChange } from '../site/buildSite';
 
 /**
  * The person's pieces, as tiles. They are the SAME files as MnemoCRM's
@@ -30,7 +28,7 @@ import type { MenuChange } from '../site/buildSite';
  * piece's photo. Staging needs a photo of the real piece, so a piece without
  * one is flagged, never hidden.
  */
-export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove, onEvolution, showcase, onShow, priceSymbol, online, onPreview, previewHash = 'creations', viewer, onViewer, hover, onHover, onMenu, onReorder, categories, onCategories }: {
+export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove, onEvolution, showcase, onShow, priceSymbol, online, viewer, onViewer, hover, onHover, onReorder, categories, onCategories }: {
   pieces: Piece[];
   busy: boolean;
   uploads: Upload[];
@@ -52,17 +50,12 @@ export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSe
   priceSymbol: string;
   /** The pieces with a scene online: the Creations page's own choice when she made none. */
   online: ReadonlySet<string>;
-  /** The site's Creations page as it will be: an in-memory address. */
-  onPreview: (progress: PreviewProgress) => Promise<string>;
-  /** The page the preview opens on: Creations, or an added catalogue page. */
-  previewHash?: string;
   /** A creation opened large on the site: its loupe and its frame. */
   viewer: Viewer;
   onViewer: (next: Viewer) => void;
   /** What a creation's picture does under the pointer on the site. */
   hover: CreationsHover;
   onHover: (next: CreationsHover) => void;
-  onMenu: (change: MenuChange) => void;
   /** The pieces in a new order, all of them, by id. */
   onReorder: (ids: string[]) => void;
   categories: Category[];
@@ -70,7 +63,6 @@ export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSe
 }) {
   const { t } = useI18n();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [previewError, setPreviewError] = useState<{ key: string; raw?: string } | null>(null);
   const onPage = pieces.filter((p) => onCreationsPage(p, showcase[p.id], online)).length;
   const [cat, setCat] = useState('');
   const inCat = (p: Piece, id: string) => (showcase[p.id]?.cats ?? []).includes(id);
@@ -103,11 +95,9 @@ export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSe
         <div className="row spaced pieces-bar">
           <span className="small muted">{t('pieces.onPageCount', { count: onPage, total: pieces.length })}</span>
           <button className={`icon-btn glass ${settingsOpen ? 'on' : ''}`} aria-pressed={settingsOpen} aria-label={t('viewer.title')} data-tip={t('viewer.title')} onClick={() => setSettingsOpen((o) => !o)}><Settings className="ico solo" aria-hidden /></button>
-          <PagePreview make={(p) => { setPreviewError(null); return onPreview(p); }} hash={previewHash} onError={(err) => setPreviewError(describeError(err))} onMenu={onMenu} />
         </div>
       )}
       {settingsOpen && pieces.length > 0 && <ViewerSettings value={viewer} onChange={onViewer} hover={hover} onHover={onHover} />}
-      {previewError && <p className="error small">{errorText(previewError)}</p>}
       {pieces.length > 0 && <CategoryBar categories={categories} counts={counts} active={cat} onActive={setCat} onChange={onCategories} />}
       <section className="tiles">
         {seen.map((p) => <PieceTile key={p.id} piece={p} onSetPhoto={onSetPhoto} onPickPhoto={onPickPhoto} onEdit={onEdit} onRemove={onRemove} onImprove={onImprove} onEvolution={onEvolution} show={showcase[p.id] ?? defaultShow()} onShow={onShow} priceSymbol={priceSymbol} shown={onCreationsPage(p, showcase[p.id], online)}

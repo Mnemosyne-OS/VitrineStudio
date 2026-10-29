@@ -11,11 +11,8 @@ import { useArmed } from '../hooks/useArmed';
 import { nextBeat } from '../model/records';
 import { Thumb } from './Thumb';
 import { CategoryDock } from './CategoryDock';
-import { PagePreview, type PreviewProgress } from './PagePreview';
 import { SceneMapSettings } from './SceneMapSettings';
 import type { SceneMap } from '../model/sceneMap';
-import { describeError } from './errors';
-import type { MenuChange } from '../site/buildSite';
 import { moveId } from '../model/showcase';
 
 const SCENE_DRAG = 'application/x-atelier-scene';
@@ -61,11 +58,6 @@ interface Props {
   onMove: (scene: Scene, universe: string) => void;
   /** The scenes' new order, every id. */
   onReorder: (ids: string[]) => void;
-  /** The scenes' page as on the site. */
-  onPreview: (progress: PreviewProgress) => Promise<string>;
-  /** The stage the preview opens on: the home (''), or an added scenes page. */
-  previewHash?: string;
-  onMenu: (change: MenuChange) => void;
   /** The site's little map of the places: its model and colour. */
   sceneMap: SceneMap;
   onSceneMap: (next: SceneMap) => void;
@@ -109,11 +101,10 @@ function readView(): { size: CardSize; place: string | null } {
   }
 }
 
-export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll, onValidate, onMove, onReorder, onPreview, previewHash = '', onMenu, sceneMap, onSceneMap, onOpen, onRemove, costs, imageModel }: Props) {
+export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll, onValidate, onMove, onReorder, sceneMap, onSceneMap, onOpen, onRemove, costs, imageModel }: Props) {
   const { t } = useI18n();
   const all = [...new Set(scenes.map((s) => s.universe || t('scenes.noUniverse')))];
   const [view, setView] = useState(readView);
-  const [previewError, setPreviewError] = useState<{ key: string; raw?: string } | null>(null);
   const [mapOpen, setMapOpen] = useState(false);
   const change = (next: Partial<typeof view>) => {
     const v = { ...view, ...next };
@@ -173,7 +164,6 @@ export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll,
           <div className="scenes-actions">
             <button className="primary new-btn" onClick={onNew}><Plus className="ico" aria-hidden />{t('scenes.new')}</button>
             <button className={`icon-btn glass ${mapOpen ? 'on' : ''}`} aria-pressed={mapOpen} aria-label={t('sceneMap.title')} data-tip={t('sceneMap.title')} onClick={() => setMapOpen((o) => !o)}><Settings className="ico solo" aria-hidden /></button>
-            <PagePreview make={(p) => { setPreviewError(null); return onPreview(p); }} hash={previewHash} onError={(err) => setPreviewError(describeError(err))} onMenu={onMenu} />
           </div>
           <nav className="segmented glass" aria-label={t('scenes.size')}>
             {SIZES.map((sz) => (
@@ -183,7 +173,6 @@ export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll,
         </div>
       )}
       {mapOpen && scenes.length > 0 && <SceneMapSettings value={sceneMap} onChange={onSceneMap} />}
-      {previewError && <p className="error small">{errorText(previewError)}</p>}
       <div className={`scenes-view size-${view.size}`}>
       {universes.map((u) => {
         const inPlace = scenes.filter((s) => (s.universe || t('scenes.noUniverse')) === u);

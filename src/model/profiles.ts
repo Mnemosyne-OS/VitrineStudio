@@ -12,7 +12,7 @@
  * framing", "only the object, never the reference's background", and an
  * EMPTY piece before the third beat.
  */
-import type { Beat, ClipCamera, ClipLight, ClipStyle } from './types';
+import type { Beat, ClipCamera, ClipLight, ClipStyle, Scene } from './types';
 
 export type Lang = 'en' | 'fr' | 'es';
 type L10n = Record<Lang, string>;
@@ -118,6 +118,13 @@ export interface TradeProfile {
   beats: Record<Beat, L10n>;
   /** English noun for the piece in the prompts ("stoneware vessel", "lamp"). */
   pieceNoun: string;
+  /**
+   * What the living beat usually adds, named for the host's phrase matte (doc 189 §5):
+   * « the plant » for pots. Named on every living cut, because the generator does not
+   * always draw what was asked (a « cat » scene came back with a plant, 2026-10-28).
+   * Absent where the living beat adds no object (a lamp switched on).
+   */
+  aliveNoun?: string;
   /** English default for the material, used when the piece has no description. */
   material: string;
   animations: Animation[];
@@ -147,6 +154,7 @@ export const PROFILES: TradeProfile[] = [
       alive: { en: 'The living', fr: 'Le vivant', es: 'Lo vivo' },
     },
     pieceNoun: 'ceramic piece',
+    aliveNoun: 'the plant',
     material: 'unglazed matte stoneware, visible grain',
     animations: [
       { id: 'pothos', label: { en: 'Pothos', fr: 'Pothos', es: 'Potos' }, prompt: 'a lush green pothos, a few stems trailing over the rim' },
@@ -379,6 +387,44 @@ export const PROFILES: TradeProfile[] = [
 
 export function profileById(id: string): TradeProfile {
   return PROFILES.find((p) => p.id === id) ?? PROFILES[0]!;
+}
+
+/** The most characters the host's phrase matte takes in one phrase (doc 189 §5; the host's MAX_PHRASE_CHARS). */
+export const MATTE_PHRASE_MAX = 120;
+
+/**
+ * What names the subject of each beat's picture, for the host's phrase matte
+ * (doc 189 §5), in English like the prompts: the piece, and for the living beat
+ * what was added too (the plant, the animal). The host cuts the union of what
+ * the phrases find, so a phrase that names no object (a lamp's « warm light at
+ * dusk ») simply finds nothing.
+ *
+ * The trade's `aliveNoun` is named too, on every living cut. A trade without one
+ * names only a companion: its animations are lights as often as objects.
+ *
+ * 🚨 When nothing names what the living beat added (no animation, a sentence
+ * longer than a phrase, and no `aliveNoun`), that beat sends NO phrase and the
+ * host's salient matte cuts it as before. Naming the piece alone there would
+ * lift the pot and drop the plant: 9 of Atelier Rosalie's 10 scenes have no
+ * animation id (measured 2026-10-28, doc 189 §5).
+ */
+export function mattePhrases(profile: TradeProfile, animation: string): Record<'piece' | 'alive', string[]> {
+  const piece = `the ${profile.pieceNoun}`;
+  const companion = companionOf(profile, animation)?.prompt;
+  // A trade's animation is often a LIGHT (« its warm light at night, the room dark
+  // around it »): as a phrase it could name the whole room. Only a companion (always
+  // a creature) or a trade that declares what its living beat adds is named.
+  const words = (companion ?? (profile.aliveNoun ? (profile.animations.find((a) => a.id === animation)?.prompt ?? animation) : '')).trim();
+  const added = [words && words.length <= MATTE_PHRASE_MAX ? words : '', profile.aliveNoun ?? ''].filter(Boolean);
+  return { piece: [piece], alive: added.length > 0 ? [piece, ...added] : [] };
+}
+
+/**
+ * A scene's phrases, under the trade the scene was MADE in: changing the trade
+ * in the settings must not rename a piece half made (the doc 145 rule of `profileId`).
+ */
+export function scenePhrases(scene: Pick<Scene, 'profileId' | 'animation'>, settingsProfileId: string): Record<'piece' | 'alive', string[]> {
+  return mattePhrases(profileById(scene.profileId ?? settingsProfileId), scene.animation);
 }
 
 /** Fills {holes}. A hole with no value stays visible in the prompt rather than becoming an empty word. */

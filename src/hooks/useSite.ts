@@ -1,5 +1,5 @@
 import type { PreviewProgress } from '../components/PagePreview';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getLanguage, useI18n } from '../i18n';
 import { declareSiteFolder, deploySite, hostIO, joinFilm, openStudioWindow, readImage, readMedia, removeSiteToken, saveSiteAsset, sdk, takeawayDoor, setSiteToken, siteTokenState, videoToolsStatus, webClipBase, type TokenState } from '../data/host';
 import { loadStudioJson, SITE_FILE } from '../data/folderStore';
@@ -13,6 +13,7 @@ import { profileById } from '../model/profiles';
 import { filmOf } from '../model/film';
 import { filmOnSite } from '../model/filmRecord';
 import { firstSitePhoto } from '../model/scenePhotos';
+import { publishStage, siteFields, sitePrint } from '../model/publish';
 import { legalMarkdown } from '../site/legalPages';
 import { allCreations, allRows, blogAssets, buildSiteData, cellFiles, legalSiteOf, pagePhotoAsset, PORTRAIT_ASSET, EXPORT_QUALITY, exportSite, fillShell, filmSources, onlineScenes, slugify, type ExportDeps, type SiteInput } from '../site/buildSite';
 import { buildPreview, swapAsset, withErrorWatch, withMenuEditing, type Preview } from '../site/preview';
@@ -39,6 +40,7 @@ type ErrorShown = { key: string; raw?: string };
  */
 export function useSite(studio: Studio, siteTabOpen: boolean) {
   const { t } = useI18n();
+  const lang = getLanguage();
   const { folder, alive, loaded, site, setSite, patchSite, scenes, pieces, films, fail } = studio;
   // The website's home film: the one put on it.
   const film = filmOnSite(films ?? []);
@@ -62,11 +64,12 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     setPreview(p);
   };
 
-  // The hosting token's state, asked when the Site tab opens (never the token).
+  // The hosting token's state (never the token): asked once the folder is read, for the
+  // site bar on every screen, and again each time the Site screen opens.
   useEffect(() => {
-    if (!siteTabOpen) return;
+    if (!loaded || IS_PREVIEW_WINDOW) return;
     siteTokenState().then((s) => alive.current && setToken(s), (err: unknown) => console.warn('[vitrine-studio] token state unreadable:', err));
-  }, [siteTabOpen, alive]);
+  }, [loaded, siteTabOpen, alive]);
 
   /** The trade's names for the three beats, in the site's language. */
   const beatsOf = (lang: ReturnType<typeof getLanguage>) => {
@@ -80,11 +83,27 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   /** What the page shows, and the export's own settings, from the studio as it is now. */
   /** What every build of the site shares: her settings as they are now. Each caller adds its records. */
   const siteInput = (lang: SiteInput['lang'], records: Pick<SiteInput, 'scenes' | 'pieces'> & Partial<SiteInput>): SiteInput => ({
-    brand: site.brand, lang, today: new Date().toISOString().slice(0, 10), untitled: t('scenes.noUniverse'), identity: site.identity, beats: beatsOf(lang),
-    showcase: site.showcase, hover: site.creationsHover, currency: site.currency, menu: site.menu, menuOrder: site.menuOrder, pieceOrder: site.pieceOrder,
-    sceneOrder: site.sceneOrder, categories: site.categories, sceneMap: site.sceneMap, pages: site.pages, viewer: site.viewer, legal: site.legal, analytics: !!site.analytics,
+    ...siteFields(site), lang, today: new Date().toISOString().slice(0, 10), untitled: t('scenes.noUniverse'), beats: beatsOf(lang),
     ...records,
   });
+
+  // The print of the site as the studio would send it now: equal to the one kept with the
+  // last publish, the site online is up to date (model/publish.ts). Made again only when
+  // something it reads changed.
+  const untitled = t('scenes.noUniverse');
+  const profileId = studio.settings.profileId;
+  const printNow = useMemo(() => {
+    const b = profileById(profileId).beats;
+    const filmFiles = film ? filmSources(film, filmOf(profileById(film.profileId)).steps) : null;
+    return sitePrint({ ...siteFields(site), lang, untitled, beats: { place: b.place[lang], piece: b.piece[lang], alive: b.alive[lang] }, scenes, pieces, film: filmFiles }, site, { scenes, pieces });
+  }, [site, scenes, pieces, film, lang, untitled, profileId]);
+  // What a publish needs: the folder, the token and the address (Site › Connection), a scene online and a name.
+  const address = site.projectName || slugify(site.brand.name);
+  const connected = !!site.siteId && !!token?.present && !!address;
+  const missing = [...(onlineScenes(scenes, pieces).length > 0 ? [] : ['scene' as const]), ...(site.brand.name.trim() ? [] : ['name' as const])];
+  const stage = publishStage({ connected, missing, ...(site.lastPublish ? { live: site.lastPublish } : {}), printNow });
+  // « It is online » stays said until the site changes again.
+  useEffect(() => setWork((w) => (w.kind === 'published' ? { kind: 'idle' } : w)), [printNow]);
 
   const build = (posts: SitePost[], links?: Array<{ title: string; href: string }>) => {
     const lang = getLanguage();
@@ -197,7 +216,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   const writeSite = async (save: ExportDeps['save'], onProgress: ExportDeps['onProgress']) => {
     if (!folder) throw new Error('NO_FOLDER');
     // The site kit's pages go with every export, linked from the menu.
-    // A kit that can no longer be read says so, and the Site tab offers to remove it.
+    // A kit that can no longer be read says so, and Site › Copies offers to remove it.
     const kit = site.kit ? await loadKit(folder, hostIO).catch((err: unknown) => { console.warn('[vitrine-studio] the kit in place is unreadable:', err); throw new KitError('KIT_IN_PLACE_UNREADABLE'); }) : null;
     const links = kit?.pages.map((p) => ({ title: p.title, href: p.rel }));
     const { data, shell, filmFiles, settings } = build(await readSitePosts(site.posts, hostIO), links);
@@ -249,16 +268,21 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     }
   };
 
-  /** Prepares the site, then publishes it with the person's own hosting account. */
+  /**
+   * Prepares the site, then publishes it with the person's own hosting account.
+   * The print kept is the one of the site as the export STARTS: a change made
+   * while it is being sent reads as not online yet, which it is not.
+   */
   const publishNow = async () => {
     if (!site.siteId) return;
     const projectName = site.projectName || slugify(site.brand.name);
+    const print = printNow;
     if (!(await exportNow())) return;
-    setWork({ kind: 'publishing' });
+    if (alive.current) setWork({ kind: 'publishing', since: Date.now() });
     try {
       const d = await deploySite(site.siteId, projectName);
-      await patchSite((cur) => ({ ...cur, projectName, lastPublish: { url: d.url, aliases: d.aliases, readyState: d.readyState, at: new Date().toISOString(), ...(cur.analytics ? { analytics: true } : {}) } }));
-      if (alive.current) setWork({ kind: 'idle' });
+      await patchSite((cur) => ({ ...cur, projectName, lastPublish: { url: d.url, aliases: d.aliases, readyState: d.readyState, at: new Date().toISOString(), ...(cur.analytics ? { analytics: true } : {}), print } }));
+      if (alive.current) setWork(d.readyState === 'READY' ? { kind: 'published' } : { kind: 'idle' });
     } catch (err) {
       console.error('[vitrine-studio] the site was not published:', err);
       if (alive.current) setWork({ kind: 'error', ...describeError(err) });
@@ -393,7 +417,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   };
 
   return {
-    token, work, preview, previewWork, previewError, check, checking,
+    token, work, preview, previewWork, previewError, check, checking, stage, missing, connected,
     chooseSiteFolder, previewNow, previewPost, previewCreations, previewScenes, previewInfo, previewHome, legalDrafts, exportSiteTo, closePreview: () => showPreview(null), previewInWindow, checkCompression,
     closeCheck: () => setCheck(null), exportNow, publishNow, saveToken, forgetToken, openLink,
   };

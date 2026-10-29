@@ -1,4 +1,4 @@
-import { Coins, Globe, Plus, Server, Settings, X, type LucideIcon } from 'lucide-react';
+import { Coins, Globe, Plus, Settings, X, type LucideIcon } from 'lucide-react';
 import { useState } from 'react';
 import { getLanguage, useI18n } from './i18n';
 import { MODEL_FOR_QUALITY, openVideoSettings, pickImage } from './data/host';
@@ -18,7 +18,12 @@ import { SceneWizard, type SceneWizardInitial } from './components/SceneWizard';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Lightbox } from './components/Lightbox';
 import { EvolutionView } from './components/EvolutionView';
-import { SitePanel } from './components/SitePanel';
+import { SiteLook } from './components/SitePanel';
+import { SiteBar, type SeeWhat } from './components/SiteBar';
+import { SiteCopies, SiteScreen, type SiteSection } from './components/SiteScreen';
+import { PreviewLayer, type PreviewProgress } from './components/PagePreview';
+import { siteLink } from './model/publish';
+import { describeError } from './components/errors';
 import { FilmPanel } from './components/FilmPanel';
 import { FilmWizard } from './components/FilmWizard';
 import { filmOf } from './model/film';
@@ -39,7 +44,7 @@ import { anyMaking, sceneBusy } from './data/agentGuards';
 import { useKit } from './hooks/useKit';
 import { KitCard } from './components/KitCard';
 import { TakeawayCard } from './components/TakeawayCard';
-import { HostingPanel } from './components/HostingPanel';
+import { ConnectionCard, HostingPanel } from './components/HostingPanel';
 import { useHosting } from './hooks/useHosting';
 import { useTakeaway } from './hooks/useTakeaway';
 import { BlogPanel } from './components/BlogPanel';
@@ -73,7 +78,8 @@ const AFTER_TABS: Tab[] = ['film', 'logo'];
 /** The built-in screen that edits an added page, by its model. */
 const KIND_OF: Partial<Record<PageType, Kind>> = { catalogue: 'pieces', scenes: 'scenes', blog: 'blog' };
 // The tools, apart from the work, as icons (Tony: « mets des icônes, isole-les du menu »).
-const TOOL_TABS: Array<[Tab, LucideIcon]> = [['site', Globe], ['hosting', Server], ['costs', Coins], ['settings', Settings]];
+// One for the site: its hosting is a part of the Site screen (doc 145 §10.20); `hosting` still opens it, on Online.
+const TOOL_TABS: Array<[Tab, LucideIcon]> = [['site', Globe], ['costs', Coins], ['settings', Settings]];
 
 /**
  * Vitrine Studio: stage your own pieces in generated rooms (doc 145).
@@ -83,6 +89,17 @@ const TOOL_TABS: Array<[Tab, LucideIcon]> = [['site', Globe], ['hosting', Server
 export default function App() {
   const { t, tc } = useI18n();
   const [tab, setTab] = useState<Tab>('pieces');
+  // The Site screen's part; null = the one that matters now (Connection until it is made, then Online).
+  const [siteSection, setSiteSection] = useState<SiteSection | null>(null);
+  /** A screen opened by a click, the agent door or the site bar: `hosting` is Site › Online. */
+  const go = (x: Tab, section: SiteSection | null = null) => {
+    if (x === 'hosting') { setTab('site'); setSiteSection('online'); return; }
+    if (x === 'site') setSiteSection(section);
+    setTab(x);
+  };
+  // This page as on the site, opened from the site bar's « See »; its error is said in the bar.
+  const [seeing, setSeeing] = useState<{ make: (p: PreviewProgress) => Promise<string>; hash: string; n: number } | null>(null);
+  const [seeError, setSeeError] = useState<{ key: string; raw?: string } | null>(null);
   // The new-scene wizard, with what an agent already heard; `n` remounts it when an agent opens it again.
   const [wizard, setWizard] = useState<{ initial: SceneWizardInitial; n: number } | null>(null);
   const openWizard = (initial: SceneWizardInitial = {}) => setWizard((w) => ({ initial, n: (w?.n ?? 0) + 1 }));
@@ -108,11 +125,12 @@ export default function App() {
   const [makeFilmOf, setMakeFilmOf] = useState<string | null>(null);
   // The film whose removal is being asked.
   const [removingFilm, setRemovingFilm] = useState<string | null>(null);
-  const siteActions = useSite(studio, tab === 'site' || tab === 'hosting');
-  // The folder, the token and the address: what a publish needs, set in the Hosting tab.
+  const siteActions = useSite(studio, tab === 'site');
   const siteAddress = studio.site.projectName || slugify(studio.site.brand.name);
-  const siteConnected = !!studio.site.siteId && !!siteActions.token?.present && !!siteAddress;
-  const hosting = useHosting(siteAddress, tab === 'hosting', siteConnected, !!studio.site.lastPublish);
+  // The folder, the token and the address: what a publish needs, set in Site › Connection.
+  const siteConnected = siteActions.connected;
+  const section: SiteSection = siteSection ?? (siteConnected ? 'online' : 'connect');
+  const hosting = useHosting(siteAddress, tab === 'site' && section === 'online', siteConnected, !!studio.site.lastPublish);
   // The studio carried away on a key and brought back (doc 145 §10.13).
   const takeaway = useTakeaway(studio, siteActions.exportSiteTo);
   const kitActions = useKit(studio);
@@ -172,6 +190,20 @@ export default function App() {
   const evolvingPiece = evolving ? pieces.find((p) => p.id === evolving) : undefined;
   const pageScenes = onPage(scenes, pageId, site.pages);
   const pagePieces = onPage(pieces, pageId, site.pages);
+  // What « See » opens on this screen: this page alone, made quickly; elsewhere the whole site as it would be sent.
+  const pageSee: { make: (p: PreviewProgress) => Promise<string>; hash: string } | null =
+    kind === 'pieces' ? { make: siteActions.previewCreations, hash: pageId ?? 'creations' }
+      : kind === 'scenes' ? { make: siteActions.previewScenes, hash: pageId ?? '' }
+        : tab === 'about' ? { make: siteActions.previewInfo, hash: 'a-propos' }
+          : tab === 'contact' ? { make: siteActions.previewInfo, hash: 'contact' }
+            : activePage?.type === 'text' || activePage?.type === 'form' ? { make: siteActions.previewInfo, hash: activePage.id }
+              : null;
+  const seeWhat: SeeWhat = pageSee ? 'page' : 'site';
+  const see = () => {
+    setSeeError(null);
+    if (pageSee) setSeeing((cur) => ({ ...pageSee, n: (cur?.n ?? 0) + 1 }));
+    else void siteActions.previewNow();
+  };
   /** A new page, empty, opened at once. Its address is never one a record still carries (a removed page's content stays home). */
   /** A text or a form page's own content, saved at once. */
   const patchPage = (id: string, change: Partial<SitePage>) => void patchSite((cur) => ({ ...cur, pages: cur.pages.map((p) => {
@@ -218,10 +250,17 @@ export default function App() {
         </nav>
         <nav className="top-tools" aria-label={t('app.tools')}>
           {TOOL_TABS.map(([x, Icon]) => (
-            <button key={x} className={`icon-btn glass ${tab === x ? 'chosen' : ''}`} aria-current={tab === x ? 'page' : undefined} aria-label={t(`tab.${x}`)} data-tip={t(`tab.${x}`)} onClick={() => setTab(x)}><Icon className="ico solo" aria-hidden /></button>
+            <button key={x} className={`icon-btn glass ${tab === x ? 'chosen' : ''}`} aria-current={tab === x ? 'page' : undefined} aria-label={t(`tab.${x}`)} data-tip={t(`tab.${x}`)} onClick={() => go(x)}><Icon className="ico solo" aria-hidden /></button>
           ))}
         </nav>
       </header>
+      {loaded && (
+        <SiteBar stage={siteActions.stage} missing={siteActions.missing} link={siteLink(site.lastPublish, siteAddress, hosting.liveDomains)} work={siteActions.work}
+          staleLiving={livingFallsBack(online)} see={seeWhat} seeing={siteActions.previewWork} seeError={seeError ?? siteActions.previewError}
+          onSee={see} onPublish={() => void siteActions.publishNow()} onOpen={siteActions.openLink}
+          onConnect={() => go('site', 'connect')}
+          onFix={(item) => (item === 'name' ? go('site', 'look') : setTab('scenes'))} />
+      )}
       {notice && (
         <p className={`notice glass ${notice.kind}`}>
           {notice.text}
@@ -234,11 +273,11 @@ export default function App() {
       {/* Records written into the folder by someone else (an agent, another app) show without reopening the studio. */}
       {loaded && folder && <FolderWatch folder={folder} onChange={studio.refresh} />}
       {/* What an agent may do here (doc 149): the studio's own functions, served while it is open. */}
-      {loaded && folder && <StudioAgentActions studio={studio} sceneActions={sceneActions} siteActions={siteActions} pieceActions={pieceActions} openTab={(x) => setTab(x as Tab)}
+      {loaded && folder && <StudioAgentActions studio={studio} sceneActions={sceneActions} siteActions={siteActions} pieceActions={pieceActions} openTab={(x) => go(x as Tab)}
         view={{
           showScene: (id, beat) => { setEvolving(null); setViewing({ id, beat }); },
           showPiece: (id) => { setViewing(null); setEvolving(id); },
-          closeAll: () => { setViewing(null); setEvolving(null); setImproving(null); setWizard(null); setFilmWizard(false); setAddingPage(false); siteActions.closePreview(); siteActions.closeCheck(); },
+          closeAll: () => { setViewing(null); setEvolving(null); setImproving(null); setWizard(null); setFilmWizard(false); setAddingPage(false); setSeeing(null); siteActions.closePreview(); siteActions.closeCheck(); },
           // The « new scene » button's own wizard, on the screen that has the button.
           newScene: (initial) => { setViewing(null); setEvolving(null); setImproving(null); if (kind !== 'scenes') setTab('scenes'); openWizard(initial); },
         }} />}
@@ -265,7 +304,6 @@ export default function App() {
           onValidate={(s, v) => void sceneActions.validate(s, v)}
           onMove={(s, u) => void sceneActions.moveTo(s, u)}
           onOpen={(s, b) => setViewing({ id: s.id, beat: b })}
-          onPreview={siteActions.previewScenes} previewHash={pageId ?? ''} onMenu={renameMenu}
           sceneMap={site.sceneMap} onSceneMap={(next) => void patchSite((cur) => ({ ...cur, sceneMap: next }))}
           onRemove={(s) => setRemoving(s)}
           costs={settings.showCosts ? studio.costs : null}
@@ -285,25 +323,23 @@ export default function App() {
           showcase={site.showcase}
           priceSymbol={currencySymbol(site.currency.main, getLanguage())}
           online={new Set(online.map((s) => s.pieceId))}
-          onPreview={siteActions.previewCreations} previewHash={pageId ?? 'creations'}
           viewer={site.viewer} onViewer={(viewer) => void patchSite((cur) => ({ ...cur, viewer }))} hover={site.creationsHover} onHover={(creationsHover) => void patchSite((cur) => ({ ...cur, creationsHover }))}
-          onMenu={renameMenu}
           onShow={(p, next) => void patchSite((cur) => ({ ...cur, showcase: { ...cur.showcase, [p.id]: next } }))} />
       )}
       {loaded && activePage?.type === 'text' && (
         <TextPagePanel key={activePage.id} text={activePage.text ?? ''} onText={(text) => patchPage(activePage.id, { text })}
           photo={activePage.photo} onPhoto={(photo) => patchPage(activePage.id, { photo })}
           layout={activePage.layout ?? 'right'} onLayout={(layout) => patchPage(activePage.id, { layout: layout === 'right' ? undefined : layout })}
-          hash={activePage.id} onPreview={siteActions.previewInfo} onMenu={renameMenu} photoLabel={t('page.photo')} />
+          photoLabel={t('page.photo')} />
       )}
       {loaded && activePage?.type === 'form' && (
         <FormPagePanel key={activePage.id} text={activePage.text ?? ''} onText={(text) => patchPage(activePage.id, { text })}
           fields={activePage.fields ?? []} onFields={(fields) => patchPage(activePage.id, { fields })}
           layout={activePage.layout ?? 'left'} onLayout={(layout) => patchPage(activePage.id, { layout: layout === 'left' ? undefined : layout })}
           sendsTo={site.brand.formspree ? 'formspree' : site.brand.email ? 'email' : 'none'}
-          hash={activePage.id} onPreview={siteActions.previewInfo} onMenu={renameMenu} />
+          />
       )}
-      {loaded && tab === 'about' && <AboutPanel brand={site.brand} onBrand={setBrand} onPreview={siteActions.previewInfo} onMenu={renameMenu} />}
+      {loaded && tab === 'about' && <AboutPanel brand={site.brand} onBrand={setBrand} />}
       {loaded && tab === 'contact' && <ContactPanel brand={site.brand} onBrand={setBrand} onPreview={siteActions.previewInfo} onMenu={renameMenu} legal={site.legal} onLegal={(legal) => void patchSite((cur) => ({ ...cur, legal }))} legalDrafts={siteActions.legalDrafts} />}
       {loaded && tab === 'film' && film && (
         <FilmPanel key={film.id} films={studio.films ?? []} onPickFilm={studio.setFilmId} onNewFilm={() => setFilmWizard(true)} onRemoveFilm={() => setRemovingFilm(film.id)} onDuplicateFilm={(name) => void filmActions.duplicateFilm(film.id, name)}
@@ -338,33 +374,28 @@ export default function App() {
           onShowCosts={(show) => void changeSettings({ ...settings, showCosts: show })} />
       )}
       {loaded && tab === 'site' && (
-        <SitePanel settings={site} onlineCount={online.length} connected={siteConnected} work={siteActions.work}
-          enlarged={online.filter((s) => s.enlarged && Object.keys(s.enlarged).length > 0).length}
-          samplePhoto={firstSitePhoto(online)}
-          onSave={(s) => void saveSite(s)}
-          onConnect={() => setTab('hosting')}
-          staleLiving={livingFallsBack(online)} onScenes={() => setTab('scenes')}
-          onVideoSettings={() => void openVideoSettings().catch((err: unknown) => console.warn('[vitrine-studio] video settings not opened:', err))}
-          onPublish={() => void siteActions.publishNow()}
-          onPreview={() => void siteActions.previewNow()}
-          onPreviewWindow={() => void siteActions.previewInWindow()}
-          onCheck={() => void siteActions.checkCompression()}
-          previewWork={siteActions.previewWork}
-          checking={siteActions.checking}
-          previewError={siteActions.previewError}
-          onOpen={siteActions.openLink}
-          advanced={<TakeawayCard run={takeaway.run} restore={takeaway.restore}><KitCard kit={kitActions} installed={site.kit} pagesFolder={site.kitSource} /></TakeawayCard>} />
-      )}
-      {loaded && tab === 'hosting' && (
-        <HostingPanel settings={site} token={siteActions.token} work={siteActions.work} host={hosting}
-          canExport={online.length > 0 && !!site.brand.name.trim()}
-          onSave={(s) => void saveSite(s)}
-          onChooseFolder={() => void siteActions.chooseSiteFolder()}
-          onSetToken={siteActions.saveToken}
-          onRemoveToken={() => void siteActions.forgetToken()}
-          onExport={() => void siteActions.exportNow()}
-          onPublish={() => void siteActions.publishNow()}
-          onOpen={siteActions.openLink} />
+        <SiteScreen section={section} onSection={setSiteSection} connected={siteConnected}>
+          {section === 'online' && (
+            <HostingPanel settings={site} connected={siteConnected} host={hosting} onSave={(s) => void saveSite(s)} onOpen={siteActions.openLink}
+              onConnect={() => setSiteSection('connect')}
+              onVideoSettings={() => void openVideoSettings().catch((err: unknown) => console.warn('[vitrine-studio] video settings not opened:', err))} />
+          )}
+          {section === 'look' && (
+            <SiteLook settings={site} onlineCount={online.length} enlarged={online.filter((s) => s.enlarged && Object.keys(s.enlarged).length > 0).length}
+              samplePhoto={firstSitePhoto(online)} busy={siteActions.work.kind === 'exporting' || siteActions.work.kind === 'publishing'}
+              onSave={(s) => void saveSite(s)} onCheck={() => void siteActions.checkCompression()} checking={siteActions.checking} />
+          )}
+          {section === 'connect' && (
+            <ConnectionCard settings={site} token={siteActions.token} onSave={(s) => void saveSite(s)}
+              onChooseFolder={() => void siteActions.chooseSiteFolder()} onSetToken={siteActions.saveToken}
+              onRemoveToken={() => void siteActions.forgetToken()} onOpen={siteActions.openLink} />
+          )}
+          {section === 'copies' && (
+            <SiteCopies canExport={online.length > 0 && !!site.brand.name.trim()} hasFolder={!!site.siteId} work={siteActions.work} onExport={() => void siteActions.exportNow()}>
+              <TakeawayCard run={takeaway.run} restore={takeaway.restore}><KitCard kit={kitActions} installed={site.kit} pagesFolder={site.kitSource} /></TakeawayCard>
+            </SiteCopies>
+          )}
+        </SiteScreen>
       )}
       {loaded && tab === 'settings' && (
         <SettingsPanel settings={settings} folder={folder} onChange={(s) => void changeSettings(s)} onChangeFolder={() => void studio.chooseFolder()}>
@@ -403,6 +434,7 @@ export default function App() {
             onDeleteTake: (s, b, p) => void sceneActions.deleteTake(s, b, p),
           }} />
       )}
+      {seeing && <PreviewLayer key={seeing.n} make={seeing.make} hash={seeing.hash} onError={(err) => setSeeError(describeError(err))} onMenu={renameMenu} onClose={() => setSeeing(null)} />}
       {siteActions.preview && <SitePreview preview={siteActions.preview} standalone={false} onClose={siteActions.closePreview}
         onOpenWindow={() => void siteActions.previewInWindow()} colours={site.brand} onColours={setColours} onMenu={renameMenu} />}
       {siteActions.check && <CompressionCheck before={siteActions.check.before} after={siteActions.check.after} onClose={siteActions.closeCheck} />}

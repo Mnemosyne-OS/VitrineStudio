@@ -22,8 +22,8 @@ export type LayerStep = (typeof LAYER_STEPS)[number];
 export interface LayerDeps {
   /** A picture on disk as a data URL, full size. */
   read: (path: string) => Promise<string>;
-  /** The host's matte: a new PNG with transparency. */
-  cut: (path: string) => Promise<string>;
+  /** The host's matte: a new PNG with transparency. `phrases` name the subject (doc 189). */
+  cut: (path: string, phrases?: string[]) => Promise<string>;
   /** Writes a PNG (base64) under a name, answers its path. */
   save: (name: string, base64: string) => Promise<string>;
   now: () => Date;
@@ -65,14 +65,20 @@ function png(p: Pixels, type: 'image/png' | 'image/webp' = 'image/png'): string 
  * The layers of a scene whose three beats exist. Throws a named refusal:
  * NO_BEATS (a beat missing), NO_SUBJECT (the matte found nothing where the
  * beat changed the picture), or the host's own (CUTOUT_NEEDS_UPDATE, …).
+ * `phrases` name each beat's subject for the host's phrase matte (doc 189);
+ * the arithmetic below is the same either way: a matte of the piece alone,
+ * kept where the beat changed the picture, is still the piece.
  */
-export async function makeSceneLayers(scene: Scene, deps: LayerDeps, onStep: (step: LayerStep) => void = () => {}): Promise<SceneLayers> {
+export async function makeSceneLayers(
+  scene: Scene, deps: LayerDeps, onStep: (step: LayerStep) => void = () => {},
+  phrases?: Record<'piece' | 'alive', string[]>,
+): Promise<SceneLayers> {
   const { place, piece, alive } = scene.images;
   if (!place || !piece || !alive) throw new Error('NO_BEATS');
   onStep('cut-piece');
-  const cutPiecePath = await deps.cut(piece);
+  const cutPiecePath = await deps.cut(piece, phrases?.piece);
   onStep('cut-alive');
-  const cutAlivePath = await deps.cut(alive);
+  const cutAlivePath = await deps.cut(alive, phrases?.alive);
   onStep('compute');
   const [placeImg, pieceImg, aliveImg, cpImg, caImg] = await Promise.all([place, piece, alive, cutPiecePath, cutAlivePath].map(async (p) => decode(await deps.read(p))));
   const width = Math.min(LAYER_WIDTH, placeImg!.naturalWidth);

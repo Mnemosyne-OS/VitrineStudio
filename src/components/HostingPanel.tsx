@@ -2,10 +2,11 @@ import { BarChart3, CheckCircle2, Copy, ExternalLink, Globe, Link2, RefreshCw, T
 import { useEffect, useState } from 'react';
 import { errorText } from './errors';
 import { getLanguage, useI18n } from '../i18n';
+import { formatWeight } from '../format';
 import { slugify, type SiteSettings } from '../site/buildSite';
 import type { DomainState, TokenState, Traffic } from '../data/host';
 import { TRAFFIC_SPANS, type useHosting } from '../hooks/useHosting';
-import type { SiteWork } from './SitePanel';
+import { bareAddress, siteLink } from '../model/publish';
 
 /** Where a Vercel token is made (the person's own account). */
 const VERCEL_TOKENS_URL = 'https://vercel.com/account/tokens';
@@ -15,103 +16,113 @@ const VERCEL_DOMAINS_URL = 'https://vercel.com/domains';
 type Hosting = ReturnType<typeof useHosting>;
 
 /**
- * Where the site lives (Tony: « vercel et ndd, un onglet spécifique pour avoir
- * une bonne interface, activation stat etc. », doc 145 §10.14): the
- * connection (folder, token, address), her own domain names with what to
- * write at her registrar, as Vercel gives it, and the visits once she turns
- * the counter on. What Vercel says is read, never assumed: a domain shows
- * whether it is accepted and whether it points there, apart.
+ * Site › Connection: the three things a publish needs, one line each, the
+ * number turning green once it is set (the folder, the Vercel token, the
+ * address). Always shown whole: on its own screen there is nothing to fold.
  */
-export function HostingPanel({ settings, token, work, canExport, host, onSave, onChooseFolder, onSetToken, onRemoveToken, onExport, onPublish, onOpen }: {
+export function ConnectionCard({ settings, token, onSave, onChooseFolder, onSetToken, onRemoveToken, onOpen }: {
   settings: SiteSettings;
   token: TokenState | null;
-  work: SiteWork;
-  /** The site can be written to its folder (a scene online, a name). */
-  canExport: boolean;
-  host: Hosting;
   onSave: (next: SiteSettings) => void;
   onChooseFolder: () => void;
   onSetToken: (token: string) => Promise<boolean>;
   onRemoveToken: () => void;
-  onExport: () => void;
-  onPublish: () => void;
   onOpen: (url: string) => void;
 }) {
-  const { t, tc } = useI18n();
+  const { t } = useI18n();
   const [project, setProject] = useState(settings.projectName || slugify(settings.brand.name));
   useEffect(() => setProject(settings.projectName || slugify(settings.brand.name)), [settings.projectName, settings.brand.name]);
   const [tokenDraft, setTokenDraft] = useState('');
-  const [connectOpen, setConnectOpen] = useState(false);
-  const [domainDraft, setDomainDraft] = useState('');
-  // Removing a domain takes two presses: the first arms it.
-  const [armed, setArmed] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
-
-  const address = slugify(project) || slugify(settings.brand.name);
-  const connected = !!settings.siteId && !!token?.present && !!address;
-  const busy = work.kind === 'exporting' || work.kind === 'publishing';
-  const live = settings.lastPublish;
-  const published = !!live;
-  const ownUrl = `https://${address}.vercel.app`;
   const saveProject = () => {
     const name = slugify(project) || slugify(settings.brand.name);
     setProject(name);
     if (name !== settings.projectName) onSave({ ...settings, projectName: name });
   };
+
+  return (
+    <div className="glass card-pad connect-card">
+      <h3><Link2 className="ico" aria-hidden /> {t('hosting.connect.title')}</h3>
+      {/* The three steps side by side on a wide screen, one under the other on a phone. */}
+      <div className="connect-steps">
+        <div className="step-row">
+          <span className={`step-num ${settings.siteId ? 'done' : ''}`}>1</span>
+          <strong>{t('site.where.folderStep')}</strong>
+          <button onClick={onChooseFolder}>{settings.siteId ? t('site.where.changeFolder') : t('site.where.chooseFolder')}</button>
+          {settings.siteName && <span className="muted small">{settings.siteName}</span>}
+        </div>
+        <div className="step-row">
+          <span className={`step-num ${token?.present ? 'done' : ''}`}>2</span>
+          <strong>{t('site.where.tokenStep')}</strong>
+          {token?.present ? (
+            <>
+              <span className="ok small">✓ {t('site.where.tokenSaved')}</span>
+              {token.seal === 'plaintext' && <span className="warn small">{t('site.where.tokenPlain')}</span>}
+              <button className="link" onClick={onRemoveToken}>{t('site.where.tokenRemove')}</button>
+            </>
+          ) : (
+            <>
+              <input className="step-input" type="password" autoComplete="off" value={tokenDraft} onChange={(e) => setTokenDraft(e.target.value)} placeholder={t('site.where.tokenPlaceholder')} />
+              <button disabled={!tokenDraft.trim()} onClick={() => void onSetToken(tokenDraft).then((ok) => ok && setTokenDraft(''))}>{t('site.where.tokenSave')}</button>
+              <button className="link" onClick={() => onOpen(VERCEL_TOKENS_URL)}>{t('site.where.tokenLink')}</button>
+            </>
+          )}
+        </div>
+        <div className="step-row">
+          <span className={`step-num ${slugify(project) ? 'done' : ''}`}>3</span>
+          <strong>{t('site.where.project')}</strong>
+          <span className="address">
+            <input className="step-input" value={project} onChange={(e) => setProject(e.target.value)} onBlur={saveProject} onKeyDown={(e) => { if (e.key === 'Enter') saveProject(); }} maxLength={60} placeholder={t('site.where.projectHint')} />
+            <span className="muted">.vercel.app</span>
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Site › Online (doc 145 §10.14, §10.20): the site's addresses, her own domain names with what to write at her registrar
+ * as Vercel gives it, and the visits once she turns the counter on. What
+ * Vercel says is read, never assumed: a domain shows whether it is accepted
+ * and whether it points there, apart. Sending the site is the site bar's.
+ */
+export function HostingPanel({ settings, connected, host, onSave, onOpen, onConnect, onVideoSettings }: {
+  settings: SiteSettings;
+  /** The folder, the token and the address are set (Site › Connection). */
+  connected: boolean;
+  host: Hosting;
+  onSave: (next: SiteSettings) => void;
+  onOpen: (url: string) => void;
+  /** Site › Connection. */
+  onConnect: () => void;
+  /** Settings › Video, where ffmpeg (which makes the clips lighter) is installed. */
+  onVideoSettings: () => void;
+}) {
+  const { t, tc } = useI18n();
+  const [domainDraft, setDomainDraft] = useState('');
+  // Removing a domain takes two presses: the first arms it.
+  const [armed, setArmed] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const address = settings.projectName || slugify(settings.brand.name);
+  const live = settings.lastPublish;
+  const published = !!live;
+  // The address Vercel gave: the bar's too, until a domain of hers points there.
+  const vercelUrl = siteLink(live, address);
+  const when = (at: string) => new Date(at).toLocaleString(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' });
   const copy = (value: string) => {
     navigator.clipboard.writeText(value).then(() => setCopied(value), (err: unknown) => console.warn('[vitrine-studio] copy refused:', err));
   };
 
-  const connection = (
-    <div className="glass card-pad">
-      <h3><Link2 className="ico" aria-hidden /> {t('hosting.connect.title')}</h3>
-      {connected && !connectOpen ? (
-        <div className="connect-done">
-          <span className="ok"><CheckCircle2 className="ico" aria-hidden /> {t('site.connect.ready')}</span>
-          <span className="muted small">{settings.siteName} · {address}.vercel.app</span>
-          <button onClick={() => setConnectOpen(true)}>{t('site.connect.change')}</button>
-          {/* The site written in its folder, without sending it: for a host other than Vercel. */}
-          <button disabled={!canExport || busy} onClick={onExport}>{t('site.advancedExport')}</button>
-          {work.kind === 'exported' && <span className="ok small">✓ {tc('site.go.exported', work.files)}</span>}
-        </div>
-      ) : (
-        <>
-          <div className="step-row">
-            <span className={`step-num ${settings.siteId ? 'done' : ''}`}>1</span>
-            <strong>{t('site.where.folderStep')}</strong>
-            <button onClick={onChooseFolder}>{settings.siteId ? t('site.where.changeFolder') : t('site.where.chooseFolder')}</button>
-            {settings.siteName && <span className="muted small">{settings.siteName}</span>}
-          </div>
-          <div className="step-row">
-            <span className={`step-num ${token?.present ? 'done' : ''}`}>2</span>
-            <strong>{t('site.where.tokenStep')}</strong>
-            {token?.present ? (
-              <>
-                <span className="ok small">✓ {t('site.where.tokenSaved')}</span>
-                {token.seal === 'plaintext' && <span className="warn small">{t('site.where.tokenPlain')}</span>}
-                <button className="link" onClick={onRemoveToken}>{t('site.where.tokenRemove')}</button>
-              </>
-            ) : (
-              <>
-                <input className="step-input" type="password" autoComplete="off" value={tokenDraft} onChange={(e) => setTokenDraft(e.target.value)} placeholder={t('site.where.tokenPlaceholder')} />
-                <button disabled={!tokenDraft.trim()} onClick={() => void onSetToken(tokenDraft).then((ok) => ok && setTokenDraft(''))}>{t('site.where.tokenSave')}</button>
-                <button className="link" onClick={() => onOpen(VERCEL_TOKENS_URL)}>{t('site.where.tokenLink')}</button>
-              </>
-            )}
-          </div>
-          <div className="step-row">
-            <span className={`step-num ${slugify(project) ? 'done' : ''}`}>3</span>
-            <strong>{t('site.where.project')}</strong>
-            <span className="address">
-              <input className="step-input" value={project} onChange={(e) => setProject(e.target.value)} onBlur={saveProject} onKeyDown={(e) => { if (e.key === 'Enter') saveProject(); }} maxLength={60} placeholder={t('site.where.projectHint')} />
-              <span className="muted">.vercel.app</span>
-            </span>
-          </div>
-          {connected && <div className="row"><button onClick={() => setConnectOpen(false)}>{t('site.connect.done')}</button></div>}
-        </>
-      )}
-    </div>
-  );
+  if (!connected) {
+    return (
+      <div className="glass card-pad site-empty">
+        <Globe className="ico hero-ico" aria-hidden />
+        <strong>{t('site.hero.needHosting')}</strong>
+        <button className="primary" onClick={onConnect}><Link2 className="ico" aria-hidden />{t('site.hero.connect')}</button>
+      </div>
+    );
+  }
 
   const h = host.hosting;
   const domains = h.kind === 'ready' ? h.data.domains : [];
@@ -126,9 +137,22 @@ export function HostingPanel({ settings, token, work, canExport, host, onSave, o
         )}
       </h3>
       <div className="domain-row glass">
-        <button className="link" disabled={!published} onClick={() => onOpen(ownUrl)}>{address}.vercel.app</button>
+        {vercelUrl ? <button className="link" onClick={() => onOpen(vercelUrl)}>{bareAddress(vercelUrl)}</button> : <span className="muted">{address}.vercel.app</span>}
         <span className={`status-chip ${live?.readyState === 'READY' ? 'is-ok' : ''}`}>{live?.readyState === 'READY' ? `✓ ${t('hosting.domain.live')}` : t(published ? 'hosting.domain.sent' : 'hosting.domain.notYet')}</span>
       </div>
+      {live && (
+        <p className="muted small">
+          {t('site.hero.lastSent', { when: when(live.at) })}
+          {settings.lastExport ? ` · ${formatWeight(settings.lastExport.bytes)}` : ''}
+        </p>
+      )}
+      {/* Clips sent at the generator's weight: the way to make them lighter, next to the count. */}
+      {!!settings.lastExport?.heavyClips && (
+        <div className="step-row">
+          <span className="warn small">{tc('site.heavyClips', settings.lastExport.heavyClips)}</span>
+          <button onClick={onVideoSettings}>{t('site.heavyClipsFix')}</button>
+        </div>
+      )}
       {!published && <p className="muted small">{t('hosting.addresses.afterPublish')}</p>}
       {h.kind === 'error' && <p className="error small">{errorText(h.error)}</p>}
       {domains.map((d) => (
@@ -148,7 +172,7 @@ export function HostingPanel({ settings, token, work, canExport, host, onSave, o
   );
 
   const counting = !!settings.analytics;
-  // The counter is in the page only once the site is sent again with it.
+  // The counter is in the page only once the site is sent again with it: the bar says so too.
   const pending = published && counting !== !!live?.analytics;
   const vercelOff = h.kind === 'ready' && h.data.analytics !== true;
   const analyticsUrl = h.kind === 'ready' ? h.data.analyticsUrl : null;
@@ -163,12 +187,7 @@ export function HostingPanel({ settings, token, work, canExport, host, onSave, o
         </button>
       </div>
       {/* On or off, the site online keeps what it was sent with until it is sent again. */}
-      {pending && (
-        <div className="step-row">
-          <span className="warn small">{t('hosting.visits.republish')}</span>
-          <button className="primary" disabled={busy || !connected} onClick={onPublish}>{t('site.hero.update')}</button>
-        </div>
-      )}
+      {pending && <p className="warn small">{t('hosting.visits.republish')}</p>}
       {counting && (
         <>
           {analyticsUrl && (vercelOff || (tr.kind === 'error' && tr.error.key === 'error.ANALYTICS_OFF')) && (
@@ -195,13 +214,10 @@ export function HostingPanel({ settings, token, work, canExport, host, onSave, o
   );
 
   return (
-    <section className="site-page">
-      <div className="site-grid">
-        {connection}
-        {connected && addresses}
-        {connected && visits}
-      </div>
-    </section>
+    <div className="site-grid">
+      {addresses}
+      {visits}
+    </div>
   );
 }
 

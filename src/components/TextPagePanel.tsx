@@ -5,10 +5,8 @@ import { pickImage } from '../data/host';
 import { saveDroppedPhoto } from '../data/photos';
 import { newId } from '../model/records';
 import { PAGE_LAYOUTS, type PageLayout } from '../model/pages';
-import type { MenuChange } from '../site/buildSite';
 import { RichText } from './RichText';
 import { Thumb } from './Thumb';
-import { PagePreview, type PreviewProgress } from './PagePreview';
 import { describeError, errorText } from './errors';
 
 const LAYOUT_ICON: Record<PageLayout, LucideIcon> = { right: PanelRight, left: PanelLeft, top: PanelTop };
@@ -18,7 +16,7 @@ const LAYOUT_ICON: Record<PageLayout, LucideIcon> = { right: PanelRight, left: P
  * text page she added. Her words with their formatting, the picture dropped
  * or picked (its caption when the page has one), and where it stands.
  */
-export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption, layout, onLayout, hash, onPreview, onMenu, photoLabel }: {
+export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption, layout, onLayout, photoLabel }: {
   text: string;
   onText: (markdown: string) => void;
   photo?: string;
@@ -28,10 +26,6 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
   onCaption?: (caption: string) => void;
   layout: PageLayout;
   onLayout: (layout: PageLayout) => void;
-  /** The page's address on the site, where the preview opens. */
-  hash: string;
-  onPreview: (progress: PreviewProgress) => Promise<string>;
-  onMenu: (change: MenuChange) => void;
   /** What the picture is (the portrait, a photo). */
   photoLabel: string;
 }) {
@@ -58,7 +52,6 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
             return <button key={l} className={`icon-btn ${layout === l ? 'on' : ''}`} aria-pressed={layout === l} aria-label={t(`about.layouts.${l}`)} data-tip={t(`about.layouts.${l}`)} onClick={() => onLayout(l)}><Icon className="ico solo" aria-hidden /></button>;
           })}
         </div>
-        <PagePreview make={(p) => { setError(null); return onPreview(p); }} hash={hash} onError={(err) => setError(describeError(err))} onMenu={onMenu} />
       </div>
       {error && <p className="error small">{errorText(error)}</p>}
       <div className={`info-cols about-${layout}`}>

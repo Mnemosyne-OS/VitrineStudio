@@ -4,8 +4,7 @@ import { useI18n } from '../i18n';
 import { CONTACT_LAYOUTS, formspreeId, type Brand, type ContactLayout, type MenuChange } from '../site/buildSite';
 import { RichText } from './RichText';
 import { normalizeSocials, SOCIAL_ICON, SOCIAL_NAME, SOCIALS, socialHref, type SocialId, type Socials } from '../model/socials';
-import { PagePreview, type PreviewProgress } from './PagePreview';
-import { describeError, errorText } from './errors';
+import type { PreviewProgress } from './PagePreview';
 import { LegalCard } from './LegalCard';
 import type { Legal } from '../model/legal';
 
@@ -28,7 +27,6 @@ export function ContactPanel({ brand, onBrand, onPreview, onMenu, legal, onLegal
 }) {
   const { t } = useI18n();
   const [fields, setFields] = useState({ email: brand.email, formspree: brand.formspree });
-  const [error, setError] = useState<{ key: string; raw?: string } | null>(null);
   const saved = brand.socials ?? normalizeSocials(undefined, brand.instagram);
   const [socials, setSocials] = useState<Socials>(saved);
   useEffect(() => setSocials(brand.socials ?? normalizeSocials(undefined, brand.instagram)), [brand.socials, brand.instagram]);
@@ -54,9 +52,7 @@ export function ContactPanel({ brand, onBrand, onPreview, onMenu, legal, onLegal
             return <button key={l} className={`icon-btn ${layout === l ? 'on' : ''}`} aria-pressed={layout === l} aria-label={t(`contact.layouts.${l}`)} data-tip={t(`contact.layouts.${l}`)} onClick={() => onBrand({ contactLayout: l })}><Icon className="ico solo" aria-hidden /></button>;
           })}
         </div>
-        <PagePreview make={(p) => { setError(null); return onPreview(p); }} hash="contact" onError={(err) => setError(describeError(err))} onMenu={onMenu} />
       </div>
-      {error && <p className="error small">{errorText(error)}</p>}
       <div className={`info-cols contact-${layout}`}>
         <div className="info-side glass card-pad">
           <label>{t('site.brand.email')}<input type="email" value={fields.email} maxLength={200} onChange={(e) => setFields({ ...fields, email: e.target.value })} onBlur={() => keep('email')} /></label>

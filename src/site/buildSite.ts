@@ -82,9 +82,12 @@ export interface SiteSettings {
   /** The Vercel project name: lowercase letters, digits, dashes. */
   projectName: string;
   brand: Brand;
-  /** `analytics`: whether that publish carried the visit counter (a change since then waits for the next one). */
-  lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean };
-  /** Visits counted by Vercel Web Analytics, without cookies (the Hosting tab); absent = off. */
+  /**
+   * `analytics`: whether that publish carried the visit counter (a change since then waits for the next one).
+   * `print`: the print of the site it sent (model/publish.ts), absent on a publish from before it existed.
+   */
+  lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean; print?: string };
+  /** Visits counted by Vercel Web Analytics, without cookies (Site › Online); absent = off. */
   analytics?: boolean;
   /** How sharp the big screens' pictures are, and how heavy the site gets. */
   quality: ExportQuality;

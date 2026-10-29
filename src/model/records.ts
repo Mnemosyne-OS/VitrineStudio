@@ -283,7 +283,7 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
   if (b.contactLayout === 'right') brand.contactLayout = b.contactLayout;
   const socials = normalizeSocials(b.socials, brand.instagram);
   if (Object.keys(socials).length) brand.socials = socials;
-  const out: { siteId?: string; siteName?: string; projectName: string; brand: typeof brand; lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean }; quality: 'standard' | 'high' | 'max'; imageKb: number | null; identity: Identity; lastExport?: { files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number; at: string }; kit?: KitApplied; kitSource?: string; analytics?: boolean; showcase: Record<string, PieceShow>; creationsHover: CreationsHover; currency: CurrencySettings; posts: BlogPost[]; menu: MenuNames; menuOrder: MenuKey[]; pieceOrder: string[]; sceneOrder: string[]; categories: Category[]; sceneMap: SceneMap; pages: SitePage[]; viewer: ViewerSettings; legal: Legal } = {
+  const out: { siteId?: string; siteName?: string; projectName: string; brand: typeof brand; lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean; print?: string }; quality: 'standard' | 'high' | 'max'; imageKb: number | null; identity: Identity; lastExport?: { files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number; at: string }; kit?: KitApplied; kitSource?: string; analytics?: boolean; showcase: Record<string, PieceShow>; creationsHover: CreationsHover; currency: CurrencySettings; posts: BlogPost[]; menu: MenuNames; menuOrder: MenuKey[]; pieceOrder: string[]; sceneOrder: string[]; categories: Category[]; sceneMap: SceneMap; pages: SitePage[]; viewer: ViewerSettings; legal: Legal } = {
     projectName: str(r.projectName, 60),
     brand,
     // Absent = 'high': a site made today is meant for large screens too.
@@ -319,7 +319,7 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
   if (r.analytics === true) out.analytics = true;
   const lp = r.lastPublish as Record<string, unknown> | undefined;
   if (lp && typeof lp.url === 'string' && typeof lp.at === 'string') {
-    out.lastPublish = { url: lp.url, aliases: Array.isArray(lp.aliases) ? lp.aliases.filter((x): x is string => typeof x === 'string') : [], readyState: str(lp.readyState, 20), at: lp.at, ...(lp.analytics === true ? { analytics: true } : {}) };
+    out.lastPublish = { url: lp.url, aliases: Array.isArray(lp.aliases) ? lp.aliases.filter((x): x is string => typeof x === 'string') : [], readyState: str(lp.readyState, 20), at: lp.at, ...(lp.analytics === true ? { analytics: true } : {}), ...(typeof lp.print === 'string' && /^[0-9a-f]{1,32}$/.test(lp.print) ? { print: lp.print } : {}) };
   }
   return out;
 }

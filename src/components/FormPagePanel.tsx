@@ -5,10 +5,7 @@ import {
 import { useI18n } from '../i18n';
 import { newId } from '../model/records';
 import { FIELD_KINDS, FORM_FIELDS_MAX, type FieldKind, type FormField, type PageLayout } from '../model/pages';
-import type { MenuChange } from '../site/buildSite';
 import { RichText } from './RichText';
-import { PagePreview, type PreviewProgress } from './PagePreview';
-import { describeError, errorText } from './errors';
 
 const FIELD_ICON: Record<FieldKind, LucideIcon> = { text: Type, email: AtSign, tel: Phone, textarea: AlignLeft, date: Calendar, number: Hash, choice: ListChecks, check: CheckSquare };
 const SIDES: Array<[PageLayout, LucideIcon]> = [['left', PanelLeft], ['right', PanelRight]];
@@ -52,21 +49,17 @@ function FieldRow({ field, first, last, onChange, onMove, onRemove }: {
  * être polyvalent »): her words beside the form, what it asks, field by
  * field, and which side it stands. It sends where the Contact form sends.
  */
-export function FormPagePanel({ text, onText, fields, onFields, layout, onLayout, hash, onPreview, onMenu, sendsTo }: {
+export function FormPagePanel({ text, onText, fields, onFields, layout, onLayout, sendsTo }: {
   text: string;
   onText: (markdown: string) => void;
   fields: FormField[];
   onFields: (next: FormField[]) => void;
   layout: PageLayout;
   onLayout: (layout: PageLayout) => void;
-  hash: string;
-  onPreview: (progress: PreviewProgress) => Promise<string>;
-  onMenu: (change: MenuChange) => void;
   /** Where the answers go: her Formspree form, her e-mail, or nowhere yet. */
   sendsTo: 'formspree' | 'email' | 'none';
 }) {
   const { t } = useI18n();
-  const [error, setError] = useState<{ key: string; raw?: string } | null>(null);
   const side = layout === 'right' ? 'right' : 'left';
   const add = (kind: FieldKind) => onFields([...fields, {
     id: newId('f'), label: t(`form.kind.${kind}`), kind, required: false,
@@ -83,9 +76,7 @@ export function FormPagePanel({ text, onText, fields, onFields, layout, onLayout
           ))}
         </div>
         <span className={`small ${sendsTo === 'none' ? 'error' : 'muted'}`}>{t(`form.sendsTo.${sendsTo}`)}</span>
-        <PagePreview make={(p) => { setError(null); return onPreview(p); }} hash={hash} onError={(err) => setError(describeError(err))} onMenu={onMenu} />
       </div>
-      {error && <p className="error small">{errorText(error)}</p>}
       <div className={`info-cols contact-${side}`}>
         <div className="info-side glass card-pad">
           <div className="form-fields">

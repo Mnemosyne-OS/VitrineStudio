@@ -7,24 +7,37 @@ import type { SiteSettings } from '../site/buildSite';
 type Hosting = ReturnType<typeof useHosting>;
 
 const connected: SiteSettings = { ...normalizeSiteSettings({ siteId: 's1', siteName: 'site', projectName: 'atelier', brand: { name: 'Atelier' } }, ''), lastPublish: { url: 'https://x.vercel.app', aliases: [], readyState: 'READY', at: '2026-10-11T10:00:00Z' } };
-const token = { present: true, savedAt: 1, seal: 'sealed' };
 
 function host(over: Partial<Hosting> = {}): Hosting {
   return {
     hosting: { kind: 'ready', data: { project: 'atelier', analytics: true, analyticsUrl: 'https://vercel.com/d?to=x', domains: [] } },
-    traffic: { kind: 'idle' }, span: 30, setSpan: vi.fn(), refresh: vi.fn(), busyDomain: null, domainError: null,
+    traffic: { kind: 'idle' }, span: 30, setSpan: vi.fn(), refresh: vi.fn(), busyDomain: null, domainError: null, liveDomains: [],
     addDomain: vi.fn().mockResolvedValue(true), removeDomain: vi.fn().mockResolvedValue(true),
     ...over,
   };
 }
 
 function panel(settings = connected, h = host(), onSave = vi.fn(), onOpen = vi.fn()) {
-  render(<HostingPanel settings={settings} token={token} work={{ kind: 'idle' }} canExport host={h}
-    onSave={onSave} onChooseFolder={vi.fn()} onSetToken={vi.fn()} onRemoveToken={vi.fn()} onExport={vi.fn()} onPublish={vi.fn()} onOpen={onOpen} />);
+  render(<HostingPanel settings={settings} connected host={h} onSave={onSave} onOpen={onOpen} onConnect={vi.fn()} onVideoSettings={vi.fn()} />);
   return { onSave, onOpen };
 }
 
-describe('the Hosting tab', () => {
+describe('Site › Online', () => {
+  it('opens the address Vercel gave, never one built from the name alone', () => {
+    const { onOpen } = panel({ ...connected, lastPublish: { ...connected.lastPublish!, aliases: ['https://atelier-claire.vercel.app'] } });
+    fireEvent.click(screen.getByText('atelier-claire.vercel.app'));
+    expect(onOpen).toHaveBeenCalledWith('https://atelier-claire.vercel.app');
+    expect(screen.queryByText('atelier.vercel.app')).toBeNull();
+  });
+
+  it('sends a site not connected to the connection instead of showing addresses', () => {
+    const onConnect = vi.fn();
+    render(<HostingPanel settings={connected} connected={false} host={host()} onSave={vi.fn()} onOpen={vi.fn()} onConnect={onConnect} onVideoSettings={vi.fn()} />);
+    expect(screen.queryByText('Addresses')).toBeNull();
+    fireEvent.click(screen.getByText('Connect'));
+    expect(onConnect).toHaveBeenCalled();
+  });
+
   it('shows a domain that does not point at Vercel yet with the records to write, as Vercel gave them', () => {
     panel(connected, host({ hosting: { kind: 'ready', data: { project: 'atelier', analytics: true, analyticsUrl: 'u', domains: [
       { name: 'atelier.fr', verified: true, configured: false, records: [{ type: 'A', host: '@', value: '76.76.21.99' }] },

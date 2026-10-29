@@ -1,7 +1,7 @@
 {
   "name": "@mnemosyne-plugins/artisan-studio",
   "displayName": "Vitrine Studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "vendor": "Mnemosyne OS",
   "category": "Productivity",
   "icon": "icon.svg",
@@ -269,13 +269,13 @@
     },
     {
       "id": "publishSite",
-      "summary": "Export the website and put it online, as the Site tab’s « Publish » does.",
+      "summary": "Export the website and put it online, as the site bar’s « Publish » does.",
       "details": "Answers « started »; follow it with siteStatus. The site must have been set up once by the person (its host and token).",
       "effect": "write"
     },
     {
       "id": "siteStatus",
-      "summary": "Where the website stands: what is running, the last publication and its address, the pages, how many scenes are on it.",
+      "summary": "Where the website stands: what is running, whether the site online is up to date (stage), the last publication and its address, the pages, how many scenes are on it.",
       "effect": "read"
     },
     {

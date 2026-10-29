@@ -10,10 +10,12 @@ export const TRAFFIC_SPANS = [7, 30, 90] as const;
 export type TrafficSpan = (typeof TRAFFIC_SPANS)[number];
 
 /**
- * The Hosting tab's two reads (doc 145 §10.14): the project's addresses, and
- * its visits. Asked when the tab opens with a connection and a first publish;
- * a domain added or removed reads the addresses again. Each read has its own
- * state, so a refused visit count never hides the addresses.
+ * Site › Online's two reads (doc 145 §10.14): the project's addresses, and
+ * its visits. The addresses are read once the studio opens connected and
+ * published (the site bar shows her own domain once Vercel says it points
+ * there, §10.20), then each time the screen opens; the visits only on the
+ * screen. A domain added or removed reads the addresses again. Each read has
+ * its own state, so a refused visit count never hides the addresses.
  */
 export function useHosting(project: string, open: boolean, connected: boolean, published: boolean) {
   const [hosting, setHosting] = useState<Loadable<HostingState>>({ kind: 'idle' });
@@ -56,8 +58,11 @@ export function useHosting(project: string, open: boolean, connected: boolean, p
     }
   }, [project]);
 
+  const readOnce = useRef(false);
   useEffect(() => {
-    if (!open || !connected || !published) return;
+    if (!connected || !published) return;
+    if (!open && readOnce.current) return;
+    readOnce.current = true;
     void refresh();
   }, [open, connected, published, refresh]);
   useEffect(() => {
@@ -82,8 +87,11 @@ export function useHosting(project: string, open: boolean, connected: boolean, p
     }
   };
 
+  // Her own domains Vercel says point at the site: the bar's address once there is one.
+  const liveDomains = hosting.kind === 'ready' ? hosting.data.domains.filter((d) => d.verified && d.configured === true).map((d) => d.name) : [];
+
   return {
-    hosting, traffic, span, setSpan, refresh, busyDomain, domainError,
+    hosting, traffic, span, setSpan, refresh, busyDomain, domainError, liveDomains,
     addDomain: (d: string) => change(d, true),
     removeDomain: (d: string) => change(d, false),
   };

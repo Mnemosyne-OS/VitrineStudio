@@ -9,7 +9,7 @@ import { dropTake, putClipBack, putTakeBack, takeFileFree } from '../model/takes
 import { MODEL_FOR_QUALITY } from '../data/host';
 import { archiveScene, deleteSceneForGood, filesOwnedBy } from '../data/removeScene';
 import { newScene, nextBeat, withoutFrom } from '../model/records';
-import { profileById } from '../model/profiles';
+import { profileById, scenePhrases } from '../model/profiles';
 import type { Beat, ClipStyle, PromptKey, Scene, SceneMotion } from '../model/types';
 import { layerDeps, makeSceneLayers } from '../data/sceneLayersMake';
 import { layersCurrent, replacedLayerFiles } from '../model/sceneLayers';
@@ -289,7 +289,8 @@ export function useScenes(studio: Studio, costs: Costs, sizeOf: (pieceId: string
       const at = new Date().toISOString();
       say(scene.id, { layering: 'cut-piece', layeringAt: at });
       try {
-        layers = await makeSceneLayers(scene, layerDeps(readMedia), (step) => say(scene.id, { layering: step, layeringAt: at }));
+        const phrases = scenePhrases(scene, settings.profileId);
+        layers = await makeSceneLayers(scene, layerDeps(readMedia), (step) => say(scene.id, { layering: step, layeringAt: at }), phrases);
       } catch (err) {
         console.error('[vitrine-studio] the scene\'s layers were not made:', err);
         say(scene.id, { error: describeError(err) });

@@ -264,7 +264,7 @@ export function StudioAgentActions({ studio, sceneActions, siteActions, pieceAct
 
       publishSite: () => {
         const { studio: st, siteActions: si } = latest.current;
-        if (!st.siteRef.current.siteId) throw new Error('NO_SITE: the site has no folder yet; the person sets it up once in the Site tab');
+        if (!st.siteRef.current.siteId) throw new Error('NO_SITE: the site has no folder yet; the person sets it up once in Site › Connection');
         if (si.work.kind === 'exporting' || si.work.kind === 'publishing') throw new Error('BUSY: the site is being exported or published now');
         void si.publishNow();
         return { started: true, follow: 'call siteStatus' };
@@ -275,7 +275,8 @@ export function StudioAgentActions({ studio, sceneActions, siteActions, pieceAct
         const site = st.siteRef.current;
         const w = si.work as { kind: string; key?: string; done?: number; total?: number };
         return {
-          work: w.kind, ...(w.key ? { error: w.key } : {}), ...(w.total ? { done: w.done, total: w.total } : {}),
+          // The site bar's own word (model/publish.ts): current, behind, never, unconnected…
+          work: w.kind, stage: si.stage, ...(w.key ? { error: w.key } : {}), ...(w.total ? { done: w.done, total: w.total } : {}),
           lastPublish: site.lastPublish ?? null, pages: site.pages.map((p) => ({ id: p.id, type: p.type, name: p.name })),
           onSite: st.scenesRef.current.filter((s) => s.validated).length,
         };

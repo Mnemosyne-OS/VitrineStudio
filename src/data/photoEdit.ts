@@ -18,11 +18,17 @@ import { scaleLine, type PieceShow } from '../model/showcase';
 /** Minutes on a CPU the first time (the engine prepares its model); main's own bound is longer. */
 const CUTOUT_TIMEOUT_MS = 16 * 60_000;
 
-/** The piece lifted off its background, as a new PNG with transparency. Throws the host's code. */
-export async function cutOut(path: string): Promise<string> {
+/**
+ * The piece lifted off its background, as a new PNG with transparency. Throws the host's code.
+ * `phrases` name what to lift (doc 189): the host's phrase matte answers when the person
+ * turned it on in Mnemosyne, its salient matte otherwise. A host from before ignores them.
+ */
+export async function cutOut(path: string, phrases?: string[]): Promise<string> {
   try {
-    const res = await sdk.invoke<{ path?: string }>('image.removeBackground', { path }, CUTOUT_TIMEOUT_MS);
+    const payload = phrases && phrases.length > 0 ? { path, phrases } : { path };
+    const res = await sdk.invoke<{ path?: string; by?: string; phraseRefused?: string }>('image.removeBackground', payload, CUTOUT_TIMEOUT_MS);
     if (!res?.path) throw new Error('NO_PICTURE_RETURNED');
+    if (phrases && res.by !== 'phrase') console.info(`[vitrine-studio] cut by the salient matte (${res.phraseRefused ?? 'host without the phrase matte'})`);
     return res.path;
   } catch (err) {
     // A Mnemosyne from before this action answers that it does not know it.

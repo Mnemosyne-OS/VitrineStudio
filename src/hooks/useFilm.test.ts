@@ -67,7 +67,7 @@ describe('several films', () => {
   it('pick every film’s clips back after a reload, not only the first film’s', () => {
     const { studio, costs, filmsRef } = fakeStudio();
     filmsRef.current = [filmsRef.current[0]!, { ...filmsRef.current[1]!, clipJobs: { alive: { id: 'job-2', startedAt: '2026-10-11T10:00:00Z' } } }];
-    renderHook(() => useFilm({ ...studio, loaded: true } as Studio, costs));
+    renderHook(() => useFilm({ ...studio, loaded: true }, costs));
     expect((costs.spendingClips as ReturnType<typeof vi.fn>).mock.calls.map((c) => c[0]).sort()).toEqual(['film', 'film-b']);
   });
 

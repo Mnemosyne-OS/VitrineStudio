@@ -1,6 +1,6 @@
 {
   "name": "@mnemosyne-plugins/artisan-studio",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Vitrine Studio: stage your own pieces in generated rooms, publish your website, for any craftsperson.",
