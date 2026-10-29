@@ -3,8 +3,8 @@ import type { Brand } from '../site/buildSite';
 import { TextPagePanel } from './TextPagePanel';
 
 /**
- * The About page, edited as it reads (Tony: « un système pour les update
- * faciles et mise en forme facile »): her words with their formatting, her
+ * The About page, edited as it reads, so updating it needs no other tool:
+ * her words with their formatting, her
  * portrait dropped or picked, its caption, and where it stands on the page.
  */
 export function AboutPanel({ brand, onBrand }: {

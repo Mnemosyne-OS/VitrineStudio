@@ -61,7 +61,7 @@ const DYNAMIC: Record<string, string[]> = {
   'studio.redo.noteHint.': ['place', 'piece', 'alive'],
   'clip.light.': ['steady', 'sun'],
   'scenes.': ['makeAll', 'makeRest', 'decorMoved', 'decorStill'],
-  'bar.stage.': ['unconnected', 'never', 'pending', 'failed', 'current', 'behind', 'unknown'],
+  'bar.stage.': ['checking', 'unconnected', 'never', 'pending', 'failed', 'current', 'behind', 'unknown'],
   'site.section.': ['online', 'look', 'connect', 'copies'],
 };
 const COUNTED = ['app.unreadable', 'app.folderReread', 'pieces.count', 'scenes.count', 'scenes.onSite', 'site.go.exported', 'film.makeImages', 'film.makeFilm', 'takeaway.done', 'site.heavyClips', 'takeaway.restored', 'takeaway.kept', 'takeaway.failed', 'film.wizard.createAndMake', 'remove.deleteHint', 'remove.left', 'upscale.run', 'site.quality.notEnlarged', 'costs.calls', 'costs.unmeasured', 'costs.aheadImages', 'costs.aheadClips', 'upscale.keepAll', 'vector.elements', 'vector.cutClear', 'parts.selected', 'kit.pages', 'kit.added'];

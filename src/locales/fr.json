@@ -1008,5 +1008,8 @@
   "site.section.look": "Apparence",
   "site.section.connect": "Connexion",
   "site.section.copies": "Copies",
-  "copies.folder.title": "Le site dans son dossier"
+  "copies.folder.title": "Le site dans son dossier",
+  "bar.stage.checking": "Lecture de l’hébergement…",
+  "bar.hostingUnread": "L’hébergement n’a pas pu être lu",
+  "bar.copyFailed": "Copie refusée"
 }

@@ -15,7 +15,7 @@ const SCREEN_ICON = { desktop: Monitor, tablet: Tablet, mobile: Smartphone } as 
 /**
  * A page of the site as the visitor will see it, in a layer over the studio.
  *
- * It opens AT ONCE (Tony: « la prévisu génération, un truc mieux en UX »):
+ * It opens AT ONCE, so the press is answered before the page is made:
  * a ghost of a page breathes while the pictures are read, with their count
  * (measured, never a made-up percentage), then the page fades in once the
  * frame has drawn it. The bar above it switches the width (computer, tablet,

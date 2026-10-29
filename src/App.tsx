@@ -77,7 +77,7 @@ const CONTENT_TABS: Tab[] = ['pieces', 'scenes', 'blog', 'about', 'contact'];
 const AFTER_TABS: Tab[] = ['film', 'logo'];
 /** The built-in screen that edits an added page, by its model. */
 const KIND_OF: Partial<Record<PageType, Kind>> = { catalogue: 'pieces', scenes: 'scenes', blog: 'blog' };
-// The tools, apart from the work, as icons (Tony: « mets des icônes, isole-les du menu »).
+// The tools, apart from the work, as icons: they are not part of her order of work.
 // One for the site: its hosting is a part of the Site screen (doc 145 §10.20); `hosting` still opens it, on Online.
 const TOOL_TABS: Array<[Tab, LucideIcon]> = [['site', Globe], ['costs', Coins], ['settings', Settings]];
 
@@ -128,9 +128,10 @@ export default function App() {
   const siteActions = useSite(studio, tab === 'site');
   const siteAddress = studio.site.projectName || slugify(studio.site.brand.name);
   // The folder, the token and the address: what a publish needs, set in Site › Connection.
+  // Null while the token's state is not read: Online waits, it never sends her to Connection for that.
   const siteConnected = siteActions.connected;
-  const section: SiteSection = siteSection ?? (siteConnected ? 'online' : 'connect');
-  const hosting = useHosting(siteAddress, tab === 'site' && section === 'online', siteConnected, !!studio.site.lastPublish);
+  const section: SiteSection = siteSection ?? (siteConnected === false ? 'connect' : 'online');
+  const hosting = useHosting(siteAddress, tab === 'site' && section === 'online', siteConnected === true, !!studio.site.lastPublish);
   // The studio carried away on a key and brought back (doc 145 §10.13).
   const takeaway = useTakeaway(studio, siteActions.exportSiteTo);
   const kitActions = useKit(studio);
@@ -201,6 +202,7 @@ export default function App() {
   const seeWhat: SeeWhat = pageSee ? 'page' : 'site';
   const see = () => {
     setSeeError(null);
+    siteActions.clearPreviewError();
     if (pageSee) setSeeing((cur) => ({ ...pageSee, n: (cur?.n ?? 0) + 1 }));
     else void siteActions.previewNow();
   };
@@ -255,7 +257,8 @@ export default function App() {
         </nav>
       </header>
       {loaded && (
-        <SiteBar stage={siteActions.stage} missing={siteActions.missing} link={siteLink(site.lastPublish, siteAddress, hosting.liveDomains)} work={siteActions.work}
+        <SiteBar stage={siteActions.stage} tokenUnread={siteActions.tokenUnread} onRetryToken={siteActions.rereadToken}
+          onDismissError={() => { setSeeError(null); siteActions.clearPreviewError(); }} missing={siteActions.missing} link={siteLink(site.lastPublish, siteAddress, hosting.liveDomains)} work={siteActions.work}
           staleLiving={livingFallsBack(online)} see={seeWhat} seeing={siteActions.previewWork} seeError={seeError ?? siteActions.previewError}
           onSee={see} onPublish={() => void siteActions.publishNow()} onOpen={siteActions.openLink}
           onConnect={() => go('site', 'connect')}
@@ -374,7 +377,7 @@ export default function App() {
           onShowCosts={(show) => void changeSettings({ ...settings, showCosts: show })} />
       )}
       {loaded && tab === 'site' && (
-        <SiteScreen section={section} onSection={setSiteSection} connected={siteConnected}>
+        <SiteScreen section={section} onSection={setSiteSection} connected={siteConnected !== false}>
           {section === 'online' && (
             <HostingPanel settings={site} connected={siteConnected} host={hosting} onSave={(s) => void saveSite(s)} onOpen={siteActions.openLink}
               onConnect={() => setSiteSection('connect')}

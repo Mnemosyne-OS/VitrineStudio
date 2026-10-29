@@ -23,6 +23,9 @@ export function useHosting(project: string, open: boolean, connected: boolean, p
   const [span, setSpan] = useState<TrafficSpan>(30);
   const [busyDomain, setBusyDomain] = useState<string | null>(null);
   const [domainError, setDomainError] = useState<Shown | null>(null);
+  // Her own domains Vercel last said point at the site: kept while a new read runs,
+  // so the bar's address does not fall back to .vercel.app at every read.
+  const [liveDomains, setLiveDomains] = useState<string[]>([]);
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -38,7 +41,10 @@ export function useHosting(project: string, open: boolean, connected: boolean, p
     setHosting({ kind: 'loading' });
     try {
       const data = await readHosting(project);
-      if (alive.current && run === hostingRun.current) setHosting({ kind: 'ready', data });
+      if (alive.current && run === hostingRun.current) {
+        setHosting({ kind: 'ready', data });
+        setLiveDomains(data.domains.filter((d) => d.verified && d.configured === true).map((d) => d.name));
+      }
     } catch (err) {
       console.warn('[vitrine-studio] hosting unreadable:', err);
       if (alive.current && run === hostingRun.current) setHosting({ kind: 'error', error: describeError(err) });
@@ -86,9 +92,6 @@ export function useHosting(project: string, open: boolean, connected: boolean, p
       if (alive.current) setBusyDomain(null);
     }
   };
-
-  // Her own domains Vercel says point at the site: the bar's address once there is one.
-  const liveDomains = hosting.kind === 'ready' ? hosting.data.domains.filter((d) => d.verified && d.configured === true).map((d) => d.name) : [];
 
   return {
     hosting, traffic, span, setSpan, refresh, busyDomain, domainError, liveDomains,

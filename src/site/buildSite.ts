@@ -87,6 +87,11 @@ export interface SiteSettings {
    * `print`: the print of the site it sent (model/publish.ts), absent on a publish from before it existed.
    */
   lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean; print?: string };
+  /**
+   * The last send Vercel refused (ERROR, CANCELED), kept apart: `lastPublish` stays the site
+   * that is still online (its address, its print). Cleared by the next send Vercel takes.
+   */
+  lastRefusal?: { at: string; readyState: string };
   /** Visits counted by Vercel Web Analytics, without cookies (Site › Online); absent = off. */
   analytics?: boolean;
   /** How sharp the big screens' pictures are, and how heavy the site gets. */

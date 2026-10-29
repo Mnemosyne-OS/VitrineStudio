@@ -1,6 +1,7 @@
-import { CheckCircle2, Copy, ExternalLink, Eye, Link2, RotateCcw, Rocket } from 'lucide-react';
+import { CheckCircle2, Copy, ExternalLink, Eye, Link2, RotateCcw, Rocket, X, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useI18n } from '../i18n';
+import { useCopy } from '../hooks/useCopy';
 import { errorText } from './errors';
 import { bareAddress, type PublishStage } from '../model/publish';
 import type { SiteWork } from './SitePanel';
@@ -10,7 +11,7 @@ export type SeeWhat = 'page' | 'site';
 
 /** The dot beside the words: green online, amber something to do, red refused, grey not yet. */
 const DOT: Record<PublishStage, 'ok' | 'warn' | 'error' | 'idle'> = {
-  unconnected: 'idle', incomplete: 'warn', never: 'idle', pending: 'warn', failed: 'error', current: 'ok', behind: 'warn', unknown: 'ok',
+  checking: 'idle', unconnected: 'idle', incomplete: 'warn', never: 'idle', pending: 'warn', failed: 'error', current: 'ok', behind: 'warn', unknown: 'ok',
 };
 
 /** Minutes and seconds since `since`, as a clock reads. */
@@ -27,8 +28,10 @@ function elapsed(since: number, now: number): string {
  * which step it is at: the files made, counted, then the time Vercel has taken
  * (the host gives no count of its own, so none is made up).
  */
-export function SiteBar({ stage, missing, link, work, staleLiving, see, seeing, seeError, onSee, onPublish, onOpen, onConnect, onFix }: {
+export function SiteBar({ stage, tokenUnread = false, missing, link, work, staleLiving, see, seeing, seeError, onSee, onPublish, onOpen, onConnect, onFix, onRetryToken, onDismissError }: {
   stage: PublishStage;
+  /** The token's state could not be read: the connection is not known, with a way to ask again. */
+  tokenUnread?: boolean;
   /** What a publish still lacks, by its key (`site.go.missing.*`). */
   missing: readonly ('scene' | 'name')[];
   /** The one address of the site online (model/publish.ts siteLink), null before the first publish. */
@@ -47,9 +50,12 @@ export function SiteBar({ stage, missing, link, work, staleLiving, see, seeing, 
   onConnect: () => void;
   /** The screen where a missing item is set: the name (Site › Look), a scene online (Scenes). */
   onFix: (item: 'scene' | 'name' | 'living') => void;
+  onRetryToken?: () => void;
+  /** The error under the address is put away (a preview or a picture check that stopped). */
+  onDismissError?: () => void;
 }) {
   const { t, tc } = useI18n();
-  const [copied, setCopied] = useState(false);
+  const { copied, failed, copy } = useCopy();
   const [now, setNow] = useState(() => Date.now());
   const sending = work.kind === 'publishing';
   // The clock ticks only while the site is being sent; hidden from screen readers, which would read it every second.
@@ -59,18 +65,10 @@ export function SiteBar({ stage, missing, link, work, staleLiving, see, seeing, 
     const id = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(id);
   }, [sending]);
-  useEffect(() => {
-    if (!copied) return;
-    const id = window.setTimeout(() => setCopied(false), 1800);
-    return () => window.clearTimeout(id);
-  }, [copied]);
 
   const busy = work.kind === 'exporting' || sending;
   // « It's online » only while it is true: a change made during the send is not on the site.
   const justOnline = work.kind === 'published' && stage === 'current';
-  const copy = (url: string) => {
-    navigator.clipboard.writeText(url).then(() => setCopied(true), (err: unknown) => console.warn('[vitrine-studio] copy refused:', err));
-  };
 
   // The words: what is happening now first, else where the site stands.
   const state = (() => {
@@ -78,6 +76,14 @@ export function SiteBar({ stage, missing, link, work, staleLiving, see, seeing, 
     if (sending) return <span className="sb-state">{t('bar.sending')} <span className="sb-clock" aria-hidden>{elapsed(work.since, now)}</span></span>;
     if (justOnline) return <span className="sb-state ok"><CheckCircle2 className="ico" aria-hidden />{t('bar.published')}</span>;
     if (work.kind === 'error') return <span className="sb-state error">{errorText(work)}</span>;
+    if (stage === 'checking' && tokenUnread) {
+      return (
+        <span className="sb-state warn">
+          {t('bar.hostingUnread')}
+          {onRetryToken && <button className="link" onClick={onRetryToken}>{t('app.retry')}</button>}
+        </span>
+      );
+    }
     if (stage === 'incomplete') {
       return (
         <span className="sb-state warn">
@@ -90,7 +96,7 @@ export function SiteBar({ stage, missing, link, work, staleLiving, see, seeing, 
   })();
 
   const progress = work.kind === 'exporting' ? Math.round((work.done / Math.max(1, work.total)) * 100) : null;
-  const canSend = stage !== 'unconnected' && stage !== 'incomplete';
+  const canSend = stage !== 'checking' && stage !== 'unconnected' && stage !== 'incomplete';
   // The button's word follows the stage; it is the green one only when sending is what is next.
   const strong = work.kind === 'error' || stage === 'never' || stage === 'behind' || stage === 'failed';
   // A site never sent has no address yet: its first send is « Publish », whatever is still missing.
@@ -107,15 +113,26 @@ export function SiteBar({ stage, missing, link, work, staleLiving, see, seeing, 
             <button className="sb-address" onClick={() => onOpen(link)} data-tip={t('bar.open')}>
               <span className="sb-address-text">{bareAddress(link)}</span><ExternalLink className="ico" aria-hidden />
             </button>
-            <button className="icon-btn" aria-label={t(copied ? 'hosting.dns.copied' : 'bar.copy')} data-tip={t(copied ? 'hosting.dns.copied' : 'bar.copy')} onClick={() => copy(link)}>
-              {copied ? <CheckCircle2 className="ico solo" aria-hidden /> : <Copy className="ico solo" aria-hidden />}
-            </button>
+            {(() => {
+              const said = failed === link ? 'bar.copyFailed' : copied === link ? 'hosting.dns.copied' : 'bar.copy';
+              return (
+                <button className={`icon-btn ${failed === link ? 'error' : ''}`} aria-label={t(said)} data-tip={t(said)} onClick={() => copy(link)}>
+                  {failed === link ? <XCircle className="ico solo" aria-hidden /> : copied === link ? <CheckCircle2 className="ico solo" aria-hidden /> : <Copy className="ico solo" aria-hidden />}
+                </button>
+              );
+            })()}
+            {failed === link && <span className="sb-note error">{t('bar.copyFailed')}</span>}
           </span>
         )}
         {staleLiving > 0 && canSend && !busy && (
           <button className="link warn sb-note" onClick={() => onFix('living')}>{tc('site.staleLiving', staleLiving)}</button>
         )}
-        {seeError && <span className="sb-note error">{errorText(seeError)}</span>}
+        {seeError && (
+          <span className="sb-note error">
+            {errorText(seeError)}
+            {onDismissError && <button className="link" aria-label={t('wizard.close')} onClick={onDismissError}><X className="ico solo" aria-hidden /></button>}
+          </span>
+        )}
       </div>
       <div className="sb-actions">
         <button disabled={!!seeing} onClick={onSee} data-tip={t(see === 'page' ? 'bar.seePage' : 'bar.seeSite')}>

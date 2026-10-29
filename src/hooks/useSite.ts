@@ -45,6 +45,8 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   // The website's home film: the one put on it.
   const film = filmOnSite(films ?? []);
   const [token, setToken] = useState<TokenState | null>(null);
+  // The token's state could not be read: the connection is not known, never read as missing.
+  const [tokenUnread, setTokenUnread] = useState(false);
   const [work, setWork] = useState<SiteWork>({ kind: 'idle' });
   /** The site as the export would write it, held in memory (object URLs). */
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -66,9 +68,21 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
 
   // The hosting token's state (never the token): asked once the folder is read, for the
   // site bar on every screen, and again each time the Site screen opens.
+  const readToken = () => {
+    siteTokenState().then((s) => {
+      if (!alive.current) return;
+      setToken(s);
+      setTokenUnread(false);
+    }, (err: unknown) => {
+      console.warn('[vitrine-studio] token state unreadable:', err);
+      if (alive.current) setTokenUnread(true);
+    });
+  };
   useEffect(() => {
     if (!loaded || IS_PREVIEW_WINDOW) return;
-    siteTokenState().then((s) => alive.current && setToken(s), (err: unknown) => console.warn('[vitrine-studio] token state unreadable:', err));
+    readToken();
+    // readToken reads only setters and the alive ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded, siteTabOpen, alive]);
 
   /** The trade's names for the three beats, in the site's language. */
@@ -80,7 +94,6 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   /** The added text pages' pictures on disk, by their name on the site. */
   const pagePhotos = () => site.pages.flatMap((p) => (p.type === 'text' && p.photo ? [{ name: pagePhotoAsset(p.id), path: p.photo }] : []));
 
-  /** What the page shows, and the export's own settings, from the studio as it is now. */
   /** What every build of the site shares: her settings as they are now. Each caller adds its records. */
   const siteInput = (lang: SiteInput['lang'], records: Pick<SiteInput, 'scenes' | 'pieces'> & Partial<SiteInput>): SiteInput => ({
     ...siteFields(site), lang, today: new Date().toISOString().slice(0, 10), untitled: t('scenes.noUniverse'), beats: beatsOf(lang),
@@ -92,16 +105,25 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   // something it reads changed.
   const untitled = t('scenes.noUniverse');
   const profileId = studio.settings.profileId;
+  // Made during the render: a record the build cannot read must not take the whole studio down,
+  // so it gives no print (the bar says « online », never « up to date »).
   const printNow = useMemo(() => {
-    const b = profileById(profileId).beats;
-    const filmFiles = film ? filmSources(film, filmOf(profileById(film.profileId)).steps) : null;
-    return sitePrint({ ...siteFields(site), lang, untitled, beats: { place: b.place[lang], piece: b.piece[lang], alive: b.alive[lang] }, scenes, pieces, film: filmFiles }, site, { scenes, pieces });
+    try {
+      const b = profileById(profileId).beats;
+      const filmFiles = film ? filmSources(film, filmOf(profileById(film.profileId)).steps) : null;
+      return sitePrint({ ...siteFields(site), lang, untitled, beats: { place: b.place[lang], piece: b.piece[lang], alive: b.alive[lang] }, scenes, pieces, film: filmFiles }, site,
+        { scenes, pieces, film: film ? { id: film.id, updatedAt: film.updatedAt } : null });
+    } catch (err) {
+      console.warn('[vitrine-studio] the site could not be printed, whether it changed is unknown:', err);
+      return null;
+    }
   }, [site, scenes, pieces, film, lang, untitled, profileId]);
   // What a publish needs: the folder, the token and the address (Site › Connection), a scene online and a name.
   const address = site.projectName || slugify(site.brand.name);
-  const connected = !!site.siteId && !!token?.present && !!address;
+  // Null while the token's state is not read (or could not be): the bar says so, never « to connect ».
+  const connected: boolean | null = !site.siteId || !address ? false : token === null ? null : token.present;
   const missing = [...(onlineScenes(scenes, pieces).length > 0 ? [] : ['scene' as const]), ...(site.brand.name.trim() ? [] : ['name' as const])];
-  const stage = publishStage({ connected, missing, ...(site.lastPublish ? { live: site.lastPublish } : {}), printNow });
+  const stage = publishStage({ connected, missing, ...(site.lastPublish ? { live: site.lastPublish } : {}), refused: !!site.lastRefusal, printNow });
   // « It is online » stays said until the site changes again.
   useEffect(() => setWork((w) => (w.kind === 'published' ? { kind: 'idle' } : w)), [printNow]);
 
@@ -211,7 +233,6 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loaded]);
 
-  /** Writes the whole site into its folder. Resolves false when it stopped, after saying why. */
   /** The whole site written through `save` (its declared folder, or a folder she picked to carry it away). */
   const writeSite = async (save: ExportDeps['save'], onProgress: ExportDeps['onProgress']) => {
     if (!folder) throw new Error('NO_FOLDER');
@@ -270,18 +291,28 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
 
   /**
    * Prepares the site, then publishes it with the person's own hosting account.
-   * The print kept is the one of the site as the export STARTS: a change made
-   * while it is being sent reads as not online yet, which it is not.
+   * The print and the visit counter kept are those of the site as the export
+   * STARTS: a change made while it is being sent reads as not online yet,
+   * which it is not. A send Vercel refuses is kept apart (`lastRefusal`): the
+   * site still online keeps its address and its print.
    */
   const publishNow = async () => {
     if (!site.siteId) return;
     const projectName = site.projectName || slugify(site.brand.name);
     const print = printNow;
+    const analytics = !!site.analytics;
     if (!(await exportNow())) return;
     if (alive.current) setWork({ kind: 'publishing', since: Date.now() });
     try {
       const d = await deploySite(site.siteId, projectName);
-      await patchSite((cur) => ({ ...cur, projectName, lastPublish: { url: d.url, aliases: d.aliases, readyState: d.readyState, at: new Date().toISOString(), ...(cur.analytics ? { analytics: true } : {}), print } }));
+      const at = new Date().toISOString();
+      const refused = d.readyState === 'ERROR' || d.readyState === 'CANCELED';
+      await patchSite((cur) => {
+        if (refused) return { ...cur, projectName, lastRefusal: { at, readyState: d.readyState } };
+        const next = { ...cur, projectName, lastPublish: { url: d.url, aliases: d.aliases, readyState: d.readyState, at, ...(analytics ? { analytics: true } : {}), ...(print ? { print } : {}) } };
+        delete next.lastRefusal;
+        return next;
+      });
       if (alive.current) setWork(d.readyState === 'READY' ? { kind: 'published' } : { kind: 'idle' });
     } catch (err) {
       console.error('[vitrine-studio] the site was not published:', err);
@@ -346,7 +377,6 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     return pageUrl({ ...data, rows: [], ...(data.pages ? { pages: data.pages.filter((x) => x.type !== 'scenes') } : {}) }, lang, files, progress);
   };
 
-  /** A page held in memory: its pictures read as they are and the logo, swapped in for their names. */
   /**
    * The scenes' page as on the site, quickly: the rooms online in her order, their
    * pictures and clips, the words over them; the rest of the site as it is.
@@ -364,9 +394,9 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   };
 
   /**
-   * The top of the home as on the site, light, for the logo's card (Tony: « une
-   * prévisu light du site en condition »): the real page with the logo being
-   * tried (`identity`), its real menu, and only the opening scene's pictures read.
+   * The top of the home as on the site, light, for the logo's card: the real page
+   * with the logo being tried (`identity`), its real menu, and only the opening
+   * scene's pictures read, so a logo is judged where it will stand.
    */
   const previewHome = async (identity: SiteInput['identity']): Promise<string> => {
     const lang = getLanguage();
@@ -397,6 +427,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     return legalMarkdown(site.legal, legalSiteOf(input, buildSiteData(input)));
   };
 
+  /** A page held in memory: its pictures read as they are and the logo, swapped in for their names. */
   const pageUrl = async (data: ReturnType<typeof buildSiteData>, lang: ReturnType<typeof getLanguage>, files: Array<{ name: string; path: string }>, progress?: PreviewProgress): Promise<string> => {
     let html = fillShell(siteTemplate, site.brand, lang, data);
     const all = [...files, ...(data.identity?.logoSrc && site.identity.logoPath ? [{ name: LOGO_ASSET, path: site.identity.logoPath }] : [])];
@@ -417,7 +448,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   };
 
   return {
-    token, work, preview, previewWork, previewError, check, checking, stage, missing, connected,
+    token, tokenUnread, rereadToken: readToken, clearPreviewError: () => setPreviewError(null), work, preview, previewWork, previewError, check, checking, stage, missing, connected,
     chooseSiteFolder, previewNow, previewPost, previewCreations, previewScenes, previewInfo, previewHome, legalDrafts, exportSiteTo, closePreview: () => showPreview(null), previewInWindow, checkCompression,
     closeCheck: () => setCheck(null), exportNow, publishNow, saveToken, forgetToken, openLink,
   };

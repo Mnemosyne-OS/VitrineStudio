@@ -6,25 +6,37 @@ export type LastPublish = NonNullable<SiteSettings['lastPublish']>;
 
 /**
  * Where the site stands, the one word the site bar shows (doc 145 §10.20).
+ * - `checking`: the hosting token's state is not read yet (or could not be read): neither connected nor not.
  * - `unconnected`: the folder, the token or the address is missing; nothing can be sent.
  * - `incomplete`: connected, but the site has nothing to show yet (no scene online, no name).
  * - `never`: ready, never sent.
  * - `pending`: sent, and Vercel had not said READY when the host stopped waiting: not confirmed, never assumed online.
- * - `failed`: Vercel said the last one failed (ERROR, CANCELED).
+ * - `failed`: Vercel refused the last send (ERROR, CANCELED); what was online before stays online.
  * - `current`: online, and what is online is what the studio holds now.
  * - `behind`: online, and the studio changed since.
  * - `unknown`: online, sent before the studio kept a print: whether it changed is not known.
  */
-export type PublishStage = 'unconnected' | 'incomplete' | 'never' | 'pending' | 'failed' | 'current' | 'behind' | 'unknown';
+export type PublishStage = 'checking' | 'unconnected' | 'incomplete' | 'never' | 'pending' | 'failed' | 'current' | 'behind' | 'unknown';
 
-export function publishStage(s: { connected: boolean; missing: readonly string[]; live?: LastPublish; printNow: string }): PublishStage {
-  if (!s.connected) return 'unconnected';
+/**
+ * The stage, the first rule that holds winning: not connected, connection not
+ * known yet, nothing to show, refused by Vercel, never sent, not confirmed by
+ * Vercel, then the print. `connected` is null while the token's state is not
+ * read: that is never « to connect ». `refused` is the last send Vercel refused
+ * (`lastRefusal`). `printNow` is null when the site could not be printed now:
+ * that reads unknown, never current.
+ */
+export function publishStage(s: { connected: boolean | null; missing: readonly string[]; live?: LastPublish; refused?: boolean; printNow: string | null }): PublishStage {
+  if (s.connected === false) return 'unconnected';
+  if (s.connected === null) return 'checking';
   if (s.missing.length > 0) return 'incomplete';
+  if (s.refused) return 'failed';
   if (!s.live) return 'never';
+  // A refusal kept in lastPublish itself: written so before lastRefusal existed.
   if (s.live.readyState === 'ERROR' || s.live.readyState === 'CANCELED') return 'failed';
   if (s.live.readyState !== 'READY') return 'pending';
-  // A publish from before the print existed: never read as up to date, never as behind.
-  if (!s.live.print) return 'unknown';
+  // A publish from before the print existed, or no print now: never read as up to date, never as behind.
+  if (!s.live.print || s.printNow === null) return 'unknown';
   return s.live.print === s.printNow ? 'current' : 'behind';
 }
 
@@ -32,7 +44,8 @@ export function publishStage(s: { connected: boolean; missing: readonly string[]
  * The one address of the site online, the same on every screen. A domain of her
  * own once Vercel says it points there; else the project's `<name>.vercel.app`
  * when Vercel gave it; else the shortest `.vercel.app` alias Vercel gave (a name
- * already taken gets a longer one); else the deployment's own address. Never
+ * already taken gets a longer one); else the deployment's own address (a
+ * domain Vercel lists but nobody said points there is never chosen). Never
  * made up: `<name>.vercel.app` built from the name alone may be someone else's
  * site, and a site never sent has no address.
  */
@@ -42,7 +55,7 @@ export function siteLink(live: LastPublish | undefined, projectName: string, liv
   const own = projectName ? `https://${projectName}.vercel.app` : '';
   if (own && live.aliases.includes(own)) return own;
   const vercel = live.aliases.filter((a) => a.endsWith('.vercel.app')).sort((a, b) => a.length - b.length)[0];
-  return vercel ?? live.aliases[0] ?? (live.url || null);
+  return vercel ?? (live.url || null);
 }
 
 /** An address as it reads in a sentence: no scheme, no trailing slash. */
@@ -86,14 +99,17 @@ function hash53(text: string): string {
 /**
  * The print of the site the studio would send now: the page's own data, and
  * what the export reads beside it (the pictures behind each name, their size
- * and weight, the logo, the portrait, the film, the kit). Kept with a publish,
- * compared after: a different print is a site that changed since.
+ * and weight, the logo, the portrait, the film's files and cuts, the text
+ * pages' photos, the kit). The page's data names files, it never says which
+ * file: every path behind a name is printed here, or a picture remade under
+ * the same name would leave the print as it was. Kept with a publish, compared
+ * after: a different print is a site that changed since.
  *
  * What it cannot see: a blog post's words, written in Notes and read only when
  * the site is built. A post rewritten there leaves the print as it was; the
  * bar's « Republish » stays for that.
  */
-export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<SiteSettings, 'quality' | 'imageKb' | 'identity' | 'brand' | 'posts' | 'kit' | 'showcase'>, records: { scenes: Scene[]; pieces: Piece[] }): string {
+export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<SiteSettings, 'quality' | 'imageKb' | 'identity' | 'brand' | 'posts' | 'kit' | 'showcase' | 'pages'>, records: { scenes: Scene[]; pieces: Piece[]; film?: { id: string; updatedAt: string } | null }): string {
   // buildSiteData does not read the date today (no test can see it); emptied so a later use of it
   // cannot make every print change at midnight and the bar cry « changes » for nothing.
   const data = buildSiteData({ ...input, today: '', posts: [] });
@@ -107,7 +123,11 @@ export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<
     portrait: site.brand.portrait ?? null,
     posts: site.posts,
     kit: site.kit ?? null,
-    photos: Object.fromEntries(Object.entries(site.showcase).map(([id, s]) => [id, s.photos])),
+    photos: Object.fromEntries(Object.entries(site.showcase).filter(([id]) => shown.has(id)).map(([id, s]) => [id, s.photos])),
+    // The home film: its files and cuts as the export reads them, and the record's date (a clip remade in place).
+    film: input.film ?? null,
+    filmRecord: records.film ? [records.film.id, records.film.updatedAt] : null,
+    pagePhotos: site.pages.filter((p) => p.photo).map((p) => [p.id, p.photo]),
     // A picture remade under the same name changes the record's date, not the page.
     scenes: onlineScenes(records.scenes, records.pieces).map((s) => [s.id, s.updatedAt ?? null]),
     pieces: records.pieces.filter((p) => shown.has(p.id)).map((p) => [p.id, p.photoPath ?? null, p.updatedAt ?? null]),

@@ -1008,5 +1008,8 @@
   "site.section.look": "Aspecto",
   "site.section.connect": "Conexión",
   "site.section.copies": "Copias",
-  "copies.folder.title": "El sitio en su carpeta"
+  "copies.folder.title": "El sitio en su carpeta",
+  "bar.stage.checking": "Leyendo el alojamiento…",
+  "bar.hostingUnread": "No se pudo leer el alojamiento",
+  "bar.copyFailed": "Copia rechazada"
 }

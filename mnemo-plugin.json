@@ -1,7 +1,7 @@
 {
   "name": "@mnemosyne-plugins/artisan-studio",
   "displayName": "Vitrine Studio",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "vendor": "Mnemosyne OS",
   "category": "Productivity",
   "icon": "icon.svg",
@@ -270,7 +270,7 @@
     {
       "id": "publishSite",
       "summary": "Export the website and put it online, as the site bar’s « Publish » does.",
-      "details": "Answers « started »; follow it with siteStatus. The site must have been set up once by the person (its host and token).",
+      "details": "Answers « started »; follow it with siteStatus. Refused, as the site bar refuses it, until the person has set up the hosting (folder, token, address) and the site has a scene online and a name.",
       "effect": "write"
     },
     {

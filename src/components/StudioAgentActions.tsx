@@ -13,6 +13,8 @@ import { cutOut } from '../data/photoEdit';
 import type { usePieces } from '../hooks/usePieces';
 import { findNamed, fold, listNames } from '../data/agentFind';
 import type { SceneWizardInitial } from './SceneWizard';
+import { siteLink } from '../model/publish';
+import { slugify } from '../site/buildSite';
 
 type SceneActions = ReturnType<typeof useScenes>;
 type SiteActions = ReturnType<typeof useSite>;
@@ -20,7 +22,7 @@ type PieceActions = ReturnType<typeof usePieces>;
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-/** The studio's own screens, in the order of its menu. */
+/** The studio's own screens, in the order of its menu; `hosting` is kept for agents and opens Site › Online (doc 145 §10.20). */
 export const AGENT_TABS = ['pieces', 'scenes', 'blog', 'about', 'contact', 'film', 'logo', 'site', 'hosting', 'costs', 'settings'] as const;
 /** The picture sizes the settings offer. */
 export const AGENT_ASPECTS = ['16:9', '9:16', '1:1', '4:3', '3:4'] as const;
@@ -266,6 +268,10 @@ export function StudioAgentActions({ studio, sceneActions, siteActions, pieceAct
         const { studio: st, siteActions: si } = latest.current;
         if (!st.siteRef.current.siteId) throw new Error('NO_SITE: the site has no folder yet; the person sets it up once in Site › Connection');
         if (si.work.kind === 'exporting' || si.work.kind === 'publishing') throw new Error('BUSY: the site is being exported or published now');
+        // The same rule as the bar's button: an agent never sends what the person could not.
+        if (si.stage === 'unconnected') throw new Error('NO_SITE: the hosting is not connected (folder, Vercel token, address); the person sets it up in Site › Connection');
+        if (si.stage === 'checking') throw new Error('NOT_READY: the hosting token is being read; call again in a moment');
+        if (si.stage === 'incomplete') throw new Error(`INCOMPLETE: the site lacks ${si.missing.join(' and ')} (scene = a scene put on the site, name = the studio name); sending it would replace the site online with an empty page`);
         void si.publishNow();
         return { started: true, follow: 'call siteStatus' };
       },
@@ -277,6 +283,8 @@ export function StudioAgentActions({ studio, sceneActions, siteActions, pieceAct
         return {
           // The site bar's own word (model/publish.ts): current, behind, never, unconnected…
           work: w.kind, stage: si.stage, ...(w.key ? { error: w.key } : {}), ...(w.total ? { done: w.done, total: w.total } : {}),
+          // The one address the bar shows (without her own domain, read by the Site screen).
+          address: siteLink(site.lastPublish, site.projectName || slugify(site.brand.name)),
           lastPublish: site.lastPublish ?? null, pages: site.pages.map((p) => ({ id: p.id, type: p.type, name: p.name })),
           onSite: st.scenesRef.current.filter((s) => s.validated).length,
         };

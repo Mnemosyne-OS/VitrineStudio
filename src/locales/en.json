@@ -1008,5 +1008,8 @@
   "site.section.look": "Look",
   "site.section.connect": "Connection",
   "site.section.copies": "Copies",
-  "copies.folder.title": "The site in its folder"
+  "copies.folder.title": "The site in its folder",
+  "bar.stage.checking": "Reading the hosting…",
+  "bar.hostingUnread": "The hosting could not be read",
+  "bar.copyFailed": "Copy refused"
 }

@@ -1,4 +1,4 @@
-import { BarChart3, CheckCircle2, Copy, ExternalLink, Globe, Link2, RefreshCw, Trash2 } from 'lucide-react';
+import { BarChart3, CheckCircle2, Copy, ExternalLink, Globe, Link2, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { errorText } from './errors';
 import { getLanguage, useI18n } from '../i18n';
@@ -7,6 +7,7 @@ import { slugify, type SiteSettings } from '../site/buildSite';
 import type { DomainState, TokenState, Traffic } from '../data/host';
 import { TRAFFIC_SPANS, type useHosting } from '../hooks/useHosting';
 import { bareAddress, siteLink } from '../model/publish';
+import { useCopy } from '../hooks/useCopy';
 
 /** Where a Vercel token is made (the person's own account). */
 const VERCEL_TOKENS_URL = 'https://vercel.com/account/tokens';
@@ -88,8 +89,8 @@ export function ConnectionCard({ settings, token, onSave, onChooseFolder, onSetT
  */
 export function HostingPanel({ settings, connected, host, onSave, onOpen, onConnect, onVideoSettings }: {
   settings: SiteSettings;
-  /** The folder, the token and the address are set (Site › Connection). */
-  connected: boolean;
+  /** The folder, the token and the address are set (Site › Connection); null while the token's state is read. */
+  connected: boolean | null;
   host: Hosting;
   onSave: (next: SiteSettings) => void;
   onOpen: (url: string) => void;
@@ -102,7 +103,8 @@ export function HostingPanel({ settings, connected, host, onSave, onOpen, onConn
   const [domainDraft, setDomainDraft] = useState('');
   // Removing a domain takes two presses: the first arms it.
   const [armed, setArmed] = useState<string | null>(null);
-  const [copied, setCopied] = useState<string | null>(null);
+  // « Copied », or the clipboard's refusal, said for a moment.
+  const { copied, failed, copy } = useCopy();
 
   const address = settings.projectName || slugify(settings.brand.name);
   const live = settings.lastPublish;
@@ -110,10 +112,15 @@ export function HostingPanel({ settings, connected, host, onSave, onOpen, onConn
   // The address Vercel gave: the bar's too, until a domain of hers points there.
   const vercelUrl = siteLink(live, address);
   const when = (at: string) => new Date(at).toLocaleString(getLanguage(), { dateStyle: 'medium', timeStyle: 'short' });
-  const copy = (value: string) => {
-    navigator.clipboard.writeText(value).then(() => setCopied(value), (err: unknown) => console.warn('[vitrine-studio] copy refused:', err));
-  };
-
+  // Not known yet is not « to connect ».
+  if (connected === null) {
+    return (
+      <div className="glass card-pad site-empty">
+        <span className="spinner small-spin" aria-hidden />
+        <span className="muted">{t('bar.stage.checking')}</span>
+      </div>
+    );
+  }
   if (!connected) {
     return (
       <div className="glass card-pad site-empty">
@@ -137,7 +144,8 @@ export function HostingPanel({ settings, connected, host, onSave, onOpen, onConn
         )}
       </h3>
       <div className="domain-row glass">
-        {vercelUrl ? <button className="link" onClick={() => onOpen(vercelUrl)}>{bareAddress(vercelUrl)}</button> : <span className="muted">{address}.vercel.app</span>}
+        {/* Before the first publish there is no address yet, only the project's name: Vercel picks the address. */}
+        {vercelUrl ? <button className="link" onClick={() => onOpen(vercelUrl)}>{bareAddress(vercelUrl)}</button> : <span className="muted">{address}</span>}
         <span className={`status-chip ${live?.readyState === 'READY' ? 'is-ok' : ''}`}>{live?.readyState === 'READY' ? `✓ ${t('hosting.domain.live')}` : t(published ? 'hosting.domain.sent' : 'hosting.domain.notYet')}</span>
       </div>
       {live && (
@@ -156,7 +164,7 @@ export function HostingPanel({ settings, connected, host, onSave, onOpen, onConn
       {!published && <p className="muted small">{t('hosting.addresses.afterPublish')}</p>}
       {h.kind === 'error' && <p className="error small">{errorText(h.error)}</p>}
       {domains.map((d) => (
-        <DomainRow key={d.name} d={d} busy={host.busyDomain === d.name} armed={armed === d.name} copied={copied}
+        <DomainRow key={d.name} d={d} busy={host.busyDomain === d.name} armed={armed === d.name} copied={copied} failed={failed}
           onOpen={() => onOpen(`https://${d.name}`)} onCopy={copy}
           onRemove={() => { if (armed !== d.name) { setArmed(d.name); return; } setArmed(null); void host.removeDomain(d.name); }} />
       ))}
@@ -222,8 +230,8 @@ export function HostingPanel({ settings, connected, host, onSave, onOpen, onConn
 }
 
 /** One of her domains: whether it works, and what to write at the registrar while it does not. */
-function DomainRow({ d, busy, armed, copied, onOpen, onCopy, onRemove }: {
-  d: DomainState; busy: boolean; armed: boolean; copied: string | null;
+function DomainRow({ d, busy, armed, copied, failed, onOpen, onCopy, onRemove }: {
+  d: DomainState; busy: boolean; armed: boolean; copied: string | null; failed: string | null;
   onOpen: () => void; onCopy: (v: string) => void; onRemove: () => void;
 }) {
   const { t } = useI18n();
@@ -247,7 +255,7 @@ function DomainRow({ d, busy, armed, copied, onOpen, onCopy, onRemove }: {
                 <td>{r.type}</td>
                 <td><code>{r.host}</code></td>
                 <td><code className="dns-value">{r.value}</code></td>
-                <td><button className="icon-btn glass" aria-label={t('hosting.dns.copy')} data-tip={t(copied === r.value ? 'hosting.dns.copied' : 'hosting.dns.copy')} onClick={() => onCopy(r.value)}>{copied === r.value ? <CheckCircle2 className="ico solo" aria-hidden /> : <Copy className="ico solo" aria-hidden />}</button></td>
+                <td><button className="icon-btn glass" aria-label={t('hosting.dns.copy')} data-tip={t(failed === r.value ? 'bar.copyFailed' : copied === r.value ? 'hosting.dns.copied' : 'hosting.dns.copy')} onClick={() => onCopy(r.value)}>{failed === r.value ? <XCircle className="ico solo" aria-hidden /> : copied === r.value ? <CheckCircle2 className="ico solo" aria-hidden /> : <Copy className="ico solo" aria-hidden />}</button></td>
               </tr>
             ))}
           </tbody>

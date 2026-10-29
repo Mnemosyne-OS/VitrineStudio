@@ -24,23 +24,41 @@ const SCENES = [
   { id: 's2', pieceId: 'p2', universe: 'Jardin', variant: '', images: {}, validated: false },
 ];
 
-function mount(patchSite: (change?: unknown) => Promise<boolean>, opts: { editPiece?: () => Promise<boolean> } = {}) {
+function mount(patchSite: (change?: unknown) => Promise<boolean>, opts: { editPiece?: () => Promise<boolean>; siteActions?: Record<string, unknown>; siteId?: string } = {}) {
   const openTab = vi.fn();
   const view = { showScene: vi.fn(), showPiece: vi.fn(), closeAll: vi.fn(), newScene: vi.fn() };
   const editPiece = vi.fn(opts.editPiece ?? (async () => true));
   const site = normalizeSiteSettings({}, '');
   site.pages = [{ id: 'atelier', type: 'text', name: 'Mon atelier' }];
+  if (opts.siteId) site.siteId = opts.siteId;
   const studio = {
     siteRef: { current: site }, piecesRef: { current: PIECES }, scenesRef: { current: SCENES },
     settings: { aspectRatio: '16:9' }, patchSite: vi.fn(patchSite),
   };
-  render(<StudioAgentActions studio={studio as never} sceneActions={{ work: {} } as never} siteActions={{ work: { kind: 'idle' } } as never}
+  render(<StudioAgentActions studio={studio as never} sceneActions={{ work: {} } as never} siteActions={(opts.siteActions ?? { work: { kind: 'idle' } }) as never}
     pieceActions={{ editPiece } as never} openTab={openTab} view={view} />);
   return { openTab, view, editPiece, studio };
 }
 
 describe('the studio\'s agent door', () => {
   beforeEach(() => { door.handlers = null; door.has = true; });
+
+  it('publishSite refuses what the bar refuses: a site with nothing to show would replace the one online', () => {
+    const publishNow = vi.fn();
+    const refusedBy = (stage: string, code: RegExp) => {
+      document.body.innerHTML = '';
+      mount(async () => true, { siteId: 'site-1', siteActions: { work: { kind: 'idle' }, stage, missing: ['scene'], publishNow } });
+      expect(() => door.handlers!.publishSite!({})).toThrow(code);
+    };
+    refusedBy('incomplete', /^INCOMPLETE: the site lacks scene/);
+    refusedBy('unconnected', /^NO_SITE/);
+    refusedBy('checking', /^NOT_READY/);
+    expect(publishNow).not.toHaveBeenCalled();
+    document.body.innerHTML = '';
+    mount(async () => true, { siteId: 'site-1', siteActions: { work: { kind: 'idle' }, stage: 'behind', missing: [], publishNow } });
+    expect(door.handlers!.publishSite!({})).toEqual({ started: true, follow: 'call siteStatus' });
+    expect(publishNow).toHaveBeenCalledTimes(1);
+  });
 
   it('addPage answers once the page is written, and shows it', async () => {
     const { openTab } = mount(async () => true);

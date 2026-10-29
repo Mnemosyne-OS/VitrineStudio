@@ -44,13 +44,13 @@ describe('the site bar', () => {
     expect(screen.getByText('Publish again').closest('button')!.className).not.toContain('primary');
   });
 
-  it('opens and copies the one address, shown without its scheme', () => {
+  it('opens and copies the one address, shown without its scheme', async () => {
     const write = vi.fn().mockResolvedValue(undefined);
     Object.assign(navigator, { clipboard: { writeText: write } });
     const p = bar('current');
     fireEvent.click(screen.getByText('atelier.vercel.app'));
     expect(p.onOpen).toHaveBeenCalledWith('https://atelier.vercel.app');
-    fireEvent.click(screen.getByLabelText('Copy the address'));
+    await act(async () => { fireEvent.click(screen.getByLabelText('Copy the address')); });
     expect(write).toHaveBeenCalledWith('https://atelier.vercel.app');
   });
 
@@ -69,6 +69,41 @@ describe('the site bar', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('says the token is being read, never « to connect », and offers to read it again when it could not be', () => {
+    bar('checking', { link: 'https://atelier.vercel.app' });
+    expect(screen.getByText('Reading the hosting…')).toBeTruthy();
+    expect(screen.queryByText('Connect')).toBeNull();
+    expect((screen.getByText('Update the site').closest('button') as HTMLButtonElement).disabled).toBe(true);
+    document.body.innerHTML = '';
+    const onRetryToken = vi.fn();
+    bar('checking', { tokenUnread: true, onRetryToken });
+    expect(screen.getByText('The hosting could not be read')).toBeTruthy();
+    fireEvent.click(screen.getByText('Try again'));
+    expect(onRetryToken).toHaveBeenCalled();
+  });
+
+  it('makes sending again the green button after Vercel refused the last send', () => {
+    bar('failed');
+    expect(screen.getByText('Vercel refused the last update')).toBeTruthy();
+    expect(screen.getByText('Update the site').closest('button')!.className).toContain('primary');
+  });
+
+  it('says a refused copy, never only in the log', async () => {
+    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error('Write permission denied')) } });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    bar('current');
+    await act(async () => { fireEvent.click(screen.getByLabelText('Copy the address')); });
+    expect(screen.getAllByText('Copy refused').length).toBeGreaterThan(0);
+    warn.mockRestore();
+  });
+
+  it('puts away an error under the address', () => {
+    const onDismissError = vi.fn();
+    bar('current', { seeError: { key: 'error.unknown' }, onDismissError });
+    fireEvent.click(screen.getByLabelText('Close'));
+    expect(onDismissError).toHaveBeenCalled();
   });
 
   it('says it is online once Vercel said READY, and a refusal in words', () => {

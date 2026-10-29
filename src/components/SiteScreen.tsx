@@ -4,7 +4,7 @@ import { useI18n } from '../i18n';
 import type { SiteWork } from './SitePanel';
 
 /** The Site screen's four parts, in the order they are needed after the first day. */
-export const SITE_SECTIONS = ['online', 'look', 'connect', 'copies'] as const;
+const SITE_SECTIONS = ['online', 'look', 'connect', 'copies'] as const;
 export type SiteSection = (typeof SITE_SECTIONS)[number];
 const ICON: Record<SiteSection, LucideIcon> = { online: Globe, look: Palette, connect: Link2, copies: HardDriveDownload };
 

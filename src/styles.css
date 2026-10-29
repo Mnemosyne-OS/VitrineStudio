@@ -1174,7 +1174,7 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .film-site-toggle.on .film-switch::after { transform: translateX(12px); }
 .film-tile-wrap .film-copy { position: absolute; top: 6px; right: 44px; z-index: 2; width: 32px; height: 32px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
 
-/* The Site tab: where the site stands and its one button on top, four cards, « Advanced » folded. */
+/* The Site screen: its four parts behind one row of tabs (doc 145 §10.20). */
 .site-page { display: grid; gap: 16px; }
 .site-grid { columns: 3 420px; column-gap: 16px; }
 .site-grid > .glass { display: grid; gap: 10px; align-content: start; break-inside: avoid; margin: 0 0 16px; }
@@ -1244,10 +1244,10 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .domain-block .domain-row { padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; }
 .domain-row .link { font-weight: 600; overflow-wrap: anywhere; }
 .domain-row .icon-btn { margin-left: auto; }
-.icon-btn.is-armed { border-color: var(--danger, #c0392b); color: var(--danger, #c0392b); }
+.icon-btn.is-armed { border-color: var(--as-error); color: var(--as-error); }
 .status-chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--glass-edge); background: var(--glass-fill); }
 .status-chip.is-ok { border-color: color-mix(in srgb, var(--as-chosen) 60%, transparent); background: color-mix(in srgb, var(--as-chosen) 22%, var(--glass-fill)); }
-.status-chip.is-todo { border-color: color-mix(in srgb, var(--warning, #c98a1b) 60%, transparent); }
+.status-chip.is-todo { border-color: color-mix(in srgb, var(--as-warn) 60%, transparent); }
 .dns-table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
 .dns-table th { text-align: left; font-weight: 500; color: var(--as-muted); padding: 2px 6px; }
 .dns-table th:nth-child(1) { width: 64px; } .dns-table th:nth-child(2) { width: 22%; } .dns-table th:nth-child(4) { width: 44px; }

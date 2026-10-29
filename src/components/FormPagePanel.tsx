@@ -45,8 +45,8 @@ function FieldRow({ field, first, last, onChange, onMove, onRemove }: {
 }
 
 /**
- * A form page she added (Tony: « une page formulaire pour une inscription,
- * être polyvalent »): her words beside the form, what it asks, field by
+ * A form page she added (a sign-up, an order, any request): her words
+ * beside the form, what it asks, field by
  * field, and which side it stands. It sends where the Contact form sends.
  */
 export function FormPagePanel({ text, onText, fields, onFields, layout, onLayout, sendsTo }: {
