@@ -5,6 +5,8 @@
   "vendor": "Mnemosyne OS",
   "category": "Productivity",
   "icon": "icon.svg",
+  "license": "MIT",
+  "repository": "https://github.com/Mnemosyne-OS/VitrineStudio",
   "description": "Stage your own pieces in rooms generated for you, in three beats: the place, the piece, the life around it. For any craftsperson: ceramics, lighting, woodwork, jewellery. Your files, on your machine.",
   "descriptionI18n": {
     "en": "Stage your own pieces in rooms generated for you, in three beats: the place, the piece, the life around it. For any craftsperson: ceramics, lighting, woodwork, jewellery. Your files, on your machine.",
