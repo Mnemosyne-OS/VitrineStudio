@@ -81,6 +81,13 @@ const IMAGE_LINE = /^\s*!\[([^\]]*)\]\((?:<([^>]+)>|(\S+))(?:\s+"(left|right|ful
 /** Pieces of the studio on their own line: `::pieces{ids="a,b" layout="row"}`. */
 const PIECES_LINE = /^\s*::pieces\{ids="([^"]*)"(?:\s+layout="(row|column)")?\}\s*$/;
 
+/**
+ * A picture still to choose: the frame a model leaves in a post, to click or
+ * to drop a photo on. The editor draws it as a frame to fill; the site never
+ * shows it and the export writes nothing for it.
+ */
+export const PHOTO_SLOT = 'photo:slot';
+
 export function imageLine(line: string): { alt: string; path: string; layout: ImageLayout } | null {
   const m = IMAGE_LINE.exec(line);
   return m ? { alt: m[1]!, path: (m[2] ?? m[3])!, layout: (m[4] as ImageLayout | undefined) ?? 'full' } : null;
@@ -95,7 +102,7 @@ export function piecesLine(line: string): { ids: string[]; layout: PiecesLayout 
 
 /** The pictures of a post, in the order the page shows them (the export writes them under this order). */
 export function postImages(text: string): string[] {
-  return splitFrontMatter(text).rest.split('\n').map(imageLine).filter((x) => x !== null).map((x) => x.path);
+  return splitFrontMatter(text).rest.split('\n').map(imageLine).filter((x) => x !== null && x.path !== PHOTO_SLOT).map((x) => x!.path);
 }
 
 /** The pieces a post shows, once each. */
@@ -209,7 +216,7 @@ export function markdownToHtml(md: string, opts: {
       if (img) {
         const html = opts.editor
           ? `<figure class="pe-img ${img.layout}" contenteditable="false" data-path="${esc(img.path)}" data-layout="${img.layout}" data-alt="${esc(img.alt)}"><img alt="${esc(img.alt)}"></figure>`
-          : opts.image?.(img);
+          : img.path === PHOTO_SLOT ? null : opts.image?.(img);
         if (html) out.push(html);
       } else if (pcs) {
         const html = opts.editor

@@ -16,7 +16,7 @@ export type LogoSize = 's' | 'm' | 'l';
 /** Where the header puts the logo: left of the pages (the default), above them centred, or right of them. */
 export type LogoPlace = 'left' | 'center' | 'right';
 export const LOGO_PLACES: readonly LogoPlace[] = ['left', 'center', 'right'];
-/** A free height, in px, chosen with the slider; bounded so a hand-edited file never makes a wall. */
+/** The logo's height, in px, typed or set with the slider; bounded so a hand-edited file never makes a wall. */
 export const LOGO_HEIGHT_MIN = 16;
 export const LOGO_HEIGHT_MAX = 200;
 import { countParts, decorateParts, defaultPart, normalizeParts, PARTS_CSS, type PartSetting } from './logoParts';
@@ -28,7 +28,15 @@ export const LOGO_MODES: readonly LogoMode[] = ['logo', 'both', 'name'];
 export const LOGO_SIZES: readonly LogoSize[] = ['s', 'm', 'l'];
 export const LOGO_ANIMS: readonly LogoAnim[] = ['none', 'fade', 'rise', 'blur', 'reveal', 'zoom', 'spin', 'slide', 'letters', 'draw', 'breathe', 'parts'];
 export const LOGO_SPEEDS: readonly LogoSpeed[] = ['slow', 'normal', 'fast'];
+/** The old Small / Medium / Large presets: only read now, as the height of a site saved before the height was typed in px. */
 export const LOGO_HEIGHT: Record<LogoSize, number> = { s: 28, m: 44, l: 64 };
+/** The height the header gives the logo: the one chosen in px, else the old preset's. */
+export const logoHeight = (id: Pick<Identity, 'size' | 'height'>): number => id.height ?? LOGO_HEIGHT[id.size] ?? LOGO_HEIGHT.m;
+/** A typed height brought back inside the bounds, whole pixels; null when it is not a number. */
+export function clampLogoHeight(raw: number): number | null {
+  if (!Number.isFinite(raw)) return null;
+  return Math.round(Math.min(LOGO_HEIGHT_MAX, Math.max(LOGO_HEIGHT_MIN, raw)));
+}
 
 /** What the site settings keep about the logo. */
 export interface Identity {
@@ -37,6 +45,7 @@ export interface Identity {
   /** A vector logo, already reduced to its shapes (sanitizeSvg). */
   svg?: string;
   mode: LogoMode;
+  /** The old size preset, kept only as the fallback height of a site saved before `height` (logoHeight). */
   size: LogoSize;
   /** Paint the logo in the site's text colour (for a one-colour logo). */
   tint: boolean;
@@ -50,13 +59,13 @@ export interface Identity {
   vectorFrom?: string;
   /** Per element of a vector logo (by document order), for the `parts` entrance; null = the default. */
   parts?: (PartSetting | null)[];
-  /** A free height in px (the slider); absent = the size preset's. */
+  /** The logo's height in px (the field or the slider); absent only in a site saved before it = the size preset's. */
   height?: number;
   /** Where the header puts it; absent = left. */
   place?: LogoPlace;
 }
 
-export const DEFAULT_IDENTITY: Identity = { mode: 'both', size: 'm', tint: false, anim: 'fade', speed: 'normal', hover: false };
+export const DEFAULT_IDENTITY: Identity = { mode: 'both', size: 'm', tint: false, anim: 'fade', speed: 'normal', hover: false, height: LOGO_HEIGHT.m };
 
 /** The identity as read from site.json: anything unknown falls back, an svg is cleaned again. */
 export function normalizeIdentity(raw: unknown): Identity {
@@ -80,7 +89,8 @@ export function normalizeIdentity(raw: unknown): Identity {
   }
   else if (typeof r.logoPath === 'string' && r.logoPath) out.logoPath = r.logoPath.slice(0, 1000);
   if (typeof r.ratio === 'number' && r.ratio > 0 && r.ratio < 50) out.ratio = r.ratio;
-  if (typeof r.height === 'number' && Number.isFinite(r.height)) out.height = Math.round(Math.min(LOGO_HEIGHT_MAX, Math.max(LOGO_HEIGHT_MIN, r.height)));
+  // An old site chose Small / Medium / Large: it keeps that height, now in px.
+  out.height = (typeof r.height === 'number' ? clampLogoHeight(r.height) : null) ?? LOGO_HEIGHT[out.size];
   if (r.place === 'center' || r.place === 'right') out.place = r.place;
   return out;
 }
@@ -223,9 +233,8 @@ export function brandMarkup(id: Identity, name: string): string {
   // Letter by letter: each character its own span, its rank in --i.
   const shown = anim === 'letters' ? [...name].map((c, i) => `<span class="ch" style="--i:${i}">${esc(c)}</span>`).join('') : esc(name);
   const text = showName ? `<span class="brand-name">${shown}</span>` : '';
-  // A free height rides on the container as the variable the size presets set (never a transform: the entrances own those).
-  const height = id.height ? ` style="--logo-h:${id.height}px"` : '';
-  return `<span class="brand-in size-${id.size} anim-${anim} speed-${id.speed}${id.hover ? ' hover' : ''}"${height}>${logo}${text}</span>`;
+  // The height rides on the container as a variable, always written (never a transform: the entrances own those).
+  return `<span class="brand-in anim-${anim} speed-${id.speed}${id.hover ? ' hover' : ''}" style="--logo-h:${logoHeight(id)}px">${logo}${text}</span>`;
 }
 
 const SPEED_K: Record<LogoSpeed, number> = { slow: 1.8, normal: 1, fast: 0.55 };
@@ -260,11 +269,10 @@ export const LOGO_CSS = `
 .logo-head.place-right { flex-direction: row-reverse; }
 .brand-in { display: inline-flex; align-items: center; gap: 12px; --k: 1; }
 .brand-in.speed-slow { --k: 1.8; } .brand-in.speed-fast { --k: .55; }
-.brand-logo { display: block; height: var(--logo-h); width: auto; }
+.brand-logo { display: block; height: var(--logo-h, 44px); width: auto; }
 .brand-logo.svg svg { height: 100%; width: auto; display: block; overflow: visible; }
 .brand-logo.svg.tint svg :not([fill="none"]) { fill: currentColor; } .brand-logo.svg.tint svg [stroke]:not([stroke="none"]) { stroke: currentColor; }
 .brand-logo.mask { aspect-ratio: var(--logo-ratio, 1); background: currentColor; -webkit-mask: var(--logo) center / contain no-repeat; mask: var(--logo) center / contain no-repeat; }
-.brand-in.size-s { --logo-h: 28px; } .brand-in.size-m { --logo-h: 44px; } .brand-in.size-l { --logo-h: 64px; }
 .brand-name .ch { display: inline-block; white-space: pre; }
 .brand-in.play.anim-fade .brand-logo, .brand-in.play.anim-fade .brand-name { animation: logo-fade calc(1.4s * var(--k)) ease both; }
 .brand-in.play.anim-rise .brand-logo, .brand-in.play.anim-rise .brand-name { animation: logo-rise calc(1.2s * var(--k)) cubic-bezier(.2,.7,.2,1) both; }

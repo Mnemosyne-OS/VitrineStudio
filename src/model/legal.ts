@@ -20,7 +20,7 @@ export interface Legal {
   hostAddress: string;
   /** A small notice on the first visit: no cookie, and the link to the privacy page. */
   notice: boolean;
-  /** « Created with care with Mnemosyne OS » at the bottom of the site. */
+  /** « Created with Mnemosyne OS » at the bottom of the site. */
   credit: boolean;
   /** Her own legal notice, as Markdown, once she has edited it; empty = written from the fields. */
   noticeText: string;

@@ -1,9 +1,11 @@
 import { RotateCcw, ScanSearch } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { getLanguage, useI18n } from '../i18n';
+import { ColourField } from './ColourField';
+import { LoaderPicker } from './LoaderPicker';
 import { ColourSample } from './ColourSample';
 import type { SiteSettings } from '../site/buildSite';
-import { DEFAULT_COLOURS, EXPORT_QUALITIES, EXPORT_QUALITY, IMAGE_KB_CHOICES, IMAGE_KB_MAX, IMAGE_KB_MIN } from '../site/buildSite';
+import { DEFAULT_COLOURS, EXPORT_QUALITIES, EXPORT_QUALITY, IMAGE_KB_CHOICES, IMAGE_KB_MAX, IMAGE_KB_MIN, VIDEO_LEVELS } from '../site/buildSite';
 
 export type SiteWork =
   | { kind: 'idle' }
@@ -63,15 +65,27 @@ export function SiteLook({ settings, onlineCount, enlarged, samplePhoto, busy, o
         <h3>{t('site.colours.title')}</h3>
         <div className="colour-row">
           {(['ink', 'paper', 'accent'] as const).map((key) => (
-            <label key={key} className="colour-pick">
-              <input type="color" value={brand[key]} onChange={(e) => setBrand({ ...brand, [key]: e.target.value })} onBlur={commit} />
-              <span>{t(`site.brand.colour.${key}`)}</span>
-            </label>
+            <ColourField key={key} value={brand[key]} label={t(`site.brand.colour.${key}`)} onChange={(hex) => setBrand({ ...brand, [key]: hex })} onCommit={commit} />
           ))}
         </div>
         <ColourSample ink={brand.ink} paper={brand.paper} accent={brand.accent} photo={samplePhoto} />
+        <span className="form-label">{t('site.dark.title')}</span>
+        <div className="idea-row">
+          {(['auto', 'never'] as const).map((v) => {
+            const on = (brand.dark ?? 'never') === v;
+            return (
+              <button key={v} className={`chip-tile glass ${on ? 'chosen' : ''}`} aria-pressed={on}
+                onClick={() => { const next = { ...brand }; if (v === 'auto') next.dark = 'auto'; else delete next.dark; setBrand(next); onSave({ ...settings, brand: next }); }}>
+                <strong>{t(`site.dark.${v}`)}</strong>
+                <span className="muted small">{t(`site.dark.${v}Hint`)}</span>
+              </button>
+            );
+          })}
+        </div>
         <button className="colour-reset" onClick={() => { const next = { ...brand, ...DEFAULT_COLOURS }; setBrand(next); onSave({ ...settings, brand: next }); }}><RotateCcw className="ico" aria-hidden />{t('site.colours.reset')}</button>
       </div>
+
+      <LoaderPicker brand={brand} onChange={(loader) => { const next = { ...brand }; if (loader) next.loader = loader; else delete next.loader; setBrand(next); onSave({ ...settings, brand: next }); }} />
 
       <div className="glass card-pad">
         <h3>{t('site.quality.title')}</h3>
@@ -98,6 +112,19 @@ export function SiteLook({ settings, onlineCount, enlarged, samplePhoto, busy, o
               <span className="small">{t('site.weight.unit')}</span>
             </span>
           </label>
+        </div>
+        <h4 className="sub-title">{t('site.video.title')}</h4>
+        <div className="idea-row compact">
+          {VIDEO_LEVELS.map((v) => {
+            const on = (settings.videoLevel ?? 'light') === v;
+            return (
+              <button key={v} disabled={busy} className={`chip-tile glass ${on ? 'chosen' : ''}`} aria-pressed={on}
+                onClick={() => { const next = { ...settings }; if (v === 'light') delete next.videoLevel; else next.videoLevel = v; onSave(next); }}>
+                <strong>{t(`site.video.${v}`)}</strong>
+                <span className="muted small">{t(`site.video.${v}Hint`)}</span>
+              </button>
+            );
+          })}
         </div>
         <div className="row spaced">
           <button disabled={!onlineCount || checking} onClick={onCheck}>{checking ? <span className="spinner small-spin" aria-hidden /> : <ScanSearch className="ico" aria-hidden />} {t('check.button')}</button>

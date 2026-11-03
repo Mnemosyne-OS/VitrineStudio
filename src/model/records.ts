@@ -8,6 +8,8 @@ import { normalizeKitApplied, type KitApplied } from './kit';
 import { formspreeId, normalizeMenu, normalizeMenuOrder, type Brand, type MenuKey, type MenuNames } from '../site/buildSite';
 import { normalizeCategories, normalizeHover, normalizePieceOrder, normalizeShowcase, type Category, type CreationsHover, type PieceShow } from './showcase';
 import { normalizeCurrency, type CurrencySettings } from './currency';
+import { normalizeLoader } from '../site/loader';
+import { normalizeTranslation, type SiteTranslation } from './translation';
 import { normalizePosts, type BlogPost } from './blog';
 import { DEFAULT_SETTINGS, PIECE_SCHEMA, PROMPT_MAX, SCENE_SCHEMA, type Beat, type Piece, type PromptKey, type Scene, type StudioSettings, CLIP_CAMERAS, CLIP_LIGHTS, type ClipCamera, type ClipLight, type ClipStyle, SCENE_MOTIONS, type SceneMotion, AGENT_MAKE_STATES, type AgentMake } from './types';
 import { keepTakes, MAX_TAKES } from './takes';
@@ -279,11 +281,18 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
   const hex = (v: unknown, d: string) => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v) ? v : d);
   const brand: Brand = { accent, ink: hex(b.ink, '#2B2926'), paper: hex(b.paper, '#EEECE7'), name: str(b.name, 80) || fallbackName, tagline: str(b.tagline, 160), about: str(b.about, 4000), email: str(b.email, 200), instagram: str(b.instagram, 60), introLine: str(b.introLine, 300), portraitCaption: str(b.portraitCaption, 300), contactNote: str(b.contactNote, 2000), formspree: formspreeId(str(b.formspree, 120)) ?? '' };
   if (typeof b.portrait === 'string' && b.portrait) brand.portrait = b.portrait.slice(0, 1000);
-  if (b.aboutLayout === 'left' || b.aboutLayout === 'top') brand.aboutLayout = b.aboutLayout;
+  if (Array.isArray(b.aboutPhotos)) {
+    const photos = b.aboutPhotos.filter((x): x is string => typeof x === 'string').slice(0, 3).map((x) => x.slice(0, 1000));
+    if (photos.length) brand.aboutPhotos = photos;
+  }
+  if (b.aboutLayout === 'left' || b.aboutLayout === 'top' || b.aboutLayout === 'bottom') brand.aboutLayout = b.aboutLayout;
   if (b.contactLayout === 'right') brand.contactLayout = b.contactLayout;
+  if (b.dark === 'auto') brand.dark = 'auto';
+  const loader = normalizeLoader(b.loader);
+  if (loader) brand.loader = loader;
   const socials = normalizeSocials(b.socials, brand.instagram);
   if (Object.keys(socials).length) brand.socials = socials;
-  const out: { siteId?: string; siteName?: string; projectName: string; brand: typeof brand; lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean; print?: string }; lastRefusal?: { at: string; readyState: string }; quality: 'standard' | 'high' | 'max'; imageKb: number | null; identity: Identity; lastExport?: { files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number; at: string }; kit?: KitApplied; kitSource?: string; analytics?: boolean; showcase: Record<string, PieceShow>; creationsHover: CreationsHover; currency: CurrencySettings; posts: BlogPost[]; menu: MenuNames; menuOrder: MenuKey[]; pieceOrder: string[]; sceneOrder: string[]; categories: Category[]; sceneMap: SceneMap; pages: SitePage[]; viewer: ViewerSettings; legal: Legal } = {
+  const out: { siteId?: string; siteName?: string; projectName: string; brand: typeof brand; lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean; print?: string }; lastRefusal?: { at: string; readyState: string }; quality: 'standard' | 'high' | 'max'; imageKb: number | null; identity: Identity; lastExport?: { files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number; lightOnly?: number; at: string }; kit?: KitApplied; kitSource?: string; analytics?: boolean; showcase: Record<string, PieceShow>; creationsHover: CreationsHover; currency: CurrencySettings; posts: BlogPost[]; menu: MenuNames; menuOrder: MenuKey[]; pieceOrder: string[]; sceneOrder: string[]; categories: Category[]; sceneMap: SceneMap; pages: SitePage[]; viewer: ViewerSettings; legal: Legal; translation?: SiteTranslation; videoLevel?: 'balanced' | 'sharp' } = {
     projectName: str(r.projectName, 60),
     brand,
     // Absent = 'high': a site made today is meant for large screens too.
@@ -308,7 +317,7 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
   const le = r.lastExport as Record<string, unknown> | undefined;
   const n = (v: unknown) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : null);
   if (le && typeof le.at === 'string' && n(le.files) !== null && n(le.bytes) !== null && n(le.imageBytes) !== null && n(le.clipBytes) !== null) {
-    out.lastExport = { at: le.at, files: n(le.files)!, bytes: n(le.bytes)!, imageBytes: n(le.imageBytes)!, clipBytes: n(le.clipBytes)!, ...(n(le.heavyClips) ? { heavyClips: n(le.heavyClips)! } : {}) };
+    out.lastExport = { at: le.at, files: n(le.files)!, bytes: n(le.bytes)!, imageBytes: n(le.imageBytes)!, clipBytes: n(le.clipBytes)!, ...(n(le.heavyClips) ? { heavyClips: n(le.heavyClips)! } : {}), ...(n(le.lightOnly) ? { lightOnly: n(le.lightOnly)! } : {}) };
   }
   if (typeof r.siteId === 'string' && r.siteId) out.siteId = r.siteId;
   // The site kit in place (model/kit.ts), and, on the maker's side, the folder its pages come from.
@@ -317,6 +326,9 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
   if (typeof r.kitSource === 'string' && r.kitSource) out.kitSource = r.kitSource.slice(0, 1000);
   if (typeof r.siteName === 'string' && r.siteName) out.siteName = r.siteName;
   if (r.analytics === true) out.analytics = true;
+  if (r.videoLevel === 'balanced' || r.videoLevel === 'sharp') out.videoLevel = r.videoLevel;
+  const translation = normalizeTranslation(r.translation);
+  if (translation) out.translation = translation;
   const lp = r.lastPublish as Record<string, unknown> | undefined;
   if (lp && typeof lp.url === 'string' && typeof lp.at === 'string') {
     out.lastPublish = { url: lp.url, aliases: Array.isArray(lp.aliases) ? lp.aliases.filter((x): x is string => typeof x === 'string') : [], readyState: str(lp.readyState, 20), at: lp.at, ...(lp.analytics === true ? { analytics: true } : {}), ...(typeof lp.print === 'string' && /^[0-9a-f]{1,32}$/.test(lp.print) ? { print: lp.print } : {}) };

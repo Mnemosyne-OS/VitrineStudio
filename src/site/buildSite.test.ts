@@ -1,4 +1,4 @@
-import { ANALYTICS_SCRIPT, blogAssets, buildSiteData, menuDefaults, normalizeMenu, normalizeMenuOrder, exportSite, cellFiles, filmSources, fillShell, livingFallsBack, onlineScenes, siteRows, slugify, type Brand } from './buildSite';
+import { ANALYTICS_SCRIPT, blogAssets, buildSiteData, menuDefaults, normalizeMenu, normalizeMenuOrder, exportSite, cellFiles, filmSources, fillShell, livingFallsBack, onlineScenes, siteRows, slugify, sharpAsset, withSharpCopies, type Brand } from './buildSite';
 import { LAYERS_MADE } from '../model/sceneLayers';
 import { defaultShow } from '../model/showcase';
 import { formatMoney } from '../model/currency';
@@ -85,7 +85,7 @@ describe('site data', () => {
     const showcase = { p1: { photos: [], show: { name: true, description: true, dimensions: false, weight: false, price: true, photos: false } } };
     const data = buildSiteData({ brand, lang: 'fr', today: '2026-10-09', untitled: 'x', scenes: [], pieces, showcase, posts: [{ id: 'post-1', title: 'T', date: '', text }] });
     const html = data.posts![0]!.html;
-    expect(html.split(formatMoney(45, 'fr', 'EUR')).length).toBe(3);
+    expect(html.split(formatMoney(45, 'fr', 'CHF')).length).toBe(3);
     // Its tile: its first photo, its first words, at least a minute to read.
     expect(data.posts![0]).toMatchObject({ cover: 'assets/blog-post-1-1.webp', excerpt: 'À côté.', minutes: 1 });
     // No photo: the first creation it shows. Neither: no cover.
@@ -97,7 +97,7 @@ describe('site data', () => {
     // A piece that is gone leaves the block; one piece left is shown on its own.
     expect(html).toContain('<div class="post-pieces single"><figure><img src="assets/creation-p1.webp"');
     expect(html).toContain('<div class="post-pieces row">');
-    expect(html).toContain(formatMoney(45, 'fr', 'EUR'));
+    expect(html).toContain(formatMoney(45, 'fr', 'CHF'));
     expect(blogAssets([{ id: 'post-1', text }], pieces)).toEqual([
       { name: 'assets/blog-post-1-1.webp', path: 'C:/D/a b/four.jpg' },
       { name: 'assets/blog-post-1-2.webp', path: 'C:/D/two.jpg' },
@@ -152,6 +152,46 @@ describe('export', () => {
     expect(await asked()).toEqual(['1600@0.85', '800@0.85']);
     expect(await asked('high')).toEqual(['2560@0.9', '800@0.9']);
     expect(await asked('max')).toEqual(['3840@0.92', '800@0.92']);
+  });
+  it('writes a sharp copy of every full-screen picture only when the data declares it, the large one staying light', async () => {
+    const scenes = [scene('1')];
+    const plain = buildSiteData({ brand, lang: 'fr', today: '2026-01-01', untitled: 'x', scenes, pieces: [piece('p1')] });
+    expect(withSharpCopies(plain, 'standard').xl).toBeUndefined();
+    const data = withSharpCopies(plain, 'max');
+    expect(data.xl).toBe(3840);
+    const written: Record<string, number> = {};
+    const budgets: Record<string, number | undefined> = {};
+    await exportSite(data, scenes, [piece('p1')], '<html>', {
+      readImage: async (p) => `data:${p}`, readMedia: async () => 'd', onProgress: () => {}, quality: 'max', imageKb: 400,
+      toWebp: async (d, width, _q, max) => { written[`${d}@${width}`] = width; budgets[`${d}@${width}`] = max; return 'AAAA'; },
+      save: async () => {},
+    });
+    const saved: string[] = [];
+    await exportSite(data, scenes, [piece('p1')], '<html>', { readImage: async (p) => `data:${p}`, readMedia: async () => 'd', onProgress: () => {}, quality: 'max', toWebp: async () => 'AAAA', save: async (n) => { saved.push(n); } });
+    for (const b of ['place', 'piece', 'alive']) {
+      expect(saved).toContain(`assets/1-${b}-l.webp`);
+      expect(saved).toContain(sharpAsset(`assets/1-${b}-l.webp`));
+    }
+    // The creation's photo has no sharp copy: only full-screen pictures do.
+    expect(saved.filter((n) => n.endsWith('-x.webp'))).toHaveLength(3);
+    expect(sharpAsset('assets/1-place-l.webp')).toBe('assets/1-place-x.webp');
+    // The large size stays 1 600 px; the sharp one is the chosen width, its weight budget grown with it (four times at most).
+    expect(Object.values(written).sort((a, b) => a - b)).toEqual(expect.arrayContaining([800, 1600, 3840]));
+    expect(Object.entries(budgets).find(([k]) => k.endsWith('@3840'))![1]).toBe(1_600_000);
+    expect(Object.entries(budgets).find(([k]) => k.endsWith('@1600'))![1]).toBe(400_000);
+  });
+  it('writes the creations large when the catalogue is a strip, one photo across the page', async () => {
+    const scenes = [scene('1')];
+    const widths = async (layout?: 'strip' | 'mosaic') => {
+      const data = buildSiteData({ brand, lang: 'fr', today: '2026-01-01', untitled: 'x', scenes, pieces: [piece('p1')], ...(layout ? { viewer: { loupe: 'none', frame: 'none', layout } } : {}) });
+      const out: Record<string, number> = {};
+      await exportSite(data, scenes, [piece('p1')], '<html>', { readImage: async (p) => p, readMedia: async () => 'd', save: async () => {}, onProgress: () => {}, toWebp: async (_d, w) => { out[_d] = w; return 'AAAA'; } });
+      return out;
+    };
+    const photo = piece('p1').photoPath!;
+    expect((await widths())[photo]).toBe(800);
+    expect((await widths('mosaic'))[photo]).toBe(800);
+    expect((await widths('strip'))[photo]).toBe(1600);
   });
   it('asks each picture to fit the weight chosen (phones 40 % of it) and measures what it wrote', async () => {
     const scenes = [scene('1')];

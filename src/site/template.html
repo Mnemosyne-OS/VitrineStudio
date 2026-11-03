@@ -28,7 +28,18 @@
   /* Header: the logo left, the pages right. Its measured height (--head-h, set by the script) pushes every page's top down: a big logo never covers a title. */
   header { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: var(--pad); pointer-events: none; }
   header > * { pointer-events: auto; }
+  /* A page's words scrolled under the logo and the menu: a frosted veil behind them, so the two never read on top of each other. */
+  header::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: 0; transition: opacity .35s ease;
+    background: color-mix(in srgb, var(--paper) 72%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.1); backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-mask-image: linear-gradient(to bottom, var(--paper) 78%, transparent); mask-image: linear-gradient(to bottom, var(--paper) 78%, transparent); }
+  header.veiled::before { opacity: 1; }
 __LOGO_CSS__
+__LOADER_CSS__
+  /* Her pages in the dark for a visitor whose system is dark (Site › Look): her two colours swapped, the scenes untouched. */
+  @media (prefers-color-scheme: dark) {
+    body.dark-auto.paged { --paper: __INK__; --ink: __PAPER__; --ink-soft: color-mix(in srgb, __PAPER__ 72%, __INK__); --line: color-mix(in srgb, __PAPER__ 18%, transparent); color-scheme: dark; }
+    body.dark-auto.paged .portrait img { filter: grayscale(1) brightness(.92); }
+  }
   .brand { font-size: 15px; font-weight: 400; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); }
   nav { display: flex; gap: clamp(14px, 2.4vw, 36px); }
   nav a { white-space: nowrap; font-size: 12px; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); transition: color .4s; }
@@ -127,6 +138,8 @@ __LOGO_CSS__
   .hint.right { right: 6px; transform: translateY(-50%); }
   /* The neighbours' names framed (studio: the map's settings), or not shown. */
   body.edges-none .hint { display: none; }
+  /* The scenes without their names (the Scenes settings): the pieces speak alone. */
+  body.titles-off .roomname, body.titles-off .meta .variant, body.titles-off .map-row > span { display: none; }
   body.edges-box .hint { padding: 9px 16px; border-radius: 99px; font-size: 12px; color: var(--ink); background: color-mix(in srgb, var(--paper) 72%, transparent); border: 1px solid var(--line);
     -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); box-shadow: 0 12px 30px -18px rgb(0 0 0 / .45); transition: color .3s, border-color .3s; }
   body.edges-box .hint:hover { color: var(--accent); border-color: var(--accent); }
@@ -175,9 +188,13 @@ __LOGO_CSS__
   .page .side p { white-space: pre-line; }
   .page .side a { border-bottom: 1px solid var(--line); }
   .portrait { max-width: 360px; width: 100%; margin: 0 0 20px; aspect-ratio: 1; }
+  .about-photos { display: grid; gap: 14px; margin-top: 18px; }
+  .about-top .about-photos, .about-bottom .about-photos { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
+  .about-photos figure { margin: 0; } .about-photos img { width: 100%; height: auto; display: block; }
   /* Her layouts (studio: About, Contact): the portrait left or above the words, the form right of them. */
   .page .about-left .lead { grid-column: 6 / span 7; } .page .about-left .side { grid-column: 1 / span 4; grid-row: 1; }
   .page .about-top .side { grid-column: 1 / -1; grid-row: 1; } .page .about-top .lead { grid-column: 1 / span 8; }
+  .page .about-bottom .lead { grid-column: 1 / span 8; } .page .about-bottom .side { grid-column: 1 / -1; grid-row: 2; }
   .page .contact-right form { grid-column: 7 / span 6; } .page .contact-right .side { grid-column: 1 / span 5; grid-row: 1; }
   /* Her formatting: titles, lists, quotes, links, as the blog's. */
   .rich h3 { font-size: 20px; font-weight: 400; margin: 24px 0 10px; } .rich h4 { font-size: 16px; font-weight: 500; margin: 18px 0 8px; }
@@ -217,6 +234,32 @@ __LOGO_CSS__
   .gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
   .gallery figure { position: relative; margin-bottom: 28px; cursor: pointer; transition: transform .5s var(--ease), opacity .35s ease; }
   .gallery figure.out { opacity: 0; transform: scale(.96); }
+  /* The mosaic: columns, each photo at its own shape, so the rows fall staggered. */
+  .gallery.layout-mosaic { display: block; columns: 220px; column-gap: 16px; }
+  .gallery.layout-mosaic figure { break-inside: avoid; margin: 0 0 22px; }
+  .gallery.layout-mosaic .ph { aspect-ratio: auto; }
+  .gallery.layout-mosaic .ph img.g0 { position: relative; height: auto; }
+  .gallery.layout-mosaic.frame-frame .ph { padding: 12px; }
+  .gallery.layout-mosaic.frame-frame .ph img.g0 { inset: auto; width: 100%; height: auto; }
+  /* The strip: one large photo at a time, swiped or stepped, the next ones small under it. */
+  .strip-wrap { grid-column: 1 / -1; position: relative; min-width: 0; }
+  .gallery.layout-strip { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; padding: 0 8%; }
+  .gallery.layout-strip::-webkit-scrollbar { display: none; }
+  .gallery.layout-strip figure { flex: 0 0 min(84%, 960px); scroll-snap-align: center; margin-bottom: 12px; }
+  .gallery.layout-strip .ph { aspect-ratio: 4 / 3; }
+  .gallery.layout-strip .ph img { object-fit: contain; }
+  .strip-go { position: absolute; top: 40%; z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 80%, transparent); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; transition: color .3s, border-color .3s; }
+  .strip-go:hover { color: var(--accent); border-color: var(--accent); }
+  .strip-go.prev { left: 0; } .strip-go.next { right: 0; }
+  .strip-thumbs { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: safe center; overflow-x: auto; scrollbar-width: none; padding: 6px 2px; }
+  .strip-thumbs button { flex: 0 0 64px; height: 64px; padding: 0; border: 0; border-radius: 6px; overflow: hidden; opacity: .5; cursor: pointer; transition: opacity .3s, outline-color .3s; outline: 2px solid transparent; outline-offset: 2px; }
+  .strip-thumbs button.on { opacity: 1; outline-color: var(--accent); }
+  .strip-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  @media (hover: none) { .strip-go { display: none; } }
+  /* The parallax: under the pointer each photo drifts a little, at its own depth. */
+  .gallery.parallax .ph img { scale: 1.1; translate: calc(var(--px, 0) * var(--d, 8px)) calc(var(--py, 0) * var(--d, 8px)); transition: transform .7s var(--ease), opacity .5s ease, translate .8s var(--ease); }
+  .gallery.parallax figure:nth-child(3n + 1) { --d: 6px; } .gallery.parallax figure:nth-child(3n + 2) { --d: 12px; } .gallery.parallax figure:nth-child(3n) { --d: 9px; }
+  @media (prefers-reduced-motion: reduce), (hover: none) { .gallery.parallax .ph img { translate: none; scale: none; } }
   .cats { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
   .cats button { padding: 7px 16px; border-radius: 99px; border: 1px solid var(--line); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); transition: color .3s, background .3s, border-color .3s; }
   .cats button:hover { color: var(--ink); border-color: var(--ink-soft); }
@@ -342,7 +385,11 @@ __LOGO_CSS__
   .btn { justify-self: start; border: 1px solid var(--ink); padding: 12px 26px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; transition: background .3s, color .3s; }
   .btn:hover { background: var(--ink); color: var(--paper); }
   .btn:disabled { opacity: .5; cursor: default; }
+  nav a.lang-switch { padding: 2px 8px; border: 1px solid var(--line); border-radius: 99px; letter-spacing: .1em; }
   .form-status { font-size: 14px; color: var(--ink-soft); margin: 0; min-height: 1.5em; }
+  .form-status.ok { font-size: 16px; color: var(--accent); }
+  .form-status.bad { color: var(--ink); }
+  form [aria-invalid] { border-color: var(--accent); }
   .form-via { font-size: 11px; letter-spacing: .08em; color: var(--ink-soft); margin: 0; }
   .close { position: fixed; z-index: 19; right: var(--pad); bottom: var(--pad); background: var(--paper); padding: 8px 12px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; display: none; }
   body.paged .close { display: block; }
@@ -419,7 +466,8 @@ __LOGO_CSS__
     .page .lead, .page .side, form, .post { grid-column: 1 / -1; }
     .page .side { order: -1; }
     .portrait { max-width: 220px; }
-    .page .about-left .lead, .page .about-left .side, .page .about-top .lead, .page .about-top .side, .page .contact-right form, .page .contact-right .side { grid-column: 1 / -1; grid-row: auto; }
+    .page .about-left .lead, .page .about-left .side, .page .about-top .lead, .page .about-top .side, .page .about-bottom .lead, .page .about-bottom .side, .page .contact-right form, .page .contact-right .side { grid-column: 1 / -1; grid-row: auto; }
+    .page .about-bottom .side { order: 1; }
     .post-img.left, .post-img.right { float: none; width: 100%; margin: 0 0 1em; }
   }
   @media (prefers-reduced-motion: reduce) { :root { --dur: 0ms; } * { transition-duration: 0ms !important; } }
@@ -447,8 +495,30 @@ __LOGO_CSS__
 <script>
 (async () => {
   // The data is inline (the folder opens from the disk too); data.json is the fallback.
-  const D = JSON.parse(document.getElementById('site-data').textContent || 'null') ?? await (await fetch('data.json', { cache: 'no-cache' })).json();
+  const SITE = JSON.parse(document.getElementById('site-data').textContent || 'null') ?? await (await fetch('data.json', { cache: 'no-cache' })).json();
+  // The second language: asked in the address (?lang=en), else the one last chosen, else the visitor's own.
+  const MAIN_LANG = document.documentElement.lang;
+  const ALT = SITE.alt || null;
+  const wanted = (() => { const q = new URLSearchParams(location.search).get('lang'); if (q) return q; try { const s = localStorage.getItem('site-lang'); if (s) return s; } catch (err) { console.warn('No saved language:', err); } return (navigator.language || '').slice(0, 2).toLowerCase(); })();
+  const D = ALT && wanted === ALT.lang ? ALT.data : SITE;
+  if (D !== SITE) document.documentElement.lang = ALT.lang;
   const T = D.texts;
+  if (D.brand.dark === 'auto') document.body.classList.add('dark-auto');
+  // The loading screen goes once everything is in: never before half a second (no flash), never after eight.
+  const loader = document.querySelector('.loader');
+  if (loader) {
+    const t0 = performance.now();
+    let lifted = false;
+    let late = 0;
+    const lift = () => {
+      if (lifted) return;
+      lifted = true;
+      clearTimeout(late);
+      setTimeout(() => { loader.classList.add('gone'); setTimeout(() => loader.remove(), 700); }, Math.max(0, 500 - (performance.now() - t0)));
+    };
+    if (document.readyState === 'complete') lift(); else addEventListener('load', lift, { once: true });
+    late = setTimeout(lift, 8000);
+  }
   const B = D.brand;
   const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // A text written on several lines keeps its lines; paragraphs are split on blank lines.
@@ -465,7 +535,11 @@ __LOGO_CSS__
   const HOME_ROWS = D.rows.length ? D.rows : (STAGES[0] ? STAGES[0].rows : []);
   let ROWS = HOME_ROWS, stageId = '';
   const SMALL = matchMedia('(max-width: 760px)').matches;
-  const src = (img) => (SMALL ? img.s : img.l);
+  // The sharp copy only where it shows (more than 1 800 real pixels across) and the connection can carry it.
+  const NET = navigator.connection;
+  const SLOW = !!(NET && (NET.saveData || /(^|-)(2g|3g)$/.test(NET.effectiveType || '')));
+  const SHARP = !SMALL && !SLOW && !!D.xl && innerWidth * (devicePixelRatio || 1) > 1800;
+  const src = (img) => (SMALL ? img.s : SHARP && /-l\.webp$/.test(img.l) ? img.l.replace(/-l\.webp$/, '-x.webp') : img.l);
 
   const brand = document.querySelector('.brand');
   if (D.identity) {
@@ -500,6 +574,10 @@ __LOGO_CSS__
   window.addEventListener('load', headH);
   window.addEventListener('resize', headH);
   head.querySelectorAll('img').forEach((im) => im.addEventListener('load', headH));
+  // The veil behind the header, only while an open page has words scrolled under it.
+  const veil = () => { const open = document.querySelector('.page.open'); head.classList.toggle('veiled', !!open && open.scrollTop > 2); };
+  document.addEventListener('scroll', (e) => { if (e.target instanceof Element && e.target.classList.contains('page')) veil(); }, true);
+  addEventListener('hashchange', () => setTimeout(veil, 0));
   // Replay on hover, when chosen: the class off, a reflow, the class back.
   brand.addEventListener('mouseenter', () => {
     const el = brand.querySelector('.brand-in.hover');
@@ -525,6 +603,7 @@ __LOGO_CSS__
   {
     // The neighbours at the edges and the first visitor's guide, as she chose them (absent = framed).
     document.body.classList.add(`edges-${(D.sceneMap && D.sceneMap.edges) || 'box'}`);
+    if (D.sceneMap && D.sceneMap.titles === 'off') document.body.classList.add('titles-off');
     const guide = (D.sceneMap && D.sceneMap.guide) || 'box';
     const fh = document.querySelector('.first-hint');
     if (guide === 'none') fh.remove();
@@ -556,7 +635,8 @@ __LOGO_CSS__
   };
   if (D.creations.length) pages.push({ id: 'creations', title: T.creations, html: gallery(D.creations, D.categories) });
   if (B.about || D.portrait) {
-    const side = (D.portrait ? `<figure class="portrait"><img src="${esc(D.portrait)}" alt="${esc(B.portraitCaption || B.name)}" loading="lazy" decoding="async"></figure>` : '') + (B.portraitCaption ? `<p>${esc(B.portraitCaption)}</p>` : '');
+    const side = (D.portrait ? `<figure class="portrait"><img src="${esc(D.portrait)}" alt="${esc(B.portraitCaption || B.name)}" loading="lazy" decoding="async"></figure>` : '') + (B.portraitCaption ? `<p>${esc(B.portraitCaption)}</p>` : '')
+      + ((D.aboutPhotos || []).length ? `<div class="about-photos">${D.aboutPhotos.map((src) => `<figure><img src="${esc(src)}" alt="${esc(B.name)}" loading="lazy" decoding="async"></figure>`).join('')}</div>` : '');
     pages.push({ id: 'a-propos', title: T.about, html: `<div class="cols about-${esc(B.aboutLayout || 'right')}"><div class="lead rich">${D.aboutHtml || paragraphs(B.about)}</div>${side ? `<div class="side">${side}</div>` : ''}</div>` });
   }
   // A blog: the list, then each post on its own page (not in the menu). Its HTML was made
@@ -588,11 +668,11 @@ __LOGO_CSS__
     else if (p.type === 'blog') blog(p.id, p.title, p.posts);
     else if (p.type === 'text') pages.push({ id: p.id, title: p.title, html: `<div class="cols about-${esc(p.layout || 'right')}"><div class="lead rich">${p.html || ''}</div>${p.photo ? `<div class="side"><figure class="portrait page-photo"><img src="${esc(p.photo)}" alt="${esc(p.title)}" loading="lazy" decoding="async"></figure></div>` : ''}</div>` });
     // A form whose answers go nowhere (no e-mail, no Formspree) is never drawn: the page keeps its words alone.
-    else if (p.type === 'form') pages.push({ id: p.id, title: p.title, html: `<div class="cols contact-${esc(p.layout || 'left')}">${B.email || B.formspree ? `<form class="mail" data-title="${esc(p.title)}">${p.fields.map(fieldHtml).join('')}<button class="btn">${esc(T.formSend)}</button><p class="form-status" role="status"></p>${B.formspree ? `<p class="form-via">${esc(T.formVia)}</p>` : ''}</form>` : ''}<div class="side">${p.html ? `<div class="rich">${p.html}</div>` : ''}</div></div>` });
+    else if (p.type === 'form') pages.push({ id: p.id, title: p.title, html: `<div class="cols contact-${esc(p.layout || 'left')}">${B.email || B.formspree ? `<form class="mail" novalidate data-title="${esc(p.title)}">${p.fields.map(fieldHtml).join('')}<button class="btn">${esc(T.formSend)}</button><p class="form-status" role="status"></p>${B.formspree ? `<p class="form-via">${esc(T.formVia)}</p>` : ''}</form>` : ''}<div class="side">${p.html ? `<div class="rich">${p.html}</div>` : ''}</div></div>` });
   });
   if (B.email || B.formspree || B.instagram || B.contactNote) {
     const ig = B.instagram ? B.instagram.replace(/^@/, '') : '';
-    const form = B.email || B.formspree ? `<form class="mail"><label>${esc(T.formName)} <input name="nom" autocomplete="name"></label><label>${esc(T.formEmail)} <input name="email" type="email" autocomplete="email"></label><label>${esc(T.formMessage)} <textarea name="message" rows="4" required></textarea></label><button class="btn">${esc(T.formSend)}</button><p class="form-status" role="status"></p>${B.formspree ? `<p class="form-via">${esc(T.formVia)}</p>` : ''}</form>` : '';
+    const form = B.email || B.formspree ? `<form class="mail" novalidate><label>${esc(T.formName)} * <input name="nom" autocomplete="name" required></label><label>${esc(T.formEmail)} * <input name="email" type="email" autocomplete="email" required></label><label>${esc(T.formMessage)} * <textarea name="message" rows="4" required></textarea></label><button class="btn">${esc(T.formSend)}</button><p class="form-status" role="status"></p>${B.formspree ? `<p class="form-via">${esc(T.formVia)}</p>` : ''}</form>` : '';
     const side = `${D.contactHtml ? `<div class="rich">${D.contactHtml}</div>` : B.contactNote ? `<p>${esc(B.contactNote)}</p>` : ''}${B.email ? `<p><a href="mailto:${esc(B.email)}">${esc(B.email)}</a></p>` : ''}${(D.socials || []).length ? `<p class="socials">${D.socials.map((s) => `<a href="${esc(s.href)}" rel="noopener" target="_blank" aria-label="${esc(s.name)}" title="${esc(s.name)}">${s.icon}</a>`).join('')}</p>` : ig ? `<p><a href="https://instagram.com/${esc(ig)}" rel="noopener">@${esc(ig)}</a></p>` : ''}`;
     pages.push({ id: 'contact', title: T.contact, html: `<div class="cols contact-${esc(B.contactLayout || 'left')}">${form}<div class="side">${side}</div></div>` });
   }
@@ -600,7 +680,12 @@ __LOGO_CSS__
   // The menu in the order she set; a page she did not place keeps its place after them.
   const rank = (id) => { const i = (D.menuOrder || []).indexOf(id); return i < 0 ? 99 : i; };
   const stages = (D.pages || []).filter((p) => p.type === 'scenes');
-  document.querySelector('nav').innerHTML = [...pages.filter((p) => !p.sub), ...stages].sort((a, b) => rank(a.id) - rank(b.id)).map((p) => `<a href="#${p.id}">${esc(p.title)}</a>`).join('') + (D.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.title)}</a>`).join('');
+  document.querySelector('nav').innerHTML = [...pages.filter((p) => !p.sub), ...stages].sort((a, b) => rank(a.id) - rank(b.id)).map((p) => `<a href="#${p.id}">${esc(p.title)}</a>`).join('') + (D.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.title)}</a>`).join('')
+    // The other language, last in the menu: its code, the page reopened in it.
+    + (ALT ? `<a class="lang-switch" href="?lang=${esc(D === SITE ? ALT.lang : MAIN_LANG)}" data-lang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}" hreflang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}">${esc((D === SITE ? ALT.lang : MAIN_LANG).toUpperCase())}</a>` : '');
+  document.querySelector('nav .lang-switch')?.addEventListener('click', (e) => {
+    try { localStorage.setItem('site-lang', e.currentTarget.dataset.lang); } catch (err) { console.warn('The language was not kept:', err); }
+  });
   // The legal notice and the privacy page: out of the menu, reached from the footer on every screen.
   if (D.legal) D.legal.pages.forEach((p) => pages.push({ id: p.id, title: p.title, sub: true, html: `<div class="cols"><div class="lead legal-text">${p.html}</div></div>` }));
   document.getElementById('pages').innerHTML = pages.map((p) => `<section class="page" id="p-${p.id}"><h1>${esc(p.title)}</h1>${p.html}</section>`).join('');
@@ -704,8 +789,54 @@ __LOGO_CSS__
       const keep = !cat || f.dataset.cats.split(' ').includes(cat);
       if (keep) { f.hidden = false; requestAnimationFrame(() => f.classList.remove('out')); }
       else { f.classList.add('out'); setTimeout(() => { if (f.classList.contains('out')) f.hidden = true; }, 350); }
+      // A strip's thumbnail follows its photo.
+      const th = page.querySelector(`.strip-thumbs button[data-c="${f.dataset.c}"]`);
+      if (th) th.hidden = !keep;
     });
   }));
+  // The catalogue's layout and its parallax (the Creations page's settings).
+  const LAYOUT = (D.viewer && D.viewer.layout) || 'grid';
+  const MOVES = !!(D.viewer && D.viewer.parallax) && matchMedia('(hover: hover)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches;
+  document.querySelectorAll('.gallery').forEach((g) => {
+    if (LAYOUT !== 'grid') g.classList.add(`layout-${LAYOUT}`);
+    if (LAYOUT === 'strip') strip(g);
+    if (!MOVES) return;
+    g.classList.add('parallax');
+    let raf = 0;
+    g.addEventListener('pointermove', (e) => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const r = g.getBoundingClientRect();
+        g.style.setProperty('--px', (((e.clientX - r.left) / r.width - 0.5) * 2).toFixed(3));
+        g.style.setProperty('--py', (((e.clientY - r.top) / r.height - 0.5) * 2).toFixed(3));
+      });
+    });
+    g.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); g.style.setProperty('--px', '0'); g.style.setProperty('--py', '0'); });
+  });
+  // One large photo at a time: its arrows, its thumbnails, the current one lit as it is swiped.
+  function strip(g) {
+    const wrap = document.createElement('div');
+    wrap.className = 'strip-wrap';
+    g.before(wrap);
+    wrap.append(g);
+    const figs = [...g.querySelectorAll('figure')];
+    const centre = (f) => g.scrollTo({ left: f.offsetLeft - (g.clientWidth - f.clientWidth) / 2 });
+    const step = (k) => { const at = figs.filter((f) => !f.hidden); const i = Math.max(0, at.findIndex((f) => f.classList.contains('cur'))); const to = at[Math.min(at.length - 1, Math.max(0, i + k))]; if (to) centre(to); };
+    wrap.insertAdjacentHTML('beforeend', '<button class="strip-go prev" aria-label="‹">‹</button><button class="strip-go next" aria-label="›">›</button>');
+    wrap.querySelector('.prev').addEventListener('click', () => step(-1));
+    wrap.querySelector('.next').addEventListener('click', () => step(1));
+    const thumbs = document.createElement('div');
+    thumbs.className = 'strip-thumbs';
+    thumbs.innerHTML = figs.map((f) => `<button data-c="${esc(f.dataset.c)}" aria-label="${esc(f.getAttribute('aria-label') || '')}"><img src="${esc(f.querySelector('img').getAttribute('src'))}" alt="" loading="lazy" decoding="async"></button>`).join('');
+    wrap.after(thumbs);
+    thumbs.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { const f = g.querySelector(`figure[data-c="${b.dataset.c}"]`); if (f) centre(f); }));
+    const io = new IntersectionObserver((seen) => seen.forEach((x) => {
+      if (!x.isIntersecting) return;
+      figs.forEach((f) => f.classList.toggle('cur', f === x.target));
+      thumbs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.c === x.target.dataset.c));
+    }), { root: g, threshold: 0.6 });
+    figs.forEach((f) => io.observe(f));
+  }
   document.querySelectorAll('.gallery figure').forEach((f) => {
     const c = ALL[+f.dataset.c];
     f.addEventListener('click', () => openViewer(c));
@@ -715,14 +846,29 @@ __LOGO_CSS__
   // Every form of the site (Contact, and her form pages) sends the same way; a form page's answers carry its name.
   document.querySelectorAll('form.mail').forEach((mail) => mail.addEventListener('submit', async (e) => {
     e.preventDefault();
+    const status = mail.querySelector('.form-status');
+    status.classList.remove('ok', 'bad');
+    // Checked here, in the site's language: a field of spaces is empty, an address needs its @ and its domain.
+    const fields = [...mail.querySelectorAll('input, textarea, select')];
+    const missing = fields.filter((el) => el.required && (el.type === 'checkbox' ? !el.checked : !String(el.value).trim()));
+    const badMail = fields.find((el) => el.type === 'email' && el.value.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(el.value.trim()));
+    fields.forEach((el) => el.toggleAttribute('aria-invalid', missing.includes(el) || el === badMail));
+    if (missing.length || badMail) {
+      // The label's own words (its text, not its fields'): never a list's options written inside it.
+      const names = missing.map((el) => [...el.closest('label').childNodes].filter((n) => n.nodeType === 3).map((n) => n.textContent).join(' ').replace('*', '').trim()).join(', ');
+      status.textContent = missing.length ? T.formMissing.replace('{f}', names) : T.formBadEmail;
+      status.classList.add('bad');
+      (missing[0] || badMail).focus();
+      return;
+    }
     const f = new FormData(mail);
     const what = mail.dataset.title ? `${mail.dataset.title} · ` : '';
     if (!B.formspree) {
       const body = mail.dataset.title ? [...f.entries()].map(([k, v]) => `${k} : ${v}`).join('\n') : `${f.get('message') || ''}\n\n${f.get('nom') || ''}${f.get('email') ? ` · ${f.get('email')}` : ''}`;
       location.href = `mailto:${B.email}?subject=${encodeURIComponent(`${T.formSubject} · ${what}${f.get('nom') || B.name}`)}&body=${encodeURIComponent(body)}`;
+      status.textContent = T.formMailApp;
       return;
     }
-    const status = mail.querySelector('.form-status');
     const button = mail.querySelector('button');
     status.textContent = T.formSending; button.disabled = true;
     // A network that never answers is not left waiting.
@@ -737,9 +883,11 @@ __LOGO_CSS__
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       mail.reset();
       status.textContent = T.formSent;
+      status.classList.add('ok');
     } catch (err) {
       console.error('The message was not sent:', err);
       status.textContent = T.formFailed;
+      status.classList.add('bad');
     } finally {
       clearTimeout(timer); button.disabled = false;
     }
@@ -928,10 +1076,12 @@ __LOGO_CSS__
   function sync() {
     const row = ROWS[r];
     const h = (sel, txt, show) => { const b = document.querySelector(sel); b.textContent = txt; b.style.visibility = show ? '' : 'hidden'; };
-    h('.hint.up', '↑ ' + ROWS[mod(r - 1, ROWS.length)].name, ROWS.length > 1);
-    h('.hint.down', ROWS[mod(r + 1, ROWS.length)].name + ' ↓', ROWS.length > 1);
-    h('.hint.left', '← ' + row.scenes[mod(v - 1, row.scenes.length)].name, row.scenes.length > 1);
-    h('.hint.right', row.scenes[mod(v + 1, row.scenes.length)].name + ' →', row.scenes.length > 1);
+    // The names hidden on the scenes (Scenes settings) are hidden at the edges too: the arrows stay.
+    const named = (n) => (D.sceneMap && D.sceneMap.titles === 'off' ? '' : n);
+    h('.hint.up', `↑ ${named(ROWS[mod(r - 1, ROWS.length)].name)}`.trim(), ROWS.length > 1);
+    h('.hint.down', `${named(ROWS[mod(r + 1, ROWS.length)].name)} ↓`.trim(), ROWS.length > 1);
+    h('.hint.left', `← ${named(row.scenes[mod(v - 1, row.scenes.length)].name)}`.trim(), row.scenes.length > 1);
+    h('.hint.right', `${named(row.scenes[mod(v + 1, row.scenes.length)].name)} →`.trim(), row.scenes.length > 1);
     document.querySelectorAll('.map button').forEach((b) => b.setAttribute('aria-current', +b.dataset.r === r && +b.dataset.v === v));
     document.querySelectorAll('.map-row span').forEach((s, i) => s.classList.toggle('on', i === r));
   }
@@ -966,7 +1116,7 @@ __LOGO_CSS__
     const kicker = B.tagline ? `<p class="intro-kicker">${esc(B.tagline)}</p>` : '';
     const line = B.introLine ? `<p class="intro-line">${lines(B.introLine)}</p>` : '';
     intro.setAttribute('aria-label', B.name);
-    intro.innerHTML = `<img src="${esc(SMALL ? D.film.poster.s : D.film.poster.l)}" alt="${esc(B.name)} · ${esc(T.generated)}">`
+    intro.innerHTML = `<img src="${esc(src(D.film.poster))}" alt="${esc(B.name)} · ${esc(T.generated)}">`
       + (kicker || line ? `<div class="intro-text">${kicker}${line}</div>` : '')
       + `${CREDIT}<button class="intro-enter" type="button">${esc(T.enter)} ↓</button>`;
     vids = D.film.clips.map((c) => {

@@ -59,10 +59,10 @@ export function useBlog(studio: Studio, open: boolean, pageId: string | null = n
   return {
     posts, summaries, busy, error,
     editing: posts.find((p) => p.id === editing) ?? null,
-    /** A new post in the studio's blog folder, opened in the editor. */
-    write: (title: string) => run(async () => {
+    /** A new post in the studio's blog folder, opened in the editor; `body` = a model's words under the title. */
+    write: (title: string, body = '') => run(async () => {
       if (!folder) return;
-      const path = await createPostFile(folder, title, hostIO);
+      const path = await createPostFile(folder, title, hostIO, body);
       const post: BlogPost = { id: newId(), path, date: today(), published: false, ...mine };
       await add(post);
       setSummaries((t) => ({ ...t, [post.id]: { title: title.trim(), excerpt: '', minutes: 1, pieces: [] } }));

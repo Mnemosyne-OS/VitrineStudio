@@ -59,7 +59,7 @@ export async function readPostSummaries(posts: BlogPost[], io: Pick<FolderIO, 'r
 }
 
 /** A new post's file in `<root>/blog/`, its title as the first heading. Resolves its path. */
-export async function createPostFile(root: string, title: string, io: Pick<FolderIO, 'mkdir' | 'readDir' | 'writeFile'>): Promise<string> {
+export async function createPostFile(root: string, title: string, io: Pick<FolderIO, 'mkdir' | 'readDir' | 'writeFile'>, body = ''): Promise<string> {
   const dir = joinPath(root, BLOG_DIR);
   const made = await io.mkdir(dir);
   if (!made.success) throw new BlogError('POST_NOT_WRITTEN', dir, made.error);
@@ -67,7 +67,7 @@ export async function createPostFile(root: string, title: string, io: Pick<Folde
   if (!listed.success) throw new BlogError('POST_NOT_WRITTEN', dir, listed.error);
   const taken = new Set((listed.files ?? []).map((f) => f.name.toLowerCase()));
   const path = joinPath(dir, postFileName(title, (n) => taken.has(n)));
-  const written = await io.writeFile(path, `# ${title.trim()}\n\n`);
+  const written = await io.writeFile(path, `# ${title.trim()}\n\n${body ? `${body.trim()}\n` : ''}`);
   if (!written.success) throw new BlogError('POST_NOT_WRITTEN', path, written.error);
   return path;
 }

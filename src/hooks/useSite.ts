@@ -5,6 +5,7 @@ import { declareSiteFolder, deploySite, hostIO, joinFilm, openStudioWindow, read
 import { loadStudioJson, SITE_FILE } from '../data/folderStore';
 import { loadKit } from '../data/kitIO';
 import { readSitePosts, type SitePost } from '../data/blogIO';
+import { herItems, withSecondLanguage } from '../model/translation';
 import { KitError } from '../model/kit';
 import { SITE_FONT_FILES } from '../site/fonts';
 import { toWebp } from '../data/webp';
@@ -15,7 +16,7 @@ import { filmOnSite } from '../model/filmRecord';
 import { firstSitePhoto } from '../model/scenePhotos';
 import { publishStage, siteFields, sitePrint } from '../model/publish';
 import { legalMarkdown } from '../site/legalPages';
-import { allCreations, allRows, blogAssets, buildSiteData, cellFiles, legalSiteOf, pagePhotoAsset, PORTRAIT_ASSET, EXPORT_QUALITY, exportSite, fillShell, filmSources, onlineScenes, slugify, type ExportDeps, type SiteInput } from '../site/buildSite';
+import { allCreations, allRows, blogAssets, buildSiteData, cellFiles, legalSiteOf, aboutPhotoAsset, pagePhotoAsset, PORTRAIT_ASSET, EXPORT_QUALITY, exportSite, fillShell, filmSources, onlineScenes, slugify, withSharpCopies, type ExportDeps, type SiteInput } from '../site/buildSite';
 import { buildPreview, swapAsset, withErrorWatch, withMenuEditing, type Preview } from '../site/preview';
 import { LOGO_ASSET } from '../site/logo';
 import siteTemplate from '../site/template.html?raw';
@@ -130,9 +131,11 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   const build = (posts: SitePost[], links?: Array<{ title: string; href: string }>) => {
     const lang = getLanguage();
     const filmFiles = film ? filmSources(film, filmOf(profileById(film.profileId)).steps) : null;
-    const data = buildSiteData(siteInput(lang, { scenes, pieces, posts, film: filmFiles, ...(links ? { links } : {}) }));
+    const records = { scenes, pieces, posts, film: filmFiles, ...(links ? { links } : {}) };
+    // The second language goes online once she has read at least one of its translations.
+    const data = withSecondLanguage(lang, (l) => withSharpCopies(buildSiteData(siteInput(l, records)), site.quality), site.translation);
     const shell = fillShell(siteTemplate, site.brand, lang, data);
-    const settings: Pick<ExportDeps, 'readImage' | 'readMedia' | 'toWebp' | 'quality' | 'imageKb' | 'logoPath' | 'portraitPath' | 'extraFiles' | 'creationPhotos' | 'blogFiles' | 'pagePhotos'> = {
+    const settings: Pick<ExportDeps, 'readImage' | 'readMedia' | 'toWebp' | 'quality' | 'imageKb' | 'logoPath' | 'portraitPath' | 'aboutPhotoPaths' | 'extraFiles' | 'creationPhotos' | 'blogFiles' | 'pagePhotos'> = {
       // Not the display cache: an export of a big site would keep every picture in memory.
       readImage: readMedia,
       readMedia,
@@ -141,6 +144,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
       imageKb: site.imageKb,
       ...(site.identity.logoPath ? { logoPath: site.identity.logoPath } : {}),
       ...(site.brand.portrait ? { portraitPath: site.brand.portrait } : {}),
+      aboutPhotoPaths: (site.brand.aboutPhotos ?? []).filter(Boolean),
       creationPhotos: Object.fromEntries(Object.entries(site.showcase).filter(([, s]) => s.show.photos).map(([id, s]) => [id, s.photos])),
       blogFiles: blogAssets(posts, pieces),
       pagePhotos: pagePhotos(),
@@ -245,14 +249,25 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     const tools = await videoToolsStatus().catch((err: unknown) => { console.warn('[vitrine-studio] video tools unreadable, clips go as they are:', err); return null; });
     // 🚨 Only a copy the host says it made FOR THE WEB: a host before this option ignores it and
     // writes the film's quality, heavier than the clip itself.
-    const webClip = tools?.installed ? async (path: string) => { const r = await joinFilm([{ path }], webClipBase(path), true); return r.web === true ? r.path : null; } : undefined;
-    return exportSite(data, scenes, pieces, shell, {
+    const level = site.videoLevel;
+    // Clips the host made light although a heavier level was chosen: counted, and said on the Site screen.
+    let lightOnly = 0;
+    const webClip = tools?.installed ? async (path: string) => {
+      const r = await joinFilm([{ path }], webClipBase(path), true, level);
+      if (level && r.web === true && r.webLevel !== level) {
+        lightOnly++;
+        console.warn(`[vitrine-studio] this Mnemosyne makes light web copies only; « ${level} » needs a newer one:`, path);
+      }
+      return r.web === true ? r.path : null;
+    } : undefined;
+    const res = await exportSite(data, scenes, pieces, shell, {
       ...settings,
       ...(webClip ? { webClip } : {}),
       ...(kit ? { extraFiles: [...(settings.extraFiles ?? []), ...kit.files] } : {}),
       save,
       onProgress,
     }, filmFiles);
+    return lightOnly ? { ...res, lightOnly } : res;
   };
 
   /**
@@ -418,7 +433,8 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     const pages = site.pages.filter((p) => p.type === 'text' || p.type === 'form');
     const data = buildSiteData(siteInput(lang, { scenes: [], pieces: [], pages }));
     if (site.brand.portrait) data.portrait = PORTRAIT_ASSET;
-    return pageUrl(data, lang, [...(site.brand.portrait ? [{ name: PORTRAIT_ASSET, path: site.brand.portrait }] : []), ...pagePhotos()], progress);
+    const about = (site.brand.aboutPhotos ?? []).filter(Boolean).map((path, i) => ({ name: aboutPhotoAsset(i), path }));
+    return pageUrl(data, lang, [...(site.brand.portrait ? [{ name: PORTRAIT_ASSET, path: site.brand.portrait }] : []), ...about, ...pagePhotos()], progress);
   };
 
   /** The two legal pages as the site would write them now, for the editor to start from. */
@@ -447,7 +463,14 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     sdk.invoke('shell.openExternal', { url }, 15_000).catch((err: unknown) => fail(err));
   };
 
+  /** Her words as the second version would carry them (that language's build), each with its place: what there is to translate. */
+  const translationWords = async (lang: SiteInput['lang']) => {
+    const filmFiles = film ? filmSources(film, filmOf(profileById(film.profileId)).steps) : null;
+    return herItems(buildSiteData(siteInput(lang, { scenes, pieces, posts: await readSitePosts(site.posts, hostIO), film: filmFiles })));
+  };
+
   return {
+    translationWords,
     token, tokenUnread, rereadToken: readToken, clearPreviewError: () => setPreviewError(null), work, preview, previewWork, previewError, check, checking, stage, missing, connected,
     chooseSiteFolder, previewNow, previewPost, previewCreations, previewScenes, previewInfo, previewHome, legalDrafts, exportSiteTo, closePreview: () => showPreview(null), previewInWindow, checkCompression,
     closeCheck: () => setCheck(null), exportNow, publishNow, saveToken, forgetToken, openLink,

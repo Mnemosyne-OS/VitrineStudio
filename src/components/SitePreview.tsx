@@ -1,6 +1,7 @@
 import { AppWindow, ChevronDown, ChevronUp, Maximize, Minimize, Palette, RefreshCw, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '../i18n';
+import { ColourField } from './ColourField';
 import type { Preview } from '../site/preview';
 import { DEFAULT_COLOURS } from '../site/buildSite';
 import { formatWeight } from '../format';
@@ -115,10 +116,7 @@ export function SitePreview({ preview, standalone, onClose, onOpenWindow, colour
       {palette && !full && bar && (
         <div className="site-preview-palette glass">
           {COLOUR_KEYS.map((key) => (
-            <label key={key} className="colour-pick">
-              <input type="color" value={palette[key]} onChange={(e) => { const next = { ...palette, [key]: e.target.value }; setPalette(next); paint(next); }} />
-              <span>{t(`site.brand.colour.${key}`)}</span>
-            </label>
+            <ColourField key={key} value={palette[key]} label={t(`site.brand.colour.${key}`)} onChange={(hex) => { const next = { ...palette, [key]: hex }; setPalette(next); paint(next); }} />
           ))}
           <button onClick={() => { const next = { ...DEFAULT_COLOURS }; setPalette(next); paint(next); }}><RotateCcw className="ico" aria-hidden />{t('site.colours.reset')}</button>
           <button className="primary" onClick={togglePalette}>{t('site.colours.done')}</button>

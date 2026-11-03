@@ -7,9 +7,9 @@ import { dataUrlText } from '../data/bytes';
 import { newId } from '../model/records';
 import { VectorizeCard } from './VectorizeCard';
 import { LogoParts } from './LogoParts';
-import { LogoOnPage } from './LogoOnPage';
+import { LogoHeightField, LogoOnPage } from './LogoOnPage';
 import { canSplit, splitCompound } from '../site/logoParts';
-import { brandMarkup, entranceSeconds, animFits, logoKind, LOGO_ANIMS, LOGO_CSS, LOGO_MODES, LOGO_SIZES, LOGO_SPEEDS, LOGO_SVG_MAX_CHARS, sanitizeSvg, setLogoSource, svgRatio, type Identity } from '../site/logo';
+import { brandMarkup, entranceSeconds, animFits, logoKind, LOGO_ANIMS, LOGO_CSS, LOGO_MODES, LOGO_SPEEDS, logoHeight, LOGO_SVG_MAX_CHARS, sanitizeSvg, setLogoSource, svgRatio, type Identity } from '../site/logo';
 import type { Brand } from '../site/buildSite';
 import { describeError, errorText } from './errors';
 import { DropZone } from './DropZone';
@@ -227,11 +227,9 @@ export function LogoPanel({ identity, brand, onChange, makePage }: {
               </button>
             ))}
             <span className="idea-sep" aria-hidden />
-            {LOGO_SIZES.map((s) => (
-              <button key={s} className={`chip-tile glass ${identity.size === s && !identity.height ? 'chosen' : ''}`} onClick={() => onChange({ ...identity, size: s, height: undefined })}>
-                <strong>{t(`logo.size.${s}`)}</strong>
-              </button>
-            ))}
+            {/* The height in px, the slider's own value. The magnified view fits any logo to its stage,
+                so the page is shown again: that is where a size is seen (there, 96, 120 and 180 px all looked 250 px tall). */}
+            <LogoHeightField value={logoHeight(identity)} onCommit={(n) => { if (n !== identity.height) onChange({ ...identity, height: n }); setView('page'); }} />
             <button className={`chip-tile glass ${identity.tint ? 'chosen' : ''}`} onClick={() => onChange({ ...identity, tint: !identity.tint })}>
               <strong>{t('logo.tint')}</strong>
             </button>

@@ -27,11 +27,14 @@ describe('the first visitor guide', () => {
     expect(normalizeSceneMap({ style: 'dots', edges: 'box' }).edges).toBeUndefined();
     expect(normalizeSceneMap({ style: 'dots', credit: 'line' }).credit).toBe('line');
     expect(normalizeSceneMap({ style: 'dots', credit: 'loud' }).credit).toBeUndefined();
+    expect(normalizeSceneMap({ style: 'dots', titles: 'off' }).titles).toBe('off');
+    expect(normalizeSceneMap({ style: 'dots', titles: 'on' }).titles).toBeUndefined();
   });
   it('reaches the site when it is not the default', () => {
     const base = { brand: { name: 'A' }, lang: 'en', scenes: [], pieces: [], today: '2026-10-11', untitled: 'x' };
     expect(buildSiteData({ ...(base as any), sceneMap: { style: 'dots', guide: 'none' } }).sceneMap).toEqual({ style: 'dots', guide: 'none' });
     expect(buildSiteData({ ...(base as any), sceneMap: { style: 'dots', edges: 'text' } }).sceneMap).toEqual({ style: 'dots', edges: 'text' });
     expect(buildSiteData({ ...(base as any), sceneMap: { style: 'dots', credit: 'line' } }).sceneMap).toEqual({ style: 'dots', credit: 'line' });
+    expect(buildSiteData({ ...(base as any), sceneMap: { style: 'dots', titles: 'off' } }).sceneMap).toEqual({ style: 'dots', titles: 'off' });
   });
 });

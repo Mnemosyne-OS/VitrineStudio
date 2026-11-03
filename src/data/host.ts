@@ -209,12 +209,29 @@ export const upscaleImage = (path: string, scale: number) =>
 
 /** ffmpeg (doc 89): supported on this system, installed from Settings > Video, its download's size. */
 export interface VideoToolsState { supported: boolean; installed: boolean; downloadBytes: number | null }
+/**
+ * The host's translator: one text, Markdown and HTML kept. `model` is an id
+ * from `translatorModels` (null = the person's current model); the answer says
+ * which model made it (a host before 02/11 names none). Needs `vault:read`.
+ * A local model loading for the first time can take minutes: 5 min per call.
+ */
+export const translateText = async (text: string, sourceLang: string, targetLang: string, model: string | null = null) => {
+  const res = await sdk.invoke<{ text: string; model?: string | null }>('translator.translate', { text, sourceLang, targetLang, ...(model ? { model } : {}) }, 300_000);
+  return { text: res.text, model: res.model ?? model };
+};
+/** One model the host lets her translate with; `free` = it runs on her machine. */
+export interface TranslatorModel { id: string; label: string; route: 'local' | 'cloud'; free: boolean }
+/** The models the host offers for a translation, and the one it uses with no choice. A host before 02/11 refuses the action. */
+export const translatorModels = () => sdk.invoke<{ current: TranslatorModel | null; choices: TranslatorModel[] }>('translator.models', undefined, IO_TIMEOUT_MS);
 export const videoToolsStatus = () => sdk.invoke<VideoToolsState>('video.toolsStatus', undefined, IO_TIMEOUT_MS);
 /** Opens Mnemosyne's Settings on Video, where ffmpeg is installed. Needs a click in the frame. */
 export const openVideoSettings = () => sdk.invoke<{ page: string }>('settings.open', { page: 'video' }, IO_TIMEOUT_MS);
-/** The film's parts joined into one file: `outBase` + .mp4 (.webm without an H.264 encoder). */
-export const joinFilm = (parts: Array<{ path: string; in?: number; out?: number }>, outBase: string, web = false) =>
-  sdk.invoke<{ path: string; encoder: string; seconds: number; web?: boolean }>('video.joinFilm', { parts, outBase, ...(web ? { web: true } : {}) }, 12 * 60_000);
+/**
+ * The film's parts joined into one file: `outBase` + .mp4 (.webm without an H.264 encoder).
+ * `webLevel` makes a web copy heavier; a host before it answers no `webLevel` and wrote the light one.
+ */
+export const joinFilm = (parts: Array<{ path: string; in?: number; out?: number }>, outBase: string, web = false, webLevel?: 'balanced' | 'sharp') =>
+  sdk.invoke<{ path: string; encoder: string; seconds: number; web?: boolean; webLevel?: string }>('video.joinFilm', { parts, outBase, ...(web ? { web: true, ...(webLevel ? { webLevel } : {}) } : {}) }, 12 * 60_000);
 /** Where a clip's lighter copy for the web is written: beside it, never over it. */
 export const webClipBase = (clipPath: string) => `${clipPath.replace(/\.[^.\\/]+$/, '')}-web`;
 

@@ -1,4 +1,4 @@
-import { animFits, brandMarkup, DEFAULT_IDENTITY, LOGO_SVG_MAX_CHARS, normalizeIdentity, sanitizeSvg, siteIdentity, svgRatio } from './logo';
+import { animFits, brandMarkup, DEFAULT_IDENTITY, LOGO_CSS, LOGO_SVG_MAX_CHARS, normalizeIdentity, sanitizeSvg, siteIdentity, svgRatio } from './logo';
 
 describe('sanitizeSvg', () => {
   it('keeps the shapes and drops script, events, styles and outside links', () => {
@@ -53,7 +53,7 @@ describe('sanitizeSvg', () => {
 describe('brandMarkup', () => {
   const svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><path d="M0 0"/></svg>';
   it('shows the name alone when there is no logo, whatever the mode', () => {
-    expect(brandMarkup({ ...DEFAULT_IDENTITY, mode: 'logo' }, 'Atelier <A>')).toBe('<span class="brand-in size-m anim-fade speed-normal"><span class="brand-name">Atelier &lt;A&gt;</span></span>');
+    expect(brandMarkup({ ...DEFAULT_IDENTITY, mode: 'logo' }, 'Atelier <A>')).toBe('<span class="brand-in anim-fade speed-normal" style="--logo-h:44px"><span class="brand-name">Atelier &lt;A&gt;</span></span>');
   });
   it('splits the name letter by letter for that entrance, each character escaped', () => {
     expect(brandMarkup({ ...DEFAULT_IDENTITY, anim: 'letters' }, 'A<')).toContain('<span class="ch" style="--i:1">&lt;</span>');
@@ -90,13 +90,12 @@ describe('normalizeIdentity', () => {
 });
 
 describe('the logo\'s size and place', () => {
-  it('leaves an identity without them as it was', () => {
-    expect(brandMarkup(DEFAULT_IDENTITY, 'A')).not.toContain('style=');
+  it('leaves the place of an identity without one as it was', () => {
     expect(siteIdentity(DEFAULT_IDENTITY, 'A').place).toBeUndefined();
   });
 
-  it('carries a free height on the container and the place to the page', () => {
-    expect(brandMarkup({ ...DEFAULT_IDENTITY, height: 90 }, 'A')).toContain('<span class="brand-in size-m anim-fade speed-normal" style="--logo-h:90px">');
+  it('carries the height in px on the container and the place to the page', () => {
+    expect(brandMarkup({ ...DEFAULT_IDENTITY, height: 90 }, 'A')).toContain('<span class="brand-in anim-fade speed-normal" style="--logo-h:90px">');
     expect(siteIdentity({ ...DEFAULT_IDENTITY, place: 'center' }, 'A').place).toBe('center');
   });
 
@@ -104,5 +103,18 @@ describe('the logo\'s size and place', () => {
     expect(normalizeIdentity({ height: 5000, place: 'top' })).toMatchObject({ height: 200 });
     expect(normalizeIdentity({ height: 5000, place: 'top' }).place).toBeUndefined();
     expect(normalizeIdentity({ height: 'big', place: 'right' })).toEqual({ ...DEFAULT_IDENTITY, place: 'right' });
+  });
+
+  // The field bug of 2026-11-02: the site had a 96 px logo; "Large" was a 64 px preset that wiped
+  // it, so the biggest choice never made the logo bigger. The size is a number of px now.
+  it('reads an old Small / Medium / Large site as its height in px, and the page writes it', () => {
+    expect(normalizeIdentity({ size: 's' }).height).toBe(28);
+    expect(normalizeIdentity({ size: 'l' }).height).toBe(64);
+    expect(normalizeIdentity({ size: 'l', height: 96 }).height).toBe(96);
+    expect(brandMarkup({ ...DEFAULT_IDENTITY, size: 'l', height: undefined }, 'A')).toContain('--logo-h:64px');
+    expect(brandMarkup({ ...DEFAULT_IDENTITY, size: 's', height: 150 }, 'A')).toContain('--logo-h:150px');
+    // No preset class is left to outrank or be outranked by the px.
+    expect(brandMarkup({ ...DEFAULT_IDENTITY, size: 'l', height: 150 }, 'A')).not.toMatch(/size-[sml]/);
+    expect(LOGO_CSS).not.toMatch(/\.size-[sml]/);
   });
 });

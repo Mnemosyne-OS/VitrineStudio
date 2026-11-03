@@ -5,6 +5,7 @@ import {
 import { useI18n } from '../i18n';
 import { hostIO, pickImage, readImage } from '../data/host';
 import { refusalOf, saveDroppedPhoto } from '../data/photos';
+import { PhotoChooser } from './PhotoChooser';
 import { markdownToHtml, type PiecesLayout } from '../model/blog';
 import { domToMarkdown, joinPost, splitPost } from '../model/blogEdit';
 import type { BlogPost } from '../model/blog';
@@ -59,6 +60,7 @@ export function PostEditor({ post, pieces, onPreview, onMenu, onClose, onToggle,
   const [blockError, setBlockError] = useState<{ key: string; raw?: string } | null>(null);
   const [picking, setPicking] = useState<{ ids: string[]; layout: PiecesLayout } | null>(null);
   const labels: BlockLabels = useMemo(() => ({
+    fill: t('blog.block.fill'),
     left: t('blog.block.left'), right: t('blog.block.right'), full: t('blog.block.full'),
     row: t('blog.block.row'), column: t('blog.block.column'), remove: t('blog.block.remove'), gone: t('blog.block.gone'),
     up: t('blog.block.up'), down: t('blog.block.down'), drag: t('blog.block.drag'), caption: t('blog.block.caption'),
@@ -203,10 +205,26 @@ export function PostEditor({ post, pieces, onPreview, onMenu, onClose, onToggle,
     changed();
   };
   /** A button inside a block: the picture's place, the pieces' layout, or out of the page. */
+  /** The empty frame whose photo is being chosen (PhotoChooser). */
+  const [choosing, setChoosing] = useState<HTMLElement | null>(null);
+  /** An empty frame filled with a photo: chosen, or dropped on it. */
+  const fillSlot = async (fig: HTMLElement, file?: File | string) => {
+    try {
+      const path = typeof file === 'string' ? file : file ? await saveDroppedPhoto(file, `blog-${post.id}-${Date.now().toString(36)}`) : null;
+      if (!path || !alive.current || !page.current) return;
+      fig.dataset.path = path;
+      dress();
+      changed();
+    } catch (err) {
+      console.warn('[vitrine-studio] the frame was not filled:', err);
+      if (alive.current) setBlockError(describeError(err));
+    }
+  };
   const onPageClick = (e: React.MouseEvent) => {
     const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-act]');
     if (!btn || !page.current) return;
     const block = blockOf(page.current, btn);
+    if (block && btn.dataset.act === 'fill') { e.preventDefault(); setChoosing(block); return; }
     if (block && actOn(block, btn.dataset.act!)) { e.preventDefault(); dress(); changed(); }
   };
   /** The block held by its handle, while it is dragged. */
@@ -246,6 +264,9 @@ export function PostEditor({ post, pieces, onPreview, onMenu, onClose, onToggle,
     const files = Array.from(e.dataTransfer.files);
     if (!files.length) return;
     e.preventDefault();
+    // Dropped on an empty frame: it fills that frame.
+    const slot = (e.target as HTMLElement).closest?.<HTMLElement>('.pe-img.slot');
+    if (slot && refusalOf(files[0]!) === null) { void fillSlot(slot, files[0]); return; }
     const at = document.caretRangeFromPoint?.(e.clientX, e.clientY)?.startContainer ?? null;
     void addPictures(files, at);
   };
@@ -259,6 +280,7 @@ export function PostEditor({ post, pieces, onPreview, onMenu, onClose, onToggle,
 
   return (
     <div className="post-editor">
+      {choosing && <PhotoChooser onPick={(path) => void fillSlot(choosing, path)} onClose={() => setChoosing(null)} />}
       <div className="glass card-pad post-bar">
         <button onClick={() => void close()}><ArrowLeft className="ico" aria-hidden />{t('blog.back')}</button>
         {status}

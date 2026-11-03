@@ -90,6 +90,23 @@ export function SceneMapSettings({ value, onChange }: { value: SceneMap; onChang
           })}
         </div>
       </div>
+      <div className="ms-way">
+        <span className="form-label">{t('sceneMap.titles')}</span>
+        <div className="ms-colors">
+          {(['on', 'off'] as const).map((v) => {
+            const on = (value.titles ?? 'on') === v;
+            const next: SceneMap = { ...value };
+            if (v === 'on') delete next.titles;
+            else next.titles = 'off';
+            const Icon = v === 'on' ? Type : EyeOff;
+            return (
+              <button key={v} className={`chip-tile glass ${on ? 'chosen' : ''}`} aria-pressed={on} onClick={() => onChange(next)}>
+                <Icon className="ico" aria-hidden />{t(`sceneMap.titlesShown.${v}`)}
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }

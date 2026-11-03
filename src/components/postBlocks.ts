@@ -8,9 +8,12 @@
  * buttons. The dressing is rebuilt from the data, never read back.
  */
 import type { ImageLayout, PiecesLayout } from '../model/blog';
+import { PHOTO_SLOT } from '../model/blog';
 import type { Piece } from '../model/types';
 
 export interface BlockLabels {
+  /** An empty frame's call: click or drop a photo. */
+  fill: string;
   left: string;
   right: string;
   full: string;
@@ -153,7 +156,16 @@ export function dressBlocks(page: HTMLElement, pieces: Piece[], labels: BlockLab
     fig.querySelector('.pe-grip')?.remove();
     const img = fig.querySelector('img') ?? fig.appendChild(document.createElement('img'));
     const path = fig.dataset.path ?? '';
-    if (path && img.dataset.for !== path) {
+    // A frame a model left: a button to fill it, no picture to read.
+    fig.classList.toggle('slot', path === PHOTO_SLOT);
+    fig.querySelector('.pe-fill')?.remove();
+    if (path === PHOTO_SLOT) {
+      img.removeAttribute('src');
+      delete img.dataset.for;
+      const fill = button('fill', labels.fill);
+      fill.className = 'pe-fill';
+      fig.prepend(fill);
+    } else if (path && img.dataset.for !== path) {
       img.dataset.for = path;
       read(path).then((src) => { img.src = src; }, (err: unknown) => {
         console.warn('[vitrine-studio] a post picture is unreadable:', path, err);

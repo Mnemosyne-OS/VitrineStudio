@@ -1,0 +1,203 @@
+/*
+ * The translation room (doc 145 §10.22): the HUD of style-cartouche §1, its own
+ * night whatever the host's theme. Scoped under .tr-room: the rest of the
+ * studio keeps the host's glass (§10.20).
+ */
+.tr-room {
+  --h-bg: #03060c;
+  --h-holo: #5fe3ff;
+  --h-holo-dim: rgba(95, 227, 255, 0.32);
+  --h-holo-faint: rgba(95, 227, 255, 0.14);
+  --h-chosen: #3fd68a;
+  --h-gold: #ffbe5c;
+  --h-rec: #ff7070;
+  --h-text: #e6f4fb;
+  --h-muted: #8fa8ba;
+  /* A mark set ON the green (the ✓ of a chosen tile). */
+  --h-on-chosen: #03130a;
+  --glass-fill: color-mix(in srgb, #fff 6%, transparent);
+  --glass-blur: blur(16px) saturate(170%);
+  --h-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+  --h-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  position: fixed; inset: 0; z-index: 40;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 12px 16px 24px;
+  overflow: auto;
+  color: var(--h-text);
+  font-family: var(--h-sans);
+  font-size: 13px;
+  background:
+    radial-gradient(ellipse 70% 45% at 50% 0%, color-mix(in srgb, var(--h-holo) 9%, transparent), transparent 70%),
+    linear-gradient(color-mix(in srgb, var(--h-holo) 3.5%, transparent) 1px, transparent 1px) 0 0 / 100% 32px,
+    linear-gradient(90deg, color-mix(in srgb, var(--h-holo) 3.5%, transparent) 1px, transparent 1px) 0 0 / 32px 100%,
+    var(--h-bg);
+}
+/* The room's scrollbars: a thin line of the HUD's light, square, brighter under the pointer. */
+/* 🪤 Chromium ignores every ::-webkit-scrollbar rule once scrollbar-width or -color is set: those two are for the others only. */
+@supports not selector(::-webkit-scrollbar) {
+  .tr-room, .tr-room * { scrollbar-width: thin; scrollbar-color: var(--h-holo-dim) transparent; }
+}
+.tr-room ::-webkit-scrollbar, .tr-room::-webkit-scrollbar { width: 6px; height: 6px; }
+.tr-room ::-webkit-scrollbar-track, .tr-room::-webkit-scrollbar-track { background: color-mix(in srgb, var(--h-holo) 4%, transparent); }
+.tr-room ::-webkit-scrollbar-thumb, .tr-room::-webkit-scrollbar-thumb { background: var(--h-holo-dim); border-radius: 0; }
+.tr-room ::-webkit-scrollbar-thumb:hover, .tr-room::-webkit-scrollbar-thumb:hover { background: var(--h-holo); }
+.tr-room ::-webkit-scrollbar-button, .tr-room::-webkit-scrollbar-button { display: none; }
+.tr-room ::-webkit-scrollbar-corner, .tr-room::-webkit-scrollbar-corner { background: transparent; }
+.tr-room .lab {
+  font-family: var(--h-mono); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--h-muted);
+}
+.tr-room .tr-muted { color: var(--h-muted); }
+
+/* Corner brackets: eight 1 px strokes drawn by gradients over the glass. */
+.tr-room .hud, .tr-room button, .tr-room .chip-tile {
+  --h-c: var(--h-holo-dim);
+  border: 1px solid var(--h-holo-faint);
+  border-radius: 0;
+  backdrop-filter: var(--glass-blur);
+  background:
+    linear-gradient(var(--h-c), var(--h-c)) 0 0 / 12px 1px no-repeat,
+    linear-gradient(var(--h-c), var(--h-c)) 0 0 / 1px 12px no-repeat,
+    linear-gradient(var(--h-c), var(--h-c)) 100% 0 / 12px 1px no-repeat,
+    linear-gradient(var(--h-c), var(--h-c)) 100% 0 / 1px 12px no-repeat,
+    linear-gradient(var(--h-c), var(--h-c)) 0 100% / 12px 1px no-repeat,
+    linear-gradient(var(--h-c), var(--h-c)) 0 100% / 1px 12px no-repeat,
+    linear-gradient(var(--h-c), var(--h-c)) 100% 100% / 12px 1px no-repeat,
+    linear-gradient(var(--h-c), var(--h-c)) 100% 100% / 1px 12px no-repeat,
+    var(--glass-fill);
+  box-shadow: none;
+}
+.tr-room button {
+  color: var(--h-text); font: inherit; font-size: 12px; padding: 6px 12px; cursor: pointer; transform: none;
+}
+.tr-room button:hover:not(:disabled) { --h-c: var(--h-holo); border-color: var(--h-holo-dim); }
+.tr-room button:disabled { opacity: 0.4; cursor: default; }
+.tr-room button:focus-visible, .tr-room textarea:focus-visible, .tr-room input:focus-visible { outline: 1px solid var(--h-holo); outline-offset: 2px; }
+.tr-room button.primary {
+  --h-c: var(--h-chosen);
+  --glass-fill: rgba(63, 214, 138, 0.14);
+  border-color: color-mix(in srgb, var(--h-chosen) 50%, transparent);
+  font-weight: 600;
+}
+/* Inside a bracketed bar, a button keeps the thin edge alone: no brackets in brackets. */
+.tr-room .tr-bar button, .tr-room .segmented button { --h-c: transparent; }
+.tr-room .chosen {
+  --h-c: var(--h-chosen);
+  --glass-fill: rgba(63, 214, 138, 0.12);
+  border-color: color-mix(in srgb, var(--h-chosen) 65%, transparent);
+  box-shadow: 0 0 24px -8px var(--h-chosen);
+}
+.tr-room .chip-tile { position: relative; display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; }
+.tr-room .chip-tile small { font-family: var(--h-mono); font-size: 10px; letter-spacing: 0.08em; color: var(--h-muted); }
+.tr-room .chip-tile.chosen::after {
+  content: '✓'; position: absolute; top: -8px; right: -8px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--h-chosen); color: var(--h-on-chosen); font-size: 11px; font-weight: 700;
+}
+.tr-room .tr-free { color: var(--h-chosen) !important; }
+.tr-room .tr-paid { color: var(--h-gold) !important; }
+.tr-room textarea, .tr-room .segmented {
+  border: 1px solid var(--h-holo-faint); border-radius: 0; background: color-mix(in srgb, var(--h-holo) 4%, transparent); color: var(--h-text);
+}
+.tr-room textarea { backdrop-filter: none; box-shadow: none; width: 100%; box-sizing: border-box; font: inherit; font-size: 13px; padding: 6px 8px; resize: vertical; }
+.tr-room textarea::placeholder { color: var(--h-muted); }
+
+/* The bar: title, mode, the site's readout, the run's readout, ✕. */
+.tr-bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px 18px;
+  padding: 10px 56px 10px 14px;
+}
+.tr-bar-title { display: flex; flex-direction: column; gap: 2px; }
+.tr-pair { font-family: var(--h-mono); font-size: 16px; letter-spacing: 0.14em; color: var(--h-holo); }
+.tr-room .segmented { display: inline-flex; }
+.tr-room .segmented button { border: 0; padding: 6px 14px; }
+.tr-room .segmented button.chosen { box-shadow: inset 0 -2px 0 var(--h-chosen); }
+.tr-readout, .tr-run { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.tr-readout { flex: 1 1 260px; }
+.tr-num { font-family: var(--h-mono); font-size: 20px; color: var(--h-holo); font-variant-numeric: tabular-nums; }
+.tr-num small { font-size: 12px; color: var(--h-muted); }
+.tr-pc { font-family: var(--h-mono); color: var(--h-muted); font-variant-numeric: tabular-nums; }
+.tr-bars { flex: 1; display: flex; gap: 2px; height: 6px; min-width: 60px; }
+.tr-bars i { display: block; min-width: 3px; }
+.tr-run.live .tr-num { color: var(--h-gold); }
+.tr-run-model { font-family: var(--h-mono); font-size: 11px; color: var(--h-muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-fail { font-family: var(--h-mono); font-size: 11px; color: var(--h-rec); }
+.tr-run.live { position: relative; padding-bottom: 4px; }
+/* A light runs under the readout while inferences are made, and only then. */
+.tr-run.live::after {
+  content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--h-gold), transparent) 0 0 / 40% 100% no-repeat;
+  animation: tr-scan 1.6s linear infinite;
+}
+@keyframes tr-scan { from { background-position: -40% 0; } to { background-position: 140% 0; } }
+.tr-room .tr-stop { --h-c: var(--h-rec); border-color: color-mix(in srgb, var(--h-rec) 50%, transparent); color: var(--h-rec); display: inline-flex; align-items: center; gap: 6px; }
+.tr-room .tr-close { position: fixed; top: 14px; right: 18px; z-index: 3; width: 34px; height: 34px; padding: 0; display: grid; place-items: center; }
+.tr-error { margin: 0; padding: 8px 12px; border: 1px solid color-mix(in srgb, var(--h-rec) 40%, transparent); color: var(--h-rec); font-size: 12px; }
+
+/* The model tiles and the actions. */
+.tr-models { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tr-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+
+/* State colours: cyan = in progress, gold = to read, green = read, red = stale. */
+.tr-room .st-missing { --st: var(--h-muted); }
+.tr-room .st-stale { --st: var(--h-rec); }
+.tr-room .st-proposed { --st: var(--h-gold); }
+.tr-room .st-read { --st: var(--h-chosen); }
+.tr-room .st-edited { --st: var(--h-holo); }
+.tr-bars i { background: var(--st); }
+
+/* The canvas of widgets: side by side as soon as two fit. */
+.tr-canvas { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr)); align-items: start; }
+.tr-widget { display: flex; flex-direction: column; gap: 10px; padding: 14px; min-width: 0; }
+.tr-widget.wide { grid-column: 1 / -1; }
+.tr-widget.complete { --h-c: var(--h-chosen); border-color: color-mix(in srgb, var(--h-chosen) 35%, transparent); }
+.tr-w-head { display: flex; align-items: center; gap: 10px; }
+.tr-w-n { font-family: var(--h-mono); font-size: 11px; color: var(--h-holo); letter-spacing: 0.1em; }
+.tr-w-title { flex: 1; margin: 0; font-family: var(--h-mono); font-size: 12px; font-weight: 600; letter-spacing: 0.22em; text-transform: uppercase; }
+.tr-ring circle { fill: none; stroke-width: 2.5; }
+.tr-ring-track { stroke: var(--h-holo-faint); }
+.tr-ring-done { stroke: var(--h-chosen); transform: rotate(-90deg); transform-origin: 18px 18px; transition: stroke-dasharray 0.4s ease; }
+.tr-ring text { fill: var(--h-text); font-family: var(--h-mono); font-size: 10px; }
+.tr-room .tr-icon { width: 28px; height: 28px; padding: 0; display: grid; place-items: center; }
+.tr-w-counts { display: flex; flex-wrap: wrap; gap: 6px; }
+.tr-chip {
+  font-family: var(--h-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  padding: 2px 6px; border: 1px solid color-mix(in srgb, var(--st) 45%, transparent); color: var(--st);
+}
+.tr-chip b { color: var(--h-text); font-weight: 600; }
+.tr-chip.zero { opacity: 0.4; }
+.tr-w-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.tr-lines { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; max-height: 60vh; overflow: auto; }
+.tr-widget.wide .tr-lines { max-height: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); }
+.tr-line { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border-left: 2px solid var(--st); background: color-mix(in srgb, var(--h-holo) 2.5%, transparent); }
+.tr-line-head { display: flex; align-items: center; gap: 8px; }
+.tr-by { flex: 1; font-family: var(--h-mono); font-size: 10px; color: var(--h-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-check { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; margin-left: auto; cursor: pointer; }
+.tr-room .tr-check input { width: 14px; height: 14px; padding: 0; margin: 0; border-radius: 0; backdrop-filter: none; box-shadow: none; accent-color: var(--h-chosen); }
+.tr-src { margin: 0; color: var(--h-muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.tr-old { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-size: 12px; padding: 6px 8px; border: 1px dashed color-mix(in srgb, var(--h-rec) 40%, transparent); }
+.tr-old s { color: var(--h-muted); }
+
+/* Comparison: the same sentences, one column per model. */
+.tr-compare { display: flex; flex-direction: column; gap: 12px; }
+.tr-grid { display: grid; gap: 1px; padding: 1px; overflow-x: auto; background-color: var(--h-holo-faint); }
+.tr-grow { display: contents; }
+.tr-gh, .tr-grow > * { background: var(--h-bg); padding: 10px; min-width: 0; }
+.tr-gh { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; position: sticky; top: 0; }
+.tr-room .tr-cell { text-align: left; white-space: normal; line-height: 1.45; font-size: 13px; padding: 10px; --h-c: transparent; border-color: transparent; }
+.tr-room .tr-cell.chosen { --h-c: var(--h-chosen); border-color: color-mix(in srgb, var(--h-chosen) 65%, transparent); }
+.tr-wait { color: var(--h-muted); font-family: var(--h-mono); font-size: 11px; }
+
+@media (max-width: 520px) {
+  .tr-room { padding: 8px 8px 20px; }
+  .tr-bar { padding-right: 48px; }
+  .tr-readout { flex-basis: 100%; }
+  /* The model tiles on one line that scrolls sideways, the widgets right under. */
+  .tr-models { flex-wrap: nowrap; overflow-x: auto; padding: 8px 8px 4px 0; }
+  .tr-room .chip-tile { flex: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tr-run.live::after { animation: none; }
+  .tr-ring-done { transition: none; }
+}

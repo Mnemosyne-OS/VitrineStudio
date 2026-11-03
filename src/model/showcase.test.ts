@@ -85,7 +85,7 @@ describe('the Creations page, piece by piece', () => {
   it('shows each thing only when chosen for that piece, the price in the page language', () => {
     const d = data({ p1: { dimensions: 'Ø 12 cm', photos: ['C:/p/p1b.jpg', 'C:/p/p1c.jpg'], show: { name: false, description: false, dimensions: true, price: true, photos: true } } });
     const [a, b] = d.creations;
-    expect(a).toEqual({ id: 'p1', alt: 'Vase p1', dimensions: 'Ø 12 cm', price: formatMoney(45, 'fr', 'EUR'), images: ['assets/creation-p1.webp', 'assets/creation-p1-1.webp', 'assets/creation-p1-2.webp'] });
+    expect(a).toEqual({ id: 'p1', alt: 'Vase p1', dimensions: 'Ø 12 cm', price: formatMoney(45, 'fr', 'CHF'), images: ['assets/creation-p1.webp', 'assets/creation-p1-1.webp', 'assets/creation-p1-2.webp'] });
     expect(b!.price).toBeUndefined();
     expect(JSON.stringify(d)).not.toContain('C:/p/p1b.jpg');
   });

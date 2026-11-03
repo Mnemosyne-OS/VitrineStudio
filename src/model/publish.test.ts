@@ -93,6 +93,10 @@ describe('sitePrint', () => {
 
   it('changes with what the export reads beside the page: weight, quality, a picture remade', () => {
     expect(print({ ...site, imageKb: 400 })).not.toBe(print());
+    // The clips' weight and a translation she read both change what goes online; a proposal does not.
+    expect(print({ ...site, videoLevel: 'sharp' })).not.toBe(print());
+    expect(print({ ...site, translation: { lang: 'en', entries: { a: { to: 'b' } } } })).toBe(print({ ...site, translation: { lang: 'en', entries: {} } }));
+    expect(print({ ...site, translation: { lang: 'en', entries: { a: { to: 'b', ok: true } } } })).not.toBe(print({ ...site, translation: { lang: 'en', entries: {} } }));
     expect(print({ ...site, quality: 'max' })).not.toBe(print());
     expect(print(site, [{ ...scene, updatedAt: '2026-10-30T09:00:00Z' }])).not.toBe(print());
     expect(print(site, [scene], [{ ...piece, photoPath: 'C:/p1-better.webp' }])).not.toBe(print());

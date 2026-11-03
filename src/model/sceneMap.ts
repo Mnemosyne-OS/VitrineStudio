@@ -27,6 +27,12 @@ export interface SceneMap {
    * picture is generated, the piece is real). Absent = only in the pictures' alt.
    */
   credit?: 'line';
+  /**
+   * The names written on the scenes (the place's big title, the scene's name,
+   * the map's labels) hidden: the visitor walks through the pieces, the names
+   * of the rooms bring nothing (an artisan, 02/11). Absent = shown.
+   */
+  titles?: 'off';
 }
 
 export const DEFAULT_SCENE_MAP: SceneMap = { style: 'dots' };
@@ -38,5 +44,5 @@ export function normalizeSceneMap(raw: unknown): SceneMap {
   const color = typeof r.color === 'string' && /^#[0-9a-f]{6}$/i.test(r.color) ? r.color.toLowerCase() : undefined;
   const way = (v: unknown) => ((SCENE_GUIDES as readonly unknown[]).includes(v) && v !== 'box' ? (v as SceneGuide) : undefined);
   const guide = way(r.guide), edges = way(r.edges);
-  return { style, ...(color ? { color } : {}), ...(guide ? { guide } : {}), ...(edges ? { edges } : {}), ...(r.credit === 'line' ? { credit: 'line' as const } : {}) };
+  return { style, ...(color ? { color } : {}), ...(guide ? { guide } : {}), ...(edges ? { edges } : {}), ...(r.credit === 'line' ? { credit: 'line' as const } : {}), ...(r.titles === 'off' ? { titles: 'off' as const } : {}) };
 }

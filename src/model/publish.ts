@@ -109,7 +109,7 @@ function hash53(text: string): string {
  * the site is built. A post rewritten there leaves the print as it was; the
  * bar's « Republish » stays for that.
  */
-export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<SiteSettings, 'quality' | 'imageKb' | 'identity' | 'brand' | 'posts' | 'kit' | 'showcase' | 'pages'>, records: { scenes: Scene[]; pieces: Piece[]; film?: { id: string; updatedAt: string } | null }): string {
+export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<SiteSettings, 'quality' | 'imageKb' | 'identity' | 'brand' | 'posts' | 'kit' | 'showcase' | 'pages' | 'translation' | 'videoLevel'>, records: { scenes: Scene[]; pieces: Piece[]; film?: { id: string; updatedAt: string } | null }): string {
   // buildSiteData does not read the date today (no test can see it); emptied so a later use of it
   // cannot make every print change at midnight and the bar cry « changes » for nothing.
   const data = buildSiteData({ ...input, today: '', posts: [] });
@@ -119,6 +119,9 @@ export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<
     data,
     quality: site.quality,
     imageKb: site.imageKb,
+    video: site.videoLevel ?? 'light',
+    // Only what goes online: a translation read or unticked changes the site, a proposal does not.
+    translation: site.translation ? { lang: site.translation.lang, read: Object.entries(site.translation.entries).filter(([, e]) => e.ok).map(([k, e]) => [k, e.to]) } : null,
     logo: site.identity.logoPath ?? null,
     portrait: site.brand.portrait ?? null,
     posts: site.posts,

@@ -18,7 +18,6 @@ const SOURCES = import.meta.glob<string>(['../**/*.{ts,tsx}', '!../**/*.test.{ts
 const DYNAMIC: Record<string, string[]> = {
   'tab.': ['scenes', 'pieces', 'film', 'logo', 'site', 'hosting', 'costs', 'settings'],
   'logo.mode.': ['logo', 'both', 'name'],
-  'logo.size.': ['s', 'm', 'l'],
   'logo.anims.': ['none', 'fade', 'rise', 'blur', 'reveal', 'zoom', 'spin', 'slide', 'letters', 'draw', 'breathe'],
   'logo.speed.': ['slow', 'normal', 'fast'],
   'vector.detail.': ['fine', 'medium', 'simple'],
@@ -63,6 +62,8 @@ const DYNAMIC: Record<string, string[]> = {
   'scenes.': ['makeAll', 'makeRest', 'decorMoved', 'decorStill'],
   'bar.stage.': ['checking', 'unconnected', 'never', 'pending', 'failed', 'current', 'behind', 'unknown'],
   'site.section.': ['online', 'look', 'connect', 'copies'],
+  'room.group.': ['menu', 'scenes', 'creations', 'about', 'blog', 'contact', 'pages', 'legal'],
+  'room.state.': ['missing', 'stale', 'proposed', 'read', 'edited'],
 };
 const COUNTED = ['app.unreadable', 'app.folderReread', 'pieces.count', 'scenes.count', 'scenes.onSite', 'site.go.exported', 'film.makeImages', 'film.makeFilm', 'takeaway.done', 'site.heavyClips', 'takeaway.restored', 'takeaway.kept', 'takeaway.failed', 'film.wizard.createAndMake', 'remove.deleteHint', 'remove.left', 'upscale.run', 'site.quality.notEnlarged', 'costs.calls', 'costs.unmeasured', 'costs.aheadImages', 'costs.aheadClips', 'upscale.keepAll', 'vector.elements', 'vector.cutClear', 'parts.selected', 'kit.pages', 'kit.added'];
 

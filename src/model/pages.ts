@@ -17,7 +17,7 @@ export const PAGE_TYPES = ['scenes', 'blog', 'catalogue', 'text', 'form'] as con
 export type PageType = (typeof PAGE_TYPES)[number];
 
 /** Where a page's picture stands beside its words (a text page), or its form (a form page). */
-export const PAGE_LAYOUTS = ['right', 'left', 'top'] as const;
+export const PAGE_LAYOUTS = ['right', 'left', 'top', 'bottom'] as const;
 export type PageLayout = (typeof PAGE_LAYOUTS)[number];
 
 /** What a form asks: a closed list of kinds, each drawn as the browser's own field. */
@@ -67,7 +67,7 @@ export function normalizePages(raw: unknown): SitePage[] {
     if (page.type === 'text' || page.type === 'form') {
       if (typeof r.text === 'string' && r.text.trim()) page.text = r.text.slice(0, PAGE_TEXT_MAX);
       // Only what differs from the type's own default is kept: a text page reads on the right, a form on the left (no top).
-      const kept = page.type === 'text' ? ['left', 'top'] : ['right'];
+      const kept = page.type === 'text' ? ['left', 'top', 'bottom'] : ['right'];
       if ((PAGE_LAYOUTS as readonly unknown[]).includes(r.layout) && kept.includes(r.layout as string)) page.layout = r.layout as PageLayout;
     }
     if (page.type === 'text' && typeof r.photo === 'string' && r.photo) page.photo = r.photo.slice(0, 1000);

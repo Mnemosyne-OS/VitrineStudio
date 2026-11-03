@@ -31,6 +31,10 @@ import { estimateImage, formatUsd } from './model/costs';
 import { UpscaleCard } from './components/UpscaleCard';
 import { LogoPanel } from './components/LogoPanel';
 import { SitePreview, type SiteColours } from './components/SitePreview';
+import { LegalCard } from './components/LegalCard';
+import { PhotoSources } from './model/photoSources';
+import { TranslationCard } from './components/TranslationCard';
+import { LEGAL_PAGE_ID } from './site/legalPages';
 import { CompressionCheck } from './components/CompressionCheck';
 import { CostsPanel } from './components/CostsPanel';
 import { RemoveSceneDialog } from './components/RemoveSceneDialog';
@@ -71,10 +75,11 @@ import type { Brand } from './site/buildSite';
 
 type Kind = 'scenes' | 'pieces' | 'blog';
 /** A built-in screen, or an added page by its id. */
-type Tab = Kind | 'about' | 'contact' | 'film' | 'logo' | 'site' | 'hosting' | 'costs' | 'settings' | `page:${string}`;
+type Tab = Kind | 'about' | 'contact' | 'film' | 'logo' | 'legal' | 'site' | 'hosting' | 'costs' | 'settings' | `page:${string}`;
 // Her order of work: what she makes first, then its scenes, the words; her added pages; then the film and the logo (Tony).
 const CONTENT_TABS: Tab[] = ['pieces', 'scenes', 'blog', 'about', 'contact'];
-const AFTER_TABS: Tab[] = ['film', 'logo'];
+// The legal pages have their own tab: at the bottom of Contact, an artisan never found them (02/11).
+const AFTER_TABS: Tab[] = ['film', 'logo', 'legal'];
 /** The built-in screen that edits an added page, by its model. */
 const KIND_OF: Partial<Record<PageType, Kind>> = { catalogue: 'pieces', scenes: 'scenes', blog: 'blog' };
 // The tools, apart from the work, as icons: they are not part of her order of work.
@@ -188,6 +193,9 @@ export default function App() {
   const validated = scenes.filter((s) => s.validated);
   const online = onlineScenes(scenes, pieces);
   const viewed = viewing ? scenes.find((s) => s.id === viewing.id) : undefined;
+  // What a photo frame can be filled from, besides the computer (PhotoChooser).
+  // A plain object, not a memo: this line runs after the screen's early returns, where no hook may stand.
+  const photoSources = { pieces, scenes, showcase: site.showcase };
   const evolvingPiece = evolving ? pieces.find((p) => p.id === evolving) : undefined;
   const pageScenes = onPage(scenes, pageId, site.pages);
   const pagePieces = onPage(pieces, pageId, site.pages);
@@ -197,6 +205,7 @@ export default function App() {
       : kind === 'scenes' ? { make: siteActions.previewScenes, hash: pageId ?? '' }
         : tab === 'about' ? { make: siteActions.previewInfo, hash: 'a-propos' }
           : tab === 'contact' ? { make: siteActions.previewInfo, hash: 'contact' }
+          : tab === 'legal' ? { make: siteActions.previewInfo, hash: LEGAL_PAGE_ID }
             : activePage?.type === 'text' || activePage?.type === 'form' ? { make: siteActions.previewInfo, hash: activePage.id }
               : null;
   const seeWhat: SeeWhat = pageSee ? 'page' : 'site';
@@ -229,6 +238,7 @@ export default function App() {
   };
 
   return (
+    <PhotoSources.Provider value={photoSources}>
     <main className="app">
       <Ambient path={latestPicture(scenes)} />
       <header className="top">
@@ -343,7 +353,12 @@ export default function App() {
           />
       )}
       {loaded && tab === 'about' && <AboutPanel brand={site.brand} onBrand={setBrand} />}
-      {loaded && tab === 'contact' && <ContactPanel brand={site.brand} onBrand={setBrand} onPreview={siteActions.previewInfo} onMenu={renameMenu} legal={site.legal} onLegal={(legal) => void patchSite((cur) => ({ ...cur, legal }))} legalDrafts={siteActions.legalDrafts} />}
+      {loaded && tab === 'contact' && <ContactPanel brand={site.brand} onBrand={setBrand} />}
+      {loaded && tab === 'legal' && (
+        <section className="info-page">
+          <LegalCard legal={site.legal} email={site.brand.email} onLegal={(legal) => void patchSite((cur) => ({ ...cur, legal }))} drafts={siteActions.legalDrafts} onPreview={siteActions.previewInfo} onMenu={renameMenu} />
+        </section>
+      )}
       {loaded && tab === 'film' && film && (
         <FilmPanel key={film.id} films={studio.films ?? []} onPickFilm={studio.setFilmId} onNewFilm={() => setFilmWizard(true)} onRemoveFilm={() => setRemovingFilm(film.id)} onDuplicateFilm={(name) => void filmActions.duplicateFilm(film.id, name)}
           startMaking={makeFilmOf === film.id} onStarted={() => setMakeFilmOf(null)} film={film} getFilm={() => filmActions.getFilm(film.id) ?? film} updateFilm={(change) => filmActions.updateFilm(film.id, change)}
@@ -387,6 +402,10 @@ export default function App() {
             <SiteLook settings={site} onlineCount={online.length} enlarged={online.filter((s) => s.enlarged && Object.keys(s.enlarged).length > 0).length}
               samplePhoto={firstSitePhoto(online)} busy={siteActions.work.kind === 'exporting' || siteActions.work.kind === 'publishing'}
               onSave={(s) => void saveSite(s)} onCheck={() => void siteActions.checkCompression()} checking={siteActions.checking} />
+          )}
+          {section === 'look' && (
+            <TranslationCard translation={site.translation} words={siteActions.translationWords}
+              onChange={(update) => void patchSite((cur) => { const next = { ...cur }; const tr = update(cur.translation); if (tr) next.translation = tr; else delete next.translation; return next; })} />
           )}
           {section === 'connect' && (
             <ConnectionCard settings={site} token={siteActions.token} onSave={(s) => void saveSite(s)}
@@ -484,5 +503,6 @@ export default function App() {
           onPickPhoto={() => pickImage(t('pieces.photoFilter'))} />
       )}
     </main>
+    </PhotoSources.Provider>
   );
 }

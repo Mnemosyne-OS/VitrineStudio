@@ -22,7 +22,7 @@ describe('the site currency', () => {
     expect(c.main).toBe('CHF');
     expect(c.also).toEqual(['EUR', 'USD', 'GBP']);
     expect(c.rates).toEqual({ date: '2026-10-09', values: { EUR: 1.07 } });
-    expect(normalizeCurrency({ main: 'ZZZ' }).main).toBe('EUR');
+    expect(normalizeCurrency({ main: 'ZZZ' }).main).toBe('CHF');
     expect(normalizeCurrency({ rates: { date: 'yesterday', values: { CHF: 1 } } }).rates).toBeUndefined();
   });
 

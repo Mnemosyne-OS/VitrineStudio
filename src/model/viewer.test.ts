@@ -6,4 +6,9 @@ describe('the large view read back', () => {
     expect(normalizeViewer({ loupe: 'big', frame: 3 })).toEqual({ loupe: 'none', frame: 'none' });
     expect(normalizeViewer(undefined)).toEqual({ loupe: 'none', frame: 'none' });
   });
+  it('keeps the mosaic, the strip and the parallax she chose, and the grid as their absence', () => {
+    expect(normalizeViewer({ layout: 'mosaic', parallax: true })).toEqual({ loupe: 'none', frame: 'none', layout: 'mosaic', parallax: true });
+    expect(normalizeViewer({ layout: 'strip' }).layout).toBe('strip');
+    expect(normalizeViewer({ layout: 'grid', parallax: 'yes' })).toEqual({ loupe: 'none', frame: 'none' });
+  });
 });

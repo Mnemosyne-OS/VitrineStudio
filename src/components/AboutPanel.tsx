@@ -17,6 +17,7 @@ export function AboutPanel({ brand, onBrand }: {
       photo={brand.portrait} onPhoto={(portrait) => onBrand({ portrait })}
       caption={brand.portraitCaption} onCaption={(portraitCaption) => onBrand({ portraitCaption })}
       layout={brand.aboutLayout ?? 'right'} onLayout={(aboutLayout) => onBrand({ aboutLayout })}
+      photos={brand.aboutPhotos ?? []} onPhotos={(aboutPhotos) => onBrand({ aboutPhotos })}
       photoLabel={t('site.brand.portrait')} />
   );
 }

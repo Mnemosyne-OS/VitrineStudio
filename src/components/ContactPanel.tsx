@@ -1,12 +1,9 @@
 import { useEffect, useState } from 'react';
 import { PanelLeft, PanelRight, type LucideIcon } from 'lucide-react';
 import { useI18n } from '../i18n';
-import { CONTACT_LAYOUTS, formspreeId, type Brand, type ContactLayout, type MenuChange } from '../site/buildSite';
+import { CONTACT_LAYOUTS, formspreeId, type Brand, type ContactLayout } from '../site/buildSite';
 import { RichText } from './RichText';
 import { normalizeSocials, SOCIAL_ICON, SOCIAL_NAME, SOCIALS, socialHref, type SocialId, type Socials } from '../model/socials';
-import type { PreviewProgress } from './PagePreview';
-import { LegalCard } from './LegalCard';
-import type { Legal } from '../model/legal';
 
 const LAYOUT_ICON: Record<ContactLayout, LucideIcon> = { left: PanelLeft, right: PanelRight };
 
@@ -14,16 +11,9 @@ const LAYOUT_ICON: Record<ContactLayout, LucideIcon> = { left: PanelLeft, right:
  * The Contact page, edited as it reads: her words beside the form with their
  * formatting, the ways to reach her, and which side the form stands.
  */
-export function ContactPanel({ brand, onBrand, onPreview, onMenu, legal, onLegal, legalDrafts }: {
+export function ContactPanel({ brand, onBrand }: {
   brand: Brand;
-  /** Who publishes the site: its legal notice, privacy page, notice and credit. */
-  legal: Legal;
-  onLegal: (next: Legal) => void;
-  /** The legal pages as the site writes them from the fields now. */
-  legalDrafts: () => { notice: string; privacy: string };
   onBrand: (next: Partial<Brand>) => void;
-  onPreview: (progress: PreviewProgress) => Promise<string>;
-  onMenu: (change: MenuChange) => void;
 }) {
   const { t } = useI18n();
   const [fields, setFields] = useState({ email: brand.email, formspree: brand.formspree });
@@ -79,7 +69,6 @@ export function ContactPanel({ brand, onBrand, onPreview, onMenu, legal, onLegal
         </div>
         <RichText value={brand.contactNote} onChange={(contactNote) => onBrand({ contactNote })} label={t('site.brand.contactNote')} placeholder={t('site.brand.contactNoteHint')} />
       </div>
-      <LegalCard legal={legal} email={brand.email} onLegal={onLegal} drafts={legalDrafts} onPreview={onPreview} onMenu={onMenu} />
     </section>
   );
 }

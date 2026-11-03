@@ -23,13 +23,13 @@ export interface CurrencySettings {
   rates?: { date: string; values: Partial<Record<Currency, number>> };
 }
 
-export const DEFAULT_CURRENCY: CurrencySettings = { main: 'EUR', also: [] };
+export const DEFAULT_CURRENCY: CurrencySettings = { main: 'CHF', also: [] };
 
 const isCurrency = (v: unknown): v is Currency => CURRENCIES.includes(v as Currency);
 
 export function normalizeCurrency(raw: unknown): CurrencySettings {
   const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  const main = isCurrency(r.main) ? r.main : 'EUR';
+  const main = isCurrency(r.main) ? r.main : DEFAULT_CURRENCY.main;
   const also = [...new Set((Array.isArray(r.also) ? r.also : []).filter(isCurrency))].filter((c) => c !== main).slice(0, ALSO_MAX);
   const out: CurrencySettings = { main, also };
   const rates = r.rates as Record<string, unknown> | undefined;

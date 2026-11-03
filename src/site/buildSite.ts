@@ -22,6 +22,8 @@ import { onPage, type FormField, type PageLayout, type SitePage } from '../model
 import { normalizeSocials, socialLinks, type Socials } from '../model/socials';
 import { creationZoomAsset, type ViewerSettings } from '../model/viewer';
 import { EMPTY_LEGAL, type Legal } from '../model/legal';
+import { LOADER_CSS, loaderMarkup, type Loader } from './loader';
+import type { SiteTranslation } from '../model/translation';
 import { layersCurrent, type LayerBox } from '../model/sceneLayers';
 import { legalPages, type LegalSite, type SiteLegal } from './legalPages';
 import { markdownToHtml, postExcerpt, postImages, postPieces, readingMinutes, sortPosts, type BlogPost } from '../model/blog';
@@ -31,7 +33,7 @@ import type { Lang } from '../model/profiles';
 import type { FilmStep } from '../model/film';
 import { filmComplete, type Film } from '../model/filmRecord';
 
-export const ABOUT_LAYOUTS = ['right', 'left', 'top'] as const;
+export const ABOUT_LAYOUTS = ['right', 'left', 'top', 'bottom'] as const;
 export type AboutLayout = (typeof ABOUT_LAYOUTS)[number];
 export const CONTACT_LAYOUTS = ['left', 'right'] as const;
 export type ContactLayout = (typeof CONTACT_LAYOUTS)[number];
@@ -60,6 +62,16 @@ export interface Brand {
   aboutLayout?: AboutLayout;
   /** Which side the contact form stands; absent = left. */
   contactLayout?: ContactLayout;
+  /** The About page's photos after the portrait, in her order; '' = a frame still to fill (never on the site). */
+  aboutPhotos?: string[];
+  /**
+   * The pages of words (About, the blog, Contact…) turn dark for a visitor whose
+   * system is dark: her two colours swapped. The scenes stay as they are: they
+   * are photographs. Absent = always light.
+   */
+  dark?: 'auto';
+  /** The screen shown while the site loads (site/loader.ts); absent = none. */
+  loader?: Loader;
   /** Her social networks, by network: her name there or its address (model/socials.ts). */
   socials?: Socials;
   /** The artisan's Formspree form (its id): the contact form sends there from the page. Empty = the visitor's mail app. */
@@ -132,10 +144,20 @@ export interface SiteSettings {
   viewer: ViewerSettings;
   /** Who publishes the site, the notice and the credit (model/legal.ts). */
   legal: Legal;
+  /**
+   * How heavy the site's clips may be (the host's web copy: about 0.9, 1.8 or
+   * 3.5 Mbit/s). Absent = light. The export still keeps the lighter of the copy
+   * and the clip as made, so « sharp » never sends more than the original.
+   */
+  videoLevel?: VideoLevel;
+  /** The site's second language and her read translations (model/translation.ts); absent = one language. */
+  translation?: SiteTranslation;
 }
 
 /** Any weight the person wants (Tony: « si il veut des photos de 800 Ko, c'est son choix »). */
 export type ImageKb = number | null;
+export const VIDEO_LEVELS = ['light', 'balanced', 'sharp'] as const;
+export type VideoLevel = Exclude<(typeof VIDEO_LEVELS)[number], 'light'>;
 export const IMAGE_KB_CHOICES: readonly ImageKb[] = [100, 200, 400, 800, null];
 export const IMAGE_KB_MIN = 20;
 export const IMAGE_KB_MAX = 5000;
@@ -143,13 +165,23 @@ export const IMAGE_KB_MAX = 5000;
  * Bytes written by an export, by kind. `heavyClips`: clips sent as they are
  * because no lighter copy could be made (ffmpeg absent, or it failed); absent = none.
  */
-export interface ExportSize { files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number }
+export interface ExportSize {
+  files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number;
+  /** Clips made at the light level although a heavier one was chosen: this Mnemosyne is older than the choice. */
+  lightOnly?: number;
+}
 
 /**
  * The large pictures' width and the WebP quality, per choice. The small size
  * (phones) stays 800 px whatever is chosen: a phone never shows more. A
  * picture is never enlarged by the export, so a large width only helps a
  * picture that is that wide already (see the settings' enlargement).
+ *
+ * Above « standard », a full-screen picture is written THREE times: 800 px,
+ * 1 600 px, and the chosen width as a `-x` copy. The page loads the `-x` one
+ * only on a screen that needs it (more than 1 800 real pixels across) with a
+ * connection that is not slow: a laptop or a phone never pays for a 27-inch
+ * screen, many megabytes for a small share of visitors.
  */
 export type ExportQuality = 'standard' | 'high' | 'max';
 export const EXPORT_QUALITIES: readonly ExportQuality[] = ['standard', 'high', 'max'];
@@ -179,6 +211,9 @@ export function formspreeId(raw: string): string | null {
 
 /** The portrait's file on the site. */
 export const PORTRAIT_ASSET = 'assets/portrait.webp';
+/** The About page's further photos on the site, the filled ones in her order. */
+export const aboutPhotoAsset = (n: number) => `assets/about-${n + 1}.webp`;
+export const ABOUT_PHOTOS_MAX = 3;
 
 /** A project name Vercel accepts, from a brand name: "Atelier Rosalie" → "atelier-rosalie". */
 export function slugify(name: string): string {
@@ -188,6 +223,15 @@ export function slugify(name: string): string {
 export type Size = 's' | 'l';
 /** Width of each size: the phone one and the computer one. */
 export const SIZES: Record<Size, number> = { s: 800, l: 1600 };
+
+/** The sharp copy of a large picture, for big screens: same name, `-x` for `-l`. */
+export const sharpAsset = (largeName: string) => largeName.replace(/-l\.webp$/, '-x.webp');
+
+/** The site's data with its sharp copies declared when the quality asks for them; the export writes exactly those. */
+export function withSharpCopies(data: SiteData, quality: ExportQuality): SiteData {
+  const w = EXPORT_QUALITY[quality].large;
+  return w > SIZES.l ? { ...data, xl: w } : data;
+}
 
 export const sceneAsset = (sceneId: string, beat: Beat, size: Size) => `assets/${sceneId}-${beat}-${size}.webp`;
 export const creationAsset = (pieceId: string) => `assets/creation-${pieceId}.webp`;
@@ -248,9 +292,9 @@ export function menuDefaults(lang: Lang): Record<MenuKey, string> {
 }
 
 const TEXTS: Record<Lang, Record<string, string>> = {
-  fr: { menu: 'Menu', close: 'Fermer', formSending: 'Envoi…', formSent: 'Message envoyé, merci.', formFailed: 'Le message n’est pas parti. Réessayez, ou écrivez directement.', formVia: 'Envoyé par Formspree.', creations: 'Créations', about: 'À propos', blog: 'Blog', contact: 'Contact', back: 'Retour aux ambiances', empty: 'Bientôt.', generated: 'Décor généré · pièce réelle', enter: 'Entrer dans l’atelier', hint: 'Faites défiler · ↑ ↓ une pièce · ← → une ambiance', hintScroll: 'Faites défiler', hintRoom: 'une pièce', hintAmbiance: 'une ambiance', hintSwipe: 'Glissez ↑ ↓ une pièce · ← → une ambiance', allPosts: 'Tous les articles', allCats: 'Tout', readTime: '{n} min de lecture', formName: 'Nom', formEmail: 'E-mail', formMessage: 'Message', formSend: 'Envoyer', formSubject: 'Message du site', place: 'Le lieu', piece: 'La pièce', alive: 'Le vivant' },
-  en: { menu: 'Menu', close: 'Close', formSending: 'Sending…', formSent: 'Message sent, thank you.', formFailed: 'The message did not go. Try again, or write directly.', formVia: 'Sent through Formspree.', creations: 'Creations', about: 'About', blog: 'Blog', contact: 'Contact', back: 'Back to the ambiances', empty: 'Coming soon.', generated: 'Generated setting · real piece', enter: 'Enter the workshop', hint: 'Scroll · ↑ ↓ a room · ← → an ambiance', hintScroll: 'Scroll', hintRoom: 'a room', hintAmbiance: 'an ambiance', hintSwipe: 'Swipe ↑ ↓ a room · ← → an ambiance', allPosts: 'All posts', allCats: 'All', readTime: '{n} min read', formName: 'Name', formEmail: 'Email', formMessage: 'Message', formSend: 'Send', formSubject: 'Message from the website', place: 'The place', piece: 'The piece', alive: 'The living' },
-  es: { menu: 'Menú', close: 'Cerrar', formSending: 'Enviando…', formSent: 'Mensaje enviado, gracias.', formFailed: 'El mensaje no salió. Inténtalo de nuevo o escribe directamente.', formVia: 'Enviado por Formspree.', creations: 'Creaciones', about: 'Sobre mí', blog: 'Blog', contact: 'Contacto', back: 'Volver a los ambientes', empty: 'Muy pronto.', generated: 'Decorado generado · pieza real', enter: 'Entrar al taller', hint: 'Desplázate · ↑ ↓ una estancia · ← → un ambiente', hintScroll: 'Desplázate', hintRoom: 'una estancia', hintAmbiance: 'un ambiente', hintSwipe: 'Desliza ↑ ↓ una estancia · ← → un ambiente', allPosts: 'Todos los artículos', allCats: 'Todo', readTime: '{n} min de lectura', formName: 'Nombre', formEmail: 'Correo', formMessage: 'Mensaje', formSend: 'Enviar', formSubject: 'Mensaje del sitio', place: 'El lugar', piece: 'La pieza', alive: 'Lo vivo' },
+  fr: { menu: 'Menu', close: 'Fermer', formSending: 'Envoi…', formSent: 'Merci, votre message a bien été envoyé.', formMissing: 'Il manque : {f}.', formBadEmail: 'Cette adresse e-mail ne semble pas complète.', formMailApp: 'Votre messagerie s’ouvre avec le message prêt : il reste à l’envoyer.', formFailed: 'Le message n’est pas parti. Réessayez, ou écrivez directement.', formVia: 'Envoyé par Formspree.', creations: 'Créations', about: 'À propos', blog: 'Blog', contact: 'Contact', back: 'Retour aux ambiances', empty: 'Bientôt.', generated: 'Décor généré · pièce réelle', enter: 'Entrer dans l’atelier', hint: 'Faites défiler · ↑ ↓ une pièce · ← → une ambiance', hintScroll: 'Faites défiler', hintRoom: 'une pièce', hintAmbiance: 'une ambiance', hintSwipe: 'Glissez ↑ ↓ une pièce · ← → une ambiance', allPosts: 'Tous les articles', allCats: 'Tout', readTime: '{n} min de lecture', formName: 'Nom', formEmail: 'E-mail', formMessage: 'Message', formSend: 'Envoyer', formSubject: 'Message du site', place: 'Le lieu', piece: 'La pièce', alive: 'Le vivant' },
+  en: { menu: 'Menu', close: 'Close', formSending: 'Sending…', formSent: 'Thank you, your message has been sent.', formMissing: 'Missing: {f}.', formBadEmail: 'This e-mail address does not look complete.', formMailApp: 'Your mail app opens with the message ready: it only needs sending.', formFailed: 'The message did not go. Try again, or write directly.', formVia: 'Sent through Formspree.', creations: 'Creations', about: 'About', blog: 'Blog', contact: 'Contact', back: 'Back to the ambiances', empty: 'Coming soon.', generated: 'Generated setting · real piece', enter: 'Enter the workshop', hint: 'Scroll · ↑ ↓ a room · ← → an ambiance', hintScroll: 'Scroll', hintRoom: 'a room', hintAmbiance: 'an ambiance', hintSwipe: 'Swipe ↑ ↓ a room · ← → an ambiance', allPosts: 'All posts', allCats: 'All', readTime: '{n} min read', formName: 'Name', formEmail: 'Email', formMessage: 'Message', formSend: 'Send', formSubject: 'Message from the website', place: 'The place', piece: 'The piece', alive: 'The living' },
+  es: { menu: 'Menú', close: 'Cerrar', formSending: 'Enviando…', formSent: 'Gracias, tu mensaje se ha enviado.', formMissing: 'Falta: {f}.', formBadEmail: 'Esta dirección de correo no parece completa.', formMailApp: 'Tu correo se abre con el mensaje listo: solo falta enviarlo.', formFailed: 'El mensaje no salió. Inténtalo de nuevo o escribe directamente.', formVia: 'Enviado por Formspree.', creations: 'Creaciones', about: 'Sobre mí', blog: 'Blog', contact: 'Contacto', back: 'Volver a los ambientes', empty: 'Muy pronto.', generated: 'Decorado generado · pieza real', enter: 'Entrar al taller', hint: 'Desplázate · ↑ ↓ una estancia · ← → un ambiente', hintScroll: 'Desplázate', hintRoom: 'una estancia', hintAmbiance: 'un ambiente', hintSwipe: 'Desliza ↑ ↓ una estancia · ← → un ambiente', allPosts: 'Todos los artículos', allCats: 'Todo', readTime: '{n} min de lectura', formName: 'Nombre', formEmail: 'Correo', formMessage: 'Mensaje', formSend: 'Enviar', formSubject: 'Mensaje del sitio', place: 'El lugar', piece: 'La pieza', alive: 'Lo vivo' },
 };
 
 /** A piece's measures named in the site's language, in the viewer's table. */
@@ -330,10 +374,14 @@ export interface SiteData {
   creationsHover?: CreationsHover;
   /** The blog, newest first: its HTML made at export from the post's Markdown. Absent when no post is online. */
   posts?: Array<{ id: string; title: string; when?: string; html: string; excerpt: string; minutes: number; cover?: string }>;
+  /** The width of the sharp `-x` copies of the full-screen pictures (withSharpCopies); absent = none written. */
+  xl?: number;
   /** The home film: its first picture while it loads, then its clips in order. Absent unless validated and complete. */
   film?: { poster: { s: string; l: string }; clips: string[]; cuts?: Array<{ in: number; out: number } | null> };
   /** The header's logo and name, and the tab icon (site/logo.ts). Absent = the name alone. */
   identity?: SiteIdentity;
+  /** The About page's further photos on the site (aboutPhotoAsset), the filled ones only. */
+  aboutPhotos?: string[];
   /** The portrait's file on the site (PORTRAIT_ASSET), when there is one. */
   portrait?: string;
   /** The menu's entries by page id, in the order she set. Absent = the site's own order. */
@@ -347,6 +395,8 @@ export interface SiteData {
   contactHtml?: string;
   /** Her networks as icons and links on the Contact page. */
   socials?: ReturnType<typeof socialLinks>;
+  /** The same site in its second language, her read translations in place (model/translation.ts). */
+  alt?: { lang: Lang; data: SiteData };
 }
 
 /** An added page on the site: its rooms, its catalogue (and its filters), or its posts. */
@@ -508,7 +558,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   });
   const posts = postsOf(onPage(input.posts ?? [], null, pages));
   // The portrait's path is the person's disk: online it is the site's own file, never the path.
-  const { portrait, ...brand } = input.brand;
+  const { portrait, aboutPhotos, ...brand } = input.brand;
   // The three beats are named by the trade (a lamp's third beat is its light, not the living).
   // The menu as she named it: the same words name each page's title.
   const texts = { ...TEXTS[input.lang], ...(input.beats ? { place: input.beats.place, piece: input.beats.piece, alive: input.beats.alive } : {}), ...normalizeMenu(input.menu) };
@@ -516,6 +566,8 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   if (posts.length) data.posts = posts;
   if (input.hover && input.hover !== 'none') data.creationsHover = input.hover;
   if (portrait) data.portrait = PORTRAIT_ASSET;
+  const filled = (aboutPhotos ?? []).filter(Boolean);
+  if (filled.length) data.aboutPhotos = filled.map((_, i) => aboutPhotoAsset(i));
   if (input.film) {
     data.film = { poster: { s: filmPosterAsset('s'), l: filmPosterAsset('l') }, clips: input.film.clips.map((c) => c.name) };
     // The parts played, only when one is cut: a film without cuts writes the same data as before.
@@ -529,7 +581,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   // The page's filters: the categories that hold a creation on it, in her order.
   const used = (input.categories ?? []).filter((c) => creations.some((x) => x.cats?.includes(c.id)));
   if (used.length) data.categories = used;
-  if (input.sceneMap && (input.sceneMap.style !== 'dots' || input.sceneMap.color || input.sceneMap.guide || input.sceneMap.edges || input.sceneMap.credit)) data.sceneMap = input.sceneMap;
+  if (input.sceneMap && (input.sceneMap.style !== 'dots' || input.sceneMap.color || input.sceneMap.guide || input.sceneMap.edges || input.sceneMap.credit || input.sceneMap.titles)) data.sceneMap = input.sceneMap;
   // Her added pages, in her order, each with its own content; an empty one stays off the site.
   const added = pages.flatMap((pg): AddedPageData[] => {
     const head = { id: pg.id, type: pg.type, title: pg.name };
@@ -550,7 +602,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
     return p.length ? [{ ...head, posts: p }] : [];
   });
   if (added.length) data.pages = added;
-  if (input.viewer && (input.viewer.loupe !== 'none' || input.viewer.frame !== 'none')) data.viewer = input.viewer;
+  if (input.viewer && (input.viewer.loupe !== 'none' || input.viewer.frame !== 'none' || input.viewer.layout || input.viewer.parallax)) data.viewer = input.viewer;
   // Her words with their formatting; every character escaped but the studio's own tags.
   if (input.brand.about?.trim()) data.aboutHtml = markdownToHtml(input.brand.about, { keepTitle: true });
   const socials = socialLinks(input.brand.socials ?? normalizeSocials(undefined, input.brand.instagram ?? ''));
@@ -592,6 +644,9 @@ export function fillShell(template: string, brand: Brand, lang: Lang, data?: Sit
     .replace(/__INK__/g, () => hex(brand.ink, DEFAULT_INK))
     .replace(/__PAPER__/g, () => hex(brand.paper, DEFAULT_PAPER))
     .replace('__LOGO_CSS__', () => LOGO_CSS)
+    .replace('__LOADER_CSS__', () => LOADER_CSS)
+    // The loading screen is in the HTML itself: on the first paint, before any script runs.
+    .replace('<body>', () => (brand.loader ? `<body>\n${loaderMarkup(brand.loader, brand.name)}` : '<body>'))
     // Vercel's visit counter, only when she turned it on: it sets no cookie, and the privacy page says it is there.
     .replace('</head>', () => (data?.analytics ? `${ANALYTICS_SCRIPT}\n</head>` : '</head>'))
     // The font travels inside the page: the host writes no font file into a site folder.
@@ -626,6 +681,8 @@ export interface ExportDeps {
   logoPath?: string;
   /** The portrait's file, written as assets/portrait.webp when the data asks for it. */
   portraitPath?: string;
+  /** The About page's filled photos on disk, in the order of `data.aboutPhotos`. */
+  aboutPhotoPaths?: string[];
   /** Each creation's further photos on disk, in order (the data names their files). */
   creationPhotos?: Record<string, string[]>;
   /** The added text pages' pictures on disk, by their name on the site. */
@@ -643,16 +700,19 @@ export interface ExportDeps {
  */
 export async function exportSite(data: SiteData, scenes: Scene[], pieces: Piece[], shell: string, deps: ExportDeps, film: ReturnType<typeof filmSources> = null): Promise<ExportSize> {
   const q = EXPORT_QUALITY[deps.quality ?? 'standard'];
-  const width = (size: Size) => (size === 'l' ? q.large : SIZES.s);
+  // The large size is the light one; what the quality adds goes to the sharp copies, for big screens only.
+  const width = (size: Size) => (size === 'l' ? (data.xl ? SIZES.l : q.large) : SIZES.s);
   const kb = deps.imageKb ?? null;
   const budget = (w: number) => (kb === null ? undefined : Math.round((w === SIZES.s ? kb * 0.4 : kb) * 1000));
   // A loupe grows its copy about 2.5 times: held to the large images' weight it would be blurred
   // exactly where she looks closest, so it gets four times their budget.
   const zoomBudget = (w: number) => { const b = budget(w); return b === undefined ? undefined : b * 4; };
+  // A sharp copy held to the large one's weight would be no sharper: its budget grows with its pixels, four times at most.
+  const sharpBudget = (w: number) => { const b = budget(w); return b === undefined ? undefined : Math.round(b * Math.min(4, (w / SIZES.l) ** 2)); };
   let imageBytes = 0;
   let clipBytes = 0;
   let otherBytes = 0;
-  const jobs: Array<{ name: string; path: string; width: number; layer?: boolean }> = [];
+  const jobs: Array<{ name: string; path: string; width: number; layer?: boolean; sharp?: boolean }> = [];
   for (const row of allRows(data)) {
     for (const s of row.scenes) {
       const scene = scenes.find((x) => x.id === s.id)!;
@@ -675,6 +735,7 @@ export async function exportSite(data: SiteData, scenes: Scene[], pieces: Piece[
   if (data.identity?.logoSrc && deps.logoPath) jobs.push({ name: LOGO_ASSET, path: deps.logoPath, width: 800 });
   // The portrait, sharp as the logo: one picture, never shrunk to the weight limit.
   if (data.portrait && deps.portraitPath) jobs.push({ name: PORTRAIT_ASSET, path: deps.portraitPath, width: 800 });
+  (data.aboutPhotos ?? []).forEach((name, i) => { const path = deps.aboutPhotoPaths?.[i]; if (path) jobs.push({ name, path, width: SIZES.l }); });
   // An added text page's picture, as large as a page's.
   for (const pg of data.pages ?? []) {
     const f = pg.photo ? deps.pagePhotos?.find((x) => x.name === pg.photo) : undefined;
@@ -682,11 +743,13 @@ export async function exportSite(data: SiteData, scenes: Scene[], pieces: Piece[
   }
   for (const c of allCreations(data)) {
     if (jobs.some((j) => j.name === c.images[0])) continue;
-    jobs.push({ name: c.images[0]!, path: pieces.find((p) => p.id === c.id)!.photoPath!, width: SIZES.s });
+    // The strip shows one photo across the page: 800 px would be blurred there.
+    const cw = data.viewer?.layout === 'strip' ? SIZES.l : SIZES.s;
+    jobs.push({ name: c.images[0]!, path: pieces.find((p) => p.id === c.id)!.photoPath!, width: cw });
     // Its further photos, as many as the data names (a missing path is a hole in the studio, never a broken picture).
-    c.images.slice(1).forEach((name, n) => { const path = deps.creationPhotos?.[c.id]?.[n]; if (path) jobs.push({ name, path, width: SIZES.s }); });
+    c.images.slice(1).forEach((name, n) => { const path = deps.creationPhotos?.[c.id]?.[n]; if (path) jobs.push({ name, path, width: cw }); });
     // The loupe's large copies, at the site's large width.
-    (c.zoom ?? []).forEach((name, n) => { const path = n === 0 ? pieces.find((p) => p.id === c.id)?.photoPath : deps.creationPhotos?.[c.id]?.[n - 1]; if (path) jobs.push({ name, path, width: width('l') }); });
+    (c.zoom ?? []).forEach((name, n) => { const path = n === 0 ? pieces.find((p) => p.id === c.id)?.photoPath : deps.creationPhotos?.[c.id]?.[n - 1]; if (path) jobs.push({ name, path, width: q.large }); });
   }
   // The blog's pictures, large enough for one across the page; a piece already written for the Creations page is not written twice.
   for (const f of deps.blogFiles ?? []) {
@@ -699,6 +762,16 @@ export async function exportSite(data: SiteData, scenes: Scene[], pieces: Piece[
     clips.push(...film.clips);
   }
 
+  // Every full-screen large picture (a scene's, a living room's and its layers, the film's poster) gets its sharp copy.
+  const xl = data.xl;
+  if (xl) {
+    for (const j of [...jobs]) {
+      if (/-l\.webp$/.test(j.name) && (j.name === filmPosterAsset('l') || /-(place|piece|alive)-l\.webp$|-layer-[^/]+-l\.webp$/.test(j.name))) {
+        jobs.push({ ...j, name: sharpAsset(j.name), width: Math.round((j.width * xl) / SIZES.l), sharp: true });
+      }
+    }
+  }
+
   const extra = deps.extraFiles ?? [];
   const total = jobs.length + clips.length + extra.length + 2;
   let done = 0;
@@ -709,7 +782,7 @@ export async function exportSite(data: SiteData, scenes: Scene[], pieces: Piece[
   for (const [path, group] of byPath) {
     const dataUrl = await deps.readImage(path);
     for (const job of group) {
-      const b64 = job.name === LOGO_ASSET || job.name === PORTRAIT_ASSET || job.layer ? await deps.toWebp(dataUrl, job.width, 0.92) : await deps.toWebp(dataUrl, job.width, q.webp, job.name.endsWith('-z.webp') ? zoomBudget(job.width) : budget(job.width));
+      const b64 = job.name === LOGO_ASSET || job.name === PORTRAIT_ASSET || job.layer ? await deps.toWebp(dataUrl, job.width, 0.92) : await deps.toWebp(dataUrl, job.width, q.webp, job.name.endsWith('-z.webp') ? zoomBudget(job.width) : job.sharp ? sharpBudget(job.width) : budget(job.width));
       imageBytes += base64Bytes(b64);
       await deps.save(job.name, b64);
       deps.onProgress(++done, total);

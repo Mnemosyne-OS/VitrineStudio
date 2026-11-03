@@ -1,7 +1,7 @@
 import { AlignCenter, AlignLeft, AlignRight, Monitor, Smartphone, Tablet, type LucideIcon } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react';
 import { useI18n } from '../i18n';
-import { brandMarkup, LOGO_HEIGHT, LOGO_HEIGHT_MAX, LOGO_HEIGHT_MIN, LOGO_PLACES, setLogoSource, type Identity, type LogoPlace } from '../site/logo';
+import { brandMarkup, clampLogoHeight, logoHeight, LOGO_HEIGHT_MAX, LOGO_HEIGHT_MIN, LOGO_PLACES, setLogoSource, type Identity, type LogoPlace } from '../site/logo';
 import type { Brand } from '../site/buildSite';
 
 type Screen = 'desktop' | 'tablet' | 'mobile';
@@ -18,8 +18,13 @@ const PLACE_ICON: Record<LogoPlace, LucideIcon> = { left: AlignLeft, center: Ali
  * The top of the site with the logo where the page will put it (Tony: « une
  * preview qui permet de grossir ou de le positionner autrement »): the page's
  * own width per screen, scaled down to fit, the header's markup and placement
- * rules (LOGO_CSS). The logo is dragged left, centre or right and snaps; the
- * slider sets its height, saved when let go.
+ * rules (LOGO_CSS). The logo is dragged left, centre or right and snaps; its
+ * corner grip or the slider sets its height, saved when let go.
+ *
+ * 🪤 The real page is an iframe laid over the drawing: it took every pointer,
+ * so once it had loaded the logo could no longer be dragged (reported on
+ * 02/11 as the logo not reacting at all). It takes none now, and the drawing above it keeps
+ * only the logo's frame and its grip until a gesture starts.
  */
 export function LogoOnPage({ identity, name, src, brand, replay, onChange, make }: {
   identity: Identity;
@@ -36,11 +41,12 @@ export function LogoOnPage({ identity, name, src, brand, replay, onChange, make 
   const [draft, setDraft] = useState<number | null>(null);
   const [frameW, setFrameW] = useState(0);
   const [drag, setDrag] = useState<{ x0: number; dx: number } | null>(null);
+  const [grip, setGrip] = useState<{ y0: number; h0: number } | null>(null);
   const wrap = useRef<HTMLDivElement | null>(null);
   const page = useRef<HTMLDivElement | null>(null);
   const { w, h, vh } = SCREEN[screen];
   const place = identity.place ?? 'left';
-  const height = draft ?? identity.height ?? LOGO_HEIGHT[identity.size];
+  const height = draft ?? logoHeight(identity);
   const shown: Identity = { ...identity, height };
   // The real page, rebuilt a moment after the logo stops changing; the drawing below stays as its ghost.
   const [real, setReal] = useState<string | null>(null);
@@ -92,7 +98,15 @@ export function LogoOnPage({ identity, name, src, brand, replay, onChange, make 
     return () => cancelAnimationFrame(raf);
   }, [src, identity, replay, name, screen]);
 
+  /** The grip pulled down or right makes the logo taller, in page pixels (the card is the page scaled). */
+  const resize = (e: React.PointerEvent) => {
+    if (!grip) return;
+    const next = Math.round(grip.h0 + (e.clientY - grip.y0) / scale);
+    setDraft(Math.min(LOGO_HEIGHT_MAX, Math.max(LOGO_HEIGHT_MIN, next)));
+  };
+
   const commit = () => {
+    setGrip(null);
     if (draft === null) return;
     if (draft !== identity.height) onChange({ ...identity, height: draft });
     setDraft(null);
@@ -114,17 +128,21 @@ export function LogoOnPage({ identity, name, src, brand, replay, onChange, make 
 
   return (
     <div className="logo-on-page">
-      <div className="lop-frame" ref={wrap} style={{ height: h * scale }}>
+      <div className={`lop-frame${real && drawn === frameKey ? ' has-real' : ''}${drag || grip ? ' editing' : ''}`} ref={wrap} style={{ height: h * scale, '--s': scale } as CSSProperties}>
         <div className="lop-page" ref={page} style={colours} key={`${replay}-${screen}`}>
           <div className={`logo-head lop-head${place !== 'left' ? ` place-${place}` : ''}${screen === 'mobile' ? ' narrow' : ''}`}>
             {/* The markup is the page's own: the name escaped, an svg reduced to its shapes. */}
-            <a className={`lop-brand${drag ? ' dragging' : ''}`} data-tip={t('logo.drag')} aria-label={t('logo.drag')}
-              style={drag ? { transform: `translateX(${drag.dx / scale}px)` } : undefined}
-              onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDrag({ x0: e.clientX, dx: 0 }); }}
-              onPointerMove={(e) => drag && setDrag({ ...drag, dx: e.clientX - drag.x0 })}
-              onPointerUp={(e) => drag && drop(e.clientX)}
-              onPointerCancel={() => setDrag(null)}
-              dangerouslySetInnerHTML={{ __html: brandMarkup(shown, name) }} />
+            <span className="lop-brand-wrap" style={drag ? { transform: `translateX(${drag.dx / scale}px)` } : undefined}>
+              <a className={`lop-brand${drag ? ' dragging' : ''}`} data-tip={t('logo.drag')} aria-label={t('logo.drag')}
+                onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setDrag({ x0: e.clientX, dx: 0 }); }}
+                onPointerMove={(e) => drag && setDrag({ ...drag, dx: e.clientX - drag.x0 })}
+                onPointerUp={(e) => drag && drop(e.clientX)}
+                onPointerCancel={() => setDrag(null)}
+                dangerouslySetInnerHTML={{ __html: brandMarkup(shown, name) }} />
+              <button className="lop-grip" aria-label={t('logo.grip')} data-tip={t('logo.grip')}
+                onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setGrip({ y0: e.clientY, h0: height }); }}
+                onPointerMove={resize} onPointerUp={commit} onPointerCancel={() => { setGrip(null); setDraft(null); }} />
+            </span>
             <nav className="lop-nav">{pages.map((p) => <span key={p}>{p}</span>)}</nav>
           </div>
           <div className="lop-body" aria-hidden><i /><i /><i /></div>
@@ -151,9 +169,44 @@ export function LogoOnPage({ identity, name, src, brand, replay, onChange, make 
           <span className="small muted">{t('logo.height')}</span>
           <input type="range" min={LOGO_HEIGHT_MIN} max={LOGO_HEIGHT_MAX} value={height} aria-label={t('logo.height')}
             onChange={(e) => setDraft(Number(e.target.value))} onPointerUp={commit} onKeyUp={commit} onBlur={commit} />
-          <span className="small lop-px">{height} px</span>
         </label>
+        <LogoHeightField value={height} onDraft={setDraft} onCommit={(n) => { setDraft(null); if (n !== identity.height) onChange({ ...identity, height: n }); }} />
       </div>
     </div>
+  );
+}
+
+/**
+ * The logo's height typed in px, the same value as the
+ * slider and the grip: a valid number shows at once, the value is kept on Enter or when the
+ * field is left, brought back inside 16-200 px.
+ */
+export function LogoHeightField({ value, onDraft, onCommit }: {
+  value: number;
+  /** Each valid number while typing, for the preview; null drops it (optional). */
+  onDraft?: (n: number | null) => void;
+  onCommit: (n: number) => void;
+}) {
+  const { t } = useI18n();
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => {
+    if (text === null) return;
+    const n = clampLogoHeight(Number(text.replace(',', '.')));
+    setText(null);
+    if (n === null || text.trim() === '') { onDraft?.(null); return; }
+    onCommit(n);
+  };
+  return (
+    <label className="lop-px-field" data-tip={t('logo.heightTip')}>
+      <input type="number" inputMode="numeric" min={LOGO_HEIGHT_MIN} max={LOGO_HEIGHT_MAX} step={1} value={text ?? String(value)} aria-label={t('logo.heightTip')}
+        onChange={(e) => {
+          setText(e.target.value);
+          const n = Number(e.target.value);
+          if (e.target.value !== '' && Number.isFinite(n) && n >= LOGO_HEIGHT_MIN && n <= LOGO_HEIGHT_MAX) onDraft?.(Math.round(n));
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); commit(); } else if (e.key === 'Escape') { setText(null); onDraft?.(null); } }} />
+      <span className="small muted">{t('logo.px')}</span>
+    </label>
   );
 }

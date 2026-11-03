@@ -88,6 +88,8 @@ const KNOWN = [
   'NO_BEATS',
   'NO_SUBJECT',
   'SIZES_DIFFER',
+  'MODEL_NOT_OFFERED',
+  'TEXT_TOO_LONG',
 ] as const;
 
 export type KnownCode = (typeof KNOWN)[number];

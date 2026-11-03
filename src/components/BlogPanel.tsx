@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Eye, EyeOff, FileText, PenLine, Plus, X } from 'lucide-react';
+import { Eye, EyeOff, FileText, LayoutTemplate, PenLine, Plus, X } from 'lucide-react';
 import { getLanguage, useI18n } from '../i18n';
 import { sortPosts } from '../model/blog';
+import { POST_TEMPLATES, templateName, templateText } from '../model/templates';
 import { errorText } from './errors';
 import type { useBlog } from '../hooks/useBlog';
 import { PostEditor } from './PostEditor';
@@ -17,10 +18,13 @@ import { Thumb } from './Thumb';
 export function BlogPanel({ blog, pieces, onPreview, onMenu }: { blog: ReturnType<typeof useBlog>; pieces: Piece[]; onPreview: (post: SitePost) => Promise<string>; onMenu: (change: MenuChange) => void }) {
   const { t } = useI18n();
   const [title, setTitle] = useState('');
+  const [model, setModel] = useState<string | null>(null);
   const start = () => {
     if (!title.trim()) return;
-    void blog.write(title);
+    const tpl = POST_TEMPLATES.find((x) => x.id === model);
+    void blog.write(title, tpl ? templateText(tpl, getLanguage()) : '');
     setTitle('');
+    setModel(null);
   };
   // As on the site: its first photo, else the first creation it shows that has one.
   const cover = (sum: PostSummary | null | undefined) => sum?.image ?? sum?.pieces.map((id) => pieces.find((x) => x.id === id)?.photoPath).find(Boolean);
@@ -34,6 +38,14 @@ export function BlogPanel({ blog, pieces, onPreview, onMenu }: { blog: ReturnTyp
           onKeyDown={(e) => { if (e.key === 'Enter') start(); }} />
         <button onClick={start} disabled={blog.busy || !title.trim()}><Plus className="ico" aria-hidden />{t('blog.new')}</button>
         <button onClick={() => void blog.pick()} disabled={blog.busy} title={t('blog.pickTip')}><FileText className="ico" aria-hidden />{t('blog.pick')}</button>
+        <div className="template-row">
+          <span className="small muted"><LayoutTemplate className="ico" aria-hidden /> {t('template.post')}</span>
+          {POST_TEMPLATES.map((tpl) => (
+            <button key={tpl.id} className={`chip-tile glass ${model === tpl.id ? 'chosen' : ''}`} aria-pressed={model === tpl.id} onClick={() => setModel(model === tpl.id ? null : tpl.id)}>
+              {templateName(tpl, getLanguage())}
+            </button>
+          ))}
+        </div>
       </div>
       {blog.error && <p className="notice glass error">{errorText(blog.error)}</p>}
       {blog.posts.length === 0 ? (

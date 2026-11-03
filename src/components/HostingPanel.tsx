@@ -161,6 +161,8 @@ export function HostingPanel({ settings, connected, host, onSave, onOpen, onConn
           <button onClick={onVideoSettings}>{t('site.heavyClipsFix')}</button>
         </div>
       )}
+      {/* A heavier video quality chosen, the clips still made light: this Mnemosyne is older than the choice. */}
+      {!!settings.lastExport?.lightOnly && <p className="warn small">{tc('site.video.lightOnly', settings.lastExport.lightOnly)}</p>}
       {!published && <p className="muted small">{t('hosting.addresses.afterPublish')}</p>}
       {h.kind === 'error' && <p className="error small">{errorText(h.error)}</p>}
       {domains.map((d) => (
