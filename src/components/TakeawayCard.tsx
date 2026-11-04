@@ -1,15 +1,15 @@
 import { useState, type ReactNode } from 'react';
-import { ArchiveRestore, FolderArchive, Globe, HardDriveDownload, Table } from 'lucide-react';
+import { ArchiveRestore, Clapperboard, FolderArchive, Globe, HardDriveDownload, Table } from 'lucide-react';
 import { getLanguage, useI18n } from '../i18n';
 import { describeError, errorText } from './errors';
 import type { Progress } from '../data/takeaway';
 
 /** One of the copies she can carry away; each opens the system's folder dialog first. */
-export type TakeawayKind = 'all' | 'table' | 'site';
+export type TakeawayKind = 'all' | 'table' | 'site' | 'scenes';
 /** What one press did: what was written where, and what could not be, by path. */
 export interface TakeawayResult { folder: string; written: number; failed: string[]; kept?: string[]; added?: number }
 
-const ICON = { all: FolderArchive, table: Table, site: Globe } as const;
+const ICON = { all: FolderArchive, table: Table, site: Globe, scenes: Clapperboard } as const;
 
 /**
  * The studio carried away and brought back (Tony: « une console de boutons
@@ -19,10 +19,12 @@ const ICON = { all: FolderArchive, table: Table, site: Globe } as const;
  * disk), and « bring back a copy » that never replaces anything of hers. The
  * work is measured (files written out of the total), never a made-up bar.
  */
-export function TakeawayCard({ run, restore, children }: {
+export function TakeawayCard({ run, restore, kinds = ['all', 'table', 'site', 'scenes'], children }: {
   /** Picks the folder, writes the copy, reports. Rejects with CANCELED when the dialog was closed. */
   run: (kind: TakeawayKind, onProgress: (p: Progress) => void) => Promise<TakeawayResult>;
-  restore: (onProgress: (p: Progress) => void) => Promise<TakeawayResult>;
+  restore?: (onProgress: (p: Progress) => void) => Promise<TakeawayResult>;
+  /** The copies this card offers; absent = all of them. */
+  kinds?: readonly TakeawayKind[];
   /** The site kit's card, the fourth way to carry the site. */
   children?: ReactNode;
 }) {
@@ -38,7 +40,7 @@ export function TakeawayCard({ run, restore, children }: {
     setResult(null);
     setError(null);
     try {
-      const r = kind === 'restore' ? await restore(setProgress) : await run(kind, setProgress);
+      const r = kind === 'restore' ? await restore!(setProgress) : await run(kind, setProgress);
       setResult({ kind, r });
     } catch (err) {
       // Closing the dialog is a choice, not a failure.
@@ -56,7 +58,7 @@ export function TakeawayCard({ run, restore, children }: {
     <div className="glass card-pad takeaway-card">
       <h3><HardDriveDownload className="ico" aria-hidden /> {t('takeaway.title')}</h3>
       <div className="takeaway-tiles">
-        {(['all', 'table', 'site'] as const).map((k) => {
+        {kinds.map((k) => {
           const Icon = ICON[k];
           return (
             <button key={k} className="chip-tile glass takeaway-tile" disabled={!!busy} onClick={() => void go(k)}>
@@ -66,11 +68,11 @@ export function TakeawayCard({ run, restore, children }: {
             </button>
           );
         })}
-        <button className="chip-tile glass takeaway-tile" disabled={!!busy} onClick={() => void go('restore')}>
+        {restore && <button className="chip-tile glass takeaway-tile" disabled={!!busy} onClick={() => void go('restore')}>
           {busy === 'restore' ? <span className="spinner small-spin" aria-hidden /> : <ArchiveRestore className="ico" aria-hidden />}
           <strong>{t('takeaway.restore')}</strong>
           <span className="small muted">{t('takeaway.restoreHint')}</span>
-        </button>
+        </button>}
       </div>
       {progress && progress.total > 0 && (
         <div className="progress"><span style={{ width: `${Math.round((progress.done / progress.total) * 100)}%` }} /><em>{t('takeaway.progress', { done: progress.done.toLocaleString(getLanguage()), total: progress.total.toLocaleString(getLanguage()) })}</em></div>

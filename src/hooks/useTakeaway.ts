@@ -1,6 +1,6 @@
 import { getLanguage, useI18n } from '../i18n';
 import { hostIO, pickTakeaway, takeawayDoor } from '../data/host';
-import { creationsTable, exportStudio, restoreStudio, type Progress } from '../data/takeaway';
+import { creationsTable, exportStudio, restoreStudio, scenePictures, type Progress } from '../data/takeaway';
 import type { TakeawayKind, TakeawayResult } from '../components/TakeawayCard';
 import type { Studio } from './useStudio';
 
@@ -12,7 +12,7 @@ import type { Studio } from './useStudio';
  */
 export function useTakeaway(studio: Studio, exportSiteTo: (folderId: string, onProgress: (done: number, total: number) => void) => Promise<{ files: number; failed: string[] }>) {
   const { t } = useI18n();
-  const { folder, pieces, site, load } = studio;
+  const { folder, pieces, scenes, site, load } = studio;
   const lang = getLanguage();
   const tableLang = lang === 'fr' || lang === 'es' ? lang : 'en';
   const day = new Date().toISOString().slice(0, 10);
@@ -29,20 +29,29 @@ export function useTakeaway(studio: Studio, exportSiteTo: (folderId: string, onP
       const r = await exportSiteTo(picked.id, (done, total) => onProgress({ done, total }));
       return { folder: picked.name, written: r.files, failed: r.failed };
     }
+    const failed: string[] = [];
+    let done = 0;
+    const copyAll = async (files: Array<{ rel: string; from: string }>, total: number) => {
+      for (const p of files) {
+        try {
+          await takeawayDoor.copyFrom(picked.id, p.rel, p.from);
+        } catch (err) {
+          console.warn('[vitrine-studio] a photo was not copied:', p.from, err);
+          failed.push(p.from);
+        }
+        onProgress({ done: ++done, total });
+      }
+    };
+    // Her scenes' pictures, named so she finds them outside the studio.
+    if (kind === 'scenes') {
+      const files = scenePictures(scenes, (beat) => t(`takeaway.beat.${beat}`));
+      await copyAll(files, files.length);
+      return { folder: picked.name, written: done - failed.length, failed };
+    }
     // The creations as a table, with the photos it names beside it.
     const table = creationsTable(pieces, site.showcase, site.categories, site.currency.main, tableLang);
     const total = table.photos.length + 1;
-    const failed: string[] = [];
-    let done = 0;
-    for (const p of table.photos) {
-      try {
-        await takeawayDoor.copyFrom(picked.id, p.rel, p.from);
-      } catch (err) {
-        console.warn('[vitrine-studio] a photo was not copied:', p.from, err);
-        failed.push(p.from);
-      }
-      onProgress({ done: ++done, total });
-    }
+    await copyAll(table.photos, total);
     await takeawayDoor.write(picked.id, `${t('takeaway.tableFile')}.csv`, table.csv);
     onProgress({ done: ++done, total });
     return { folder: picked.name, written: done - failed.length, failed };

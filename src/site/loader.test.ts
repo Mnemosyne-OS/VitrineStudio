@@ -33,6 +33,16 @@ describe('the text pages in the dark', () => {
   });
 });
 
+describe('the photos in black and white', () => {
+  it('are the About portrait only: a text page photo keeps its colours', () => {
+    const page = fillShell(template, { ...EMPTY_BRAND, name: 'A' }, 'fr');
+    expect(page).toContain('.portrait:not(.page-photo) img { filter: grayscale(1) contrast(1.02); }');
+    expect(page).toContain('body.dark-auto.paged .portrait:not(.page-photo) img { filter: grayscale(1)');
+    // No other rule may grey a page photo through the shared .portrait class.
+    expect(page).not.toMatch(/\.portrait img \{[^}]*grayscale/);
+  });
+});
+
 describe('the header over a scrolled page', () => {
   it('gets a frosted veil only while an open page has words under it', () => {
     const page = fillShell(template, { ...EMPTY_BRAND, name: 'A' }, 'fr');

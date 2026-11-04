@@ -278,3 +278,30 @@ export function creationsTable(pieces: readonly TablePiece[], show: Record<strin
   });
   return { csv: `\uFEFF${[TABLE_HEADERS[lang].join(';'), ...rows].join('\r\n')}\r\n`, photos };
 }
+
+/** What a scene's pictures need to be named outside the studio. */
+export interface ScenePictures { universe: string; variant: string; images: Partial<Record<'place' | 'piece' | 'alive', string>> }
+const BEATS = ['place', 'piece', 'alive'] as const;
+
+/**
+ * Every picture her scenes made, to copy into a folder she can open outside
+ * the studio: one file per picture, named after the scene and the step
+ * (\u00AB Salon-Console-3-vivante.webp \u00BB), never the host's machine name. A step
+ * not made yet is absent from the scene, so it is absent here too.
+ */
+export function scenePictures(scenes: readonly ScenePictures[], beatName: (beat: 'place' | 'piece' | 'alive') => string): Array<{ rel: string; from: string }> {
+  const out: Array<{ rel: string; from: string }> = [];
+  const used = new Set<string>();
+  scenes.forEach((s, i) => {
+    BEATS.forEach((beat, n) => {
+      const path = s.images[beat];
+      if (!path) return;
+      const ext = (path.split('.').pop() ?? 'png').toLowerCase();
+      let base = [s.universe, s.variant, `${n + 1}-${beatName(beat)}`].filter(Boolean).join('-').normalize('NFD').replace(/[\u0300-\u036F]/g, '').replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || `scene-${i + 1}-${n + 1}`;
+      while (used.has(base)) base = `${base}-b`;
+      used.add(base);
+      out.push({ rel: `${base}.${ext}`, from: path });
+    });
+  });
+  return out;
+}

@@ -425,6 +425,8 @@ export default function App() {
             onScale={(s) => void changeSettings({ ...settings, upscaleScale: s })}
             onEnlarged={sceneActions.saveEnlarged} />
           <CurrencyCard currency={site.currency} onChange={(c) => void patchSite((cur) => ({ ...cur, currency: c }))} />
+          {/* Her scenes' pictures into a folder she opens outside the studio. */}
+          <TakeawayCard run={takeaway.run} kinds={['scenes']} />
         </SettingsPanel>
       )}
       {viewing && viewed && (

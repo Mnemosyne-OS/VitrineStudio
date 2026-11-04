@@ -43,7 +43,7 @@ const DYNAMIC: Record<string, string[]> = {
   'page.type.': ['scenes', 'blog', 'catalogue', 'text', 'form'],
   'form.kind.': ['text', 'email', 'tel', 'textarea', 'date', 'number', 'choice', 'check'],
   'form.sendsTo.': ['formspree', 'email', 'none'],
-  'photo.making.': ['cutout', 'plain', 'backdrop'],
+  'photo.making.': ['cutout', 'plain', 'backdrop', 'frame'],
   'viewer.loupes.': ['none', 'lens', 'square', 'zoom'],
   'sceneMap.guides.': ['box', 'text', 'none'],
   'sceneMap.credits.': ['line', 'none'],

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ArrowLeft, Bold, Code, Eye, EyeOff, Heading2, Heading3, ImagePlus, Italic, LayoutGrid, Link, List, ListOrdered, Quote, Redo2, RemoveFormatting, Strikethrough, Undo2,
+  ArrowLeft, Bold, Clapperboard, Code, Eye, EyeOff, Heading2, Heading3, ImagePlus, Italic, LayoutGrid, Link, List, ListOrdered, Quote, Redo2, RemoveFormatting, Strikethrough, Undo2,
 } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { hostIO, pickImage, readImage } from '../data/host';
@@ -193,6 +193,14 @@ export function PostEditor({ post, pieces, onPreview, onMenu, onClose, onToggle,
       setBlockError(describeError(err));
     }
   };
+  /** Where a scene's picture goes: the caret when the chooser opened. */
+  const [sceneAt, setSceneAt] = useState<{ at: Node | null } | null>(null);
+  const putScenePicture = (path: string) => {
+    if (!page.current || !sceneAt) return;
+    insertBlock(page.current, imageBlock(path, 'left'), sceneAt.at, 'before');
+    dress();
+    changed();
+  };
   const openPieces = () => {
     anchor.current = caretNode();
     setPicking({ ids: [], layout: 'row' });
@@ -281,6 +289,7 @@ export function PostEditor({ post, pieces, onPreview, onMenu, onClose, onToggle,
   return (
     <div className="post-editor">
       {choosing && <PhotoChooser onPick={(path) => void fillSlot(choosing, path)} onClose={() => setChoosing(null)} />}
+      {sceneAt && <PhotoChooser start="scenes" onPick={putScenePicture} onClose={() => setSceneAt(null)} />}
       <div className="glass card-pad post-bar">
         <button onClick={() => void close()}><ArrowLeft className="ico" aria-hidden />{t('blog.back')}</button>
         {status}
@@ -314,6 +323,7 @@ export function PostEditor({ post, pieces, onPreview, onMenu, onClose, onToggle,
           {tool(t('blog.tool.clear'), <RemoveFormatting className="ico" aria-hidden />, () => { run('removeFormat'); run('formatBlock', 'p'); })}
           <span className="post-sep" />
           {tool(t('blog.tool.picture'), <ImagePlus className="ico" aria-hidden />, () => void pickPicture())}
+          {tool(t('blog.tool.scene'), <Clapperboard className="ico" aria-hidden />, () => setSceneAt({ at: caretNode() }))}
           {withPhoto.length > 0 && tool(t('blog.tool.pieces'), <LayoutGrid className="ico" aria-hidden />, openPieces)}
           {adding > 0 && <span className="small muted"><span className="spinner small-spin" aria-hidden /> {t('blog.block.adding', { count: adding })}</span>}
           {linking !== null && (

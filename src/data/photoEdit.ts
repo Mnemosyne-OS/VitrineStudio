@@ -7,6 +7,7 @@
  *   a colour, with a soft shadow under it. No model at all.
  * - A NEW BACKGROUND, paid: an edit on the credit route. The model may change
  *   the piece a little, so the person looks before keeping it.
+ * - CROPPED AND TURNED, free (2026-11-03): drawn by the studio on a canvas.
  *
  * The original is never touched: every result is a new file.
  */
@@ -14,6 +15,7 @@ import { sdk } from './host';
 import { saveImageBase64 } from './photos';
 import { dataUrlPayload } from './bytes';
 import { scaleLine, type PieceShow } from '../model/showcase';
+import { cropPixels, turnedSize, WHOLE, type PhotoFrame, type QuarterTurns } from '../model/photoFrame';
 
 /** Minutes on a CPU the first time (the engine prepares its model); main's own bound is longer. */
 const CUTOUT_TIMEOUT_MS = 16 * 60_000;
@@ -75,6 +77,54 @@ export async function onPlainColour(cutoutPath: string, colour: string, shadow: 
   ctx.drawImage(img, 0, 0);
   const url = canvas.toDataURL('image/jpeg', 0.93);
   return saveImageBase64(`${stem}.jpg`, dataUrlPayload(url));
+}
+
+/**
+ * The picture turned by `frame.turns` quarters, then cut to `frame.crop`,
+ * drawn at `scale` of its size. One drawing for the preview and the saved file.
+ */
+function drawFramed(img: HTMLImageElement, frame: PhotoFrame, scale: number): HTMLCanvasElement {
+  const w0 = img.naturalWidth, h0 = img.naturalHeight;
+  const turned = turnedSize(w0, h0, frame.turns);
+  const r = cropPixels(frame.crop, turned.w, turned.h);
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(r.w * scale));
+  canvas.height = Math.max(1, Math.round(r.h * scale));
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('NO_CANVAS');
+  ctx.imageSmoothingQuality = 'high';
+  ctx.scale(scale, scale);
+  ctx.translate(-r.x, -r.y);
+  // Each case puts the turned picture's top-left corner at (0, 0).
+  if (frame.turns === 1) { ctx.translate(turned.w, 0); ctx.rotate(Math.PI / 2); }
+  else if (frame.turns === 2) { ctx.translate(w0, h0); ctx.rotate(Math.PI); }
+  else if (frame.turns === 3) { ctx.translate(0, turned.h); ctx.rotate(-Math.PI / 2); }
+  ctx.drawImage(img, 0, 0);
+  return canvas;
+}
+
+/** The longest side of the preview the crop is drawn on: the full picture is only drawn once, on save. */
+const PREVIEW_SIDE = 1600;
+
+/** The whole photo turned, small, to draw the crop on. Its size gives the crop's pixel ratio. */
+export async function turnedPreview(dataUrl: string, turns: QuarterTurns): Promise<{ url: string; width: number; height: number }> {
+  const img = await load(dataUrl);
+  const turned = turnedSize(img.naturalWidth, img.naturalHeight, turns);
+  const canvas = drawFramed(img, { turns, crop: WHOLE }, Math.min(1, PREVIEW_SIDE / Math.max(turned.w, turned.h)));
+  return { url: canvas.toDataURL('image/jpeg', 0.9), width: turned.w, height: turned.h };
+}
+
+/**
+ * The photo turned and cropped, as a new file at full size. A PNG stays a PNG
+ * (a cut-out keeps its transparency), anything else is saved as JPEG.
+ * `read` gives the photo's data URL (the host's reader). Resolves the new path.
+ */
+export async function reframe(path: string, frame: PhotoFrame, read: (path: string) => Promise<string>, stem: string): Promise<string> {
+  const src = await read(path);
+  const png = src.startsWith('data:image/png');
+  const canvas = drawFramed(await load(src), frame, 1);
+  const url = png ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', 0.93);
+  return saveImageBase64(`${stem}.${png ? 'png' : 'jpg'}`, dataUrlPayload(url));
 }
 
 /** Backgrounds offered for the paid edit, by their key; the words sent are English, the label is hers. */

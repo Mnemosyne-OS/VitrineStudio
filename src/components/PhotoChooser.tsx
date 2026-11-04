@@ -15,10 +15,15 @@ const IMAGE_FILTER = (name: string) => [{ name, extensions: ['jpg', 'jpeg', 'png
  * The first and the last open the system picker; the two others show the
  * studio's own pictures to click.
  */
-export function PhotoChooser({ onPick, onClose }: { onPick: (path: string) => void; onClose: () => void }) {
+export function PhotoChooser({ onPick, onClose, start }: {
+  onPick: (path: string) => void;
+  onClose: () => void;
+  /** Opens already on this source's pictures (the scene-photo buttons). */
+  start?: 'pieces' | 'scenes';
+}) {
   const { t } = useI18n();
   const { pieces, scenes, showcase } = useContext(PhotoSources);
-  const [source, setSource] = useState<Source | null>(null);
+  const [source, setSource] = useState<Source | null>(start ?? null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

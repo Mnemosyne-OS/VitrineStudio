@@ -1,19 +1,21 @@
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Coins, Palette, Scissors, Sparkles, Trash2, X } from 'lucide-react';
+import { Coins, Crop, Palette, RotateCcw, RotateCw, Scissors, Sparkles, Trash2, X } from 'lucide-react';
 import { useI18n } from '../i18n';
 import { readImage, type GenerateRequest } from '../data/host';
-import { BACKDROP_KEYS, BACKDROPS, backdropPrompt, cutOut, onPlainColour, PLAIN_COLOURS } from '../data/photoEdit';
+import { BACKDROP_KEYS, BACKDROPS, backdropPrompt, cutOut, onPlainColour, PLAIN_COLOURS, reframe, turnedPreview } from '../data/photoEdit';
+import { isUntouched, ratioCrop, turn, turnCrop, WHOLE, type PhotoFrame } from '../model/photoFrame';
 import { newId } from '../model/records';
 import type { Piece } from '../model/types';
 import type { PieceShow } from '../model/showcase';
 import { useArmed } from '../hooks/useArmed';
 import { ClipMaking } from './ClipMaking';
+import { CropStage } from './CropStage';
 import { Thumb } from './Thumb';
 import { ZoomStage } from './ZoomStage';
 import { describeError, errorText } from './errors';
 
-type Work = 'cutout' | 'plain' | 'backdrop';
+type Work = 'cutout' | 'plain' | 'backdrop' | 'frame';
 
 /**
  * A creation's photo made better (Tony: « refaire l'image, sur plusieurs
@@ -47,13 +49,40 @@ export function PhotoWorkbench({ piece, size, imageModel, siteColour, spend, onI
   const [shadow, setShadow] = useState(true);
   const [backdrop, setBackdrop] = useState(BACKDROP_KEYS[0]!);
   const [own, setOwn] = useState('');
+  // The crop being drawn (null: the tool is closed), on a small turned preview of the photo.
+  const [frame, setFrame] = useState<PhotoFrame | null>(null);
+  const [square, setSquare] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; width: number; height: number } | null>(null);
   const photo = piece.photoPath;
+  const turns = frame?.turns ?? null;
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !work) onClose(); };
+    // Escape closes the crop first, the bench only after.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || work) return;
+      if (frame) setFrame(null);
+      else onClose();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [work, onClose]);
+  }, [work, frame, onClose]);
+
+  // The preview redrawn at each quarter turn; a turn made meanwhile drops the older drawing.
+  useEffect(() => {
+    if (turns === null || !photo) { setPreview(null); return; }
+    let live = true;
+    setPreview(null);
+    readImage(photo)
+      .then((url) => turnedPreview(url, turns))
+      .then((p) => { if (live) setPreview(p); })
+      .catch((err: unknown) => {
+        if (!live) return;
+        console.error('[vitrine-studio] the photo could not be shown for cropping:', err);
+        setError({ kind: 'frame', ...describeError(err) });
+        setFrame(null);
+      });
+    return () => { live = false; };
+  }, [turns, photo]);
 
   const run = async (kind: Work, job: () => Promise<void>) => {
     setWork({ kind, at: new Date().toISOString() });
@@ -95,6 +124,17 @@ export function PhotoWorkbench({ piece, size, imageModel, siteColour, spend, onI
     const cut = await cutoutOf(piece);
     await improve(cut.piece, await onPlainColour(cut.path, colour, shadow, readImage, newId(`${piece.id}-plain`)));
   });
+  const openFrame = () => { setError(null); setDone(null); setSquare(false); setFrame({ turns: 0, crop: WHOLE }); };
+  const turnFrame = (dir: 1 | -1) => setFrame((f) => (f ? { turns: turn(f.turns, dir), crop: turnCrop(f.crop, dir) } : f));
+  const squareFrame = (on: boolean) => {
+    setSquare(on);
+    if (on && preview) setFrame((f) => (f ? { ...f, crop: ratioCrop(preview.width, preview.height, 1) } : f));
+  };
+  const doFrame = () => run('frame', async () => {
+    if (!frame) return;
+    await improve(piece, await reframe(photo!, frame, readImage, newId(`${piece.id}-frame`)));
+    setFrame(null);
+  });
   const doBackdrop = () => run('backdrop', async () => {
     const where = own.trim() || BACKDROPS[backdrop]!;
     const made = await spend({ prompt: backdropPrompt(where, size), editImagePath: photo!, modelId: imageModel });
@@ -113,15 +153,40 @@ export function PhotoWorkbench({ piece, size, imageModel, siteColour, spend, onI
       <div className="photo-bench glass">
         <button className="icon-btn glass bench-close" aria-label={t('wizard.close')} data-tip={t('wizard.close')} disabled={!!work} onClick={onClose}><X className="ico solo" aria-hidden /></button>
         <div className="bench-stage">
-          <ZoomStage resetKey={photo}><Thumb path={photo} alt={piece.name} /></ZoomStage>
-          {work && <ClipMaking startedAt={work.at} icon={work.kind === 'backdrop' ? Sparkles : work.kind === 'plain' ? Palette : Scissors} title={t(`photo.making.${work.kind}`)} />}
+          {frame && preview
+            ? <CropStage src={preview.url} crop={frame.crop} lock={square ? { ratio: 1, width: preview.width, height: preview.height } : null} onCrop={(crop) => setFrame({ ...frame, crop })} />
+            : <ZoomStage resetKey={photo}><Thumb path={photo} alt={piece.name} /></ZoomStage>}
+          {work && <ClipMaking startedAt={work.at} icon={work.kind === 'backdrop' ? Sparkles : work.kind === 'plain' ? Palette : work.kind === 'frame' ? Crop : Scissors} title={t(`photo.making.${work.kind}`)} />}
         </div>
         <div className="bench-tools">
           <h2>{piece.name}</h2>
 
           <section className="bench-tool glass">
+            <header><Crop className="ico" aria-hidden /><strong>{t('photo.frame')}</strong><span className="badge free">{t('photo.free')}</span></header>
+            {!frame ? (
+              <button className="primary" disabled={!!work || !photo} onClick={openFrame}>{t('photo.frameOpen')}</button>
+            ) : (
+              <>
+                <div className="idea-row compact">
+                  <button className="icon-btn glass" disabled={!!work} aria-label={t('photo.turnLeft')} data-tip={t('photo.turnLeft')} onClick={() => turnFrame(-1)}><RotateCcw className="ico solo" aria-hidden /></button>
+                  <button className="icon-btn glass" disabled={!!work} aria-label={t('photo.turnRight')} data-tip={t('photo.turnRight')} onClick={() => turnFrame(1)}><RotateCw className="ico solo" aria-hidden /></button>
+                  <button className={`chip-tile glass ${!square ? 'chosen' : ''}`} aria-pressed={!square} disabled={!!work} onClick={() => squareFrame(false)}>{t('photo.ratioFree')}</button>
+                  <button className={`chip-tile glass ${square ? 'chosen' : ''}`} aria-pressed={square} disabled={!!work || !preview} onClick={() => squareFrame(true)}>{t('photo.ratioSquare')}</button>
+                  <button className="chip-tile glass" disabled={!!work} onClick={() => { setSquare(false); setFrame({ turns: 0, crop: WHOLE }); }}>{t('photo.frameReset')}</button>
+                </div>
+                <p className="small">{t('photo.frameHint')}</p>
+                <div className="idea-row compact">
+                  <button className="primary" disabled={!!work || !preview || isUntouched(frame)} onClick={() => void doFrame()}>{t('photo.frameKeep')}</button>
+                  <button className="chip-tile glass" disabled={!!work} onClick={() => setFrame(null)}>{t('photo.frameCancel')}</button>
+                </div>
+              </>
+            )}
+            {said('frame')}
+          </section>
+
+          <section className="bench-tool glass">
             <header><Scissors className="ico" aria-hidden /><strong>{t('photo.cutout')}</strong><span className="badge free">{t('photo.free')}</span></header>
-            <button className="primary" disabled={!!work || !photo} onClick={() => void doCutout()}>{t('photo.cutoutDo')}</button>
+            <button className="primary" disabled={!!work || !photo || !!frame} onClick={() => void doCutout()}>{t('photo.cutoutDo')}</button>
             {said('cutout')}
           </section>
 
@@ -136,7 +201,7 @@ export function PhotoWorkbench({ piece, size, imageModel, siteColour, spend, onI
               </label>
               <button className={`chip-tile glass ${shadow ? 'chosen' : ''}`} aria-pressed={shadow} onClick={() => setShadow(!shadow)}>{t('photo.shadow')}</button>
             </div>
-            <button className="primary" disabled={!!work || !photo} onClick={() => void doPlain()}>{t('photo.plainDo')}</button>
+            <button className="primary" disabled={!!work || !photo || !!frame} onClick={() => void doPlain()}>{t('photo.plainDo')}</button>
             {said('plain')}
           </section>
 
@@ -149,7 +214,7 @@ export function PhotoWorkbench({ piece, size, imageModel, siteColour, spend, onI
             </div>
             <textarea rows={2} value={own} maxLength={300} placeholder={t('photo.ownHint')} onChange={(e) => setOwn(e.target.value)} />
             {/* Paid: a first press asks, the second (within a few seconds) spends. */}
-            <button className={`primary ${armed === 'backdrop' ? 'armed' : ''}`} disabled={!!work || !photo} onClick={() => confirm('backdrop', () => void doBackdrop())}>
+            <button className={`primary ${armed === 'backdrop' ? 'armed' : ''}`} disabled={!!work || !photo || !!frame} onClick={() => confirm('backdrop', () => void doBackdrop())}>
               {armed === 'backdrop' ? <><Coins className="ico" aria-hidden />{t('photo.confirm')}</> : t('photo.backdropDo')}
             </button>
             {said('backdrop')}

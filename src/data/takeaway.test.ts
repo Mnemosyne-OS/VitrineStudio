@@ -1,4 +1,4 @@
-import { BACKUP_FILE, creationsTable, csvCell, exportStudio, mediaName, readManifest, restoreStudio, type TakeawayDoor } from './takeaway';
+import { BACKUP_FILE, creationsTable, csvCell, exportStudio, mediaName, readManifest, restoreStudio, scenePictures, type TakeawayDoor } from './takeaway';
 import type { FolderIO } from './folderStore';
 
 /** A disk in memory: files by path, folders implied. */
@@ -160,5 +160,24 @@ describe('the creations as a table', () => {
   });
   it('names a media copy plainly and numbers it', () => {
     expect(mediaName('C:\\Users\\deb\\Mes photos\\été 1.JPG', 7)).toBe('0007-t-1.JPG');
+  });
+});
+
+describe('the scene pictures carried to a folder', () => {
+  const beat = (b: 'place' | 'piece' | 'alive') => ({ place: 'lieu', piece: 'création', alive: 'vivante' })[b];
+  it('names each picture after its scene and its step, a step not made yet left out', () => {
+    const files = scenePictures([
+      { universe: 'Salon', variant: 'Console', images: { place: 'C:\\gen\\a1.png', piece: 'C:\\gen\\a2.webp' } },
+      { universe: 'Été', variant: '', images: { alive: '/gen/b3.WEBP' } },
+    ], beat);
+    expect(files).toEqual([
+      { rel: 'Salon-Console-1-lieu.png', from: 'C:\\gen\\a1.png' },
+      { rel: 'Salon-Console-2-creation.webp', from: 'C:\\gen\\a2.webp' },
+      { rel: 'Ete-3-vivante.webp', from: '/gen/b3.WEBP' },
+    ]);
+  });
+  it('never gives two pictures the same name', () => {
+    const twin = { universe: 'Salon', variant: 'Console', images: { place: 'C:\\x.png' } };
+    expect(scenePictures([twin, twin], beat).map((f) => f.rel)).toEqual(['Salon-Console-1-lieu.png', 'Salon-Console-1-lieu-b.png']);
   });
 });

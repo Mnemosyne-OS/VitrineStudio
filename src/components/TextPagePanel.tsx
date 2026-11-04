@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ImagePlus, LayoutTemplate, PanelBottom, PanelLeft, PanelRight, PanelTop, X, type LucideIcon } from 'lucide-react';
+import { Clapperboard, ImagePlus, LayoutTemplate, PanelBottom, PanelLeft, PanelRight, PanelTop, X, type LucideIcon } from 'lucide-react';
 import { getLanguage, useI18n } from '../i18n';
 import { PAGE_TEMPLATES, templateName, templateText } from '../model/templates';
 import { pickImage } from '../data/host';
@@ -38,6 +38,7 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
   const [draft, setDraft] = useState(caption ?? '');
   const [over, setOver] = useState(false);
   const [error, setError] = useState<{ key: string; raw?: string } | null>(null);
+  const [sceneChoosing, setSceneChoosing] = useState(false);
   useEffect(() => setDraft(caption ?? ''), [caption]);
 
   const takePhoto = async (file: File) => {
@@ -50,6 +51,7 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
 
   return (
     <section className="info-page">
+      {sceneChoosing && <PhotoChooser start="scenes" onPick={onPhoto} onClose={() => setSceneChoosing(false)} />}
       <div className="info-bar glass">
         <div className="segmented glass" role="group" aria-label={t('about.layout')}>
           {PAGE_LAYOUTS.map((l) => {
@@ -85,6 +87,8 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
             <div className="portrait-actions">
               <button className="icon-btn glass" aria-label={photoLabel} data-tip={photoLabel}
                 onClick={() => void pickImage(photoLabel).then((p) => { if (p) onPhoto(p); })}><ImagePlus className="ico solo" aria-hidden /></button>
+              <button className="icon-btn glass" aria-label={t('page.scenePhoto')} data-tip={t('page.scenePhoto')}
+                onClick={() => setSceneChoosing(true)}><Clapperboard className="ico solo" aria-hidden /></button>
               {photo && (
                 <button className="icon-btn glass" aria-label={t('site.brand.portraitRemove')} data-tip={t('site.brand.portraitRemove')} onClick={() => onPhoto(undefined)}><X className="ico solo" aria-hidden /></button>
               )}

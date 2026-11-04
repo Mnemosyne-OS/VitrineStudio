@@ -1110,6 +1110,15 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .bench-stage { position: relative; display: grid; place-items: center; min-height: 360px; border-radius: 16px; overflow: hidden;
   background: repeating-conic-gradient(#ffffff14 0% 25%, #ffffff05 0% 50%) 0 0 / 22px 22px; }
 .bench-stage > .thumb { max-width: 100%; max-height: min(70vh, 760px); object-fit: contain; }
+/* The crop drawn on the turned photo: the box is exactly the picture, so the frame's percentages are the crop's fractions. */
+.crop-stage { position: relative; display: inline-block; max-width: 100%; overflow: hidden; touch-action: none; user-select: none; line-height: 0; }
+.crop-stage > img { display: block; max-width: 100%; max-height: min(70vh, 760px); }
+.crop-frame { position: absolute; cursor: move; outline: 2px solid var(--as-chosen); box-shadow: 0 0 0 9999px color-mix(in srgb, #000 55%, transparent); }
+.crop-corner { position: absolute; width: 24px; height: 24px; border-radius: 50%; background: #fff; border: 2px solid var(--as-chosen); }
+.crop-corner.nw { left: -12px; top: -12px; cursor: nwse-resize; }
+.crop-corner.ne { right: -12px; top: -12px; cursor: nesw-resize; }
+.crop-corner.sw { left: -12px; bottom: -12px; cursor: nesw-resize; }
+.crop-corner.se { right: -12px; bottom: -12px; cursor: nwse-resize; }
 .bench-tools { display: grid; gap: 12px; align-content: start; }
 .bench-tools h2 { margin: 0 44px 0 0; font-weight: 400; }
 .bench-tool { display: grid; gap: 10px; padding: 14px; border-radius: 16px; }
