@@ -30,6 +30,8 @@ import { markdownToHtml, postExcerpt, postImages, postPieces, readingMinutes, so
 import type { SitePost } from '../data/blogIO';
 import { base64Bytes, dataUrlPayload, utf8Base64 } from '../data/bytes';
 import type { Lang } from '../model/profiles';
+import type { SeoSettings } from '../model/seo';
+import { fillPage, homeImage, seoFiles, type SiteSeo } from './seo';
 import type { FilmStep } from '../model/film';
 import { filmComplete, type Film } from '../model/filmRecord';
 
@@ -152,6 +154,8 @@ export interface SiteSettings {
   videoLevel?: VideoLevel;
   /** The site's second language and her read translations (model/translation.ts); absent = one language. */
   translation?: SiteTranslation;
+  /** How the site is found: its addresses, what search engines and AI crawlers may read (model/seo.ts). */
+  seo: SeoSettings;
 }
 
 /** Any weight the person wants (Tony: « si il veut des photos de 800 Ko, c'est son choix »). */
@@ -369,11 +373,21 @@ export interface SiteData {
   legal?: SiteLegal;
   /** The page loads Vercel's visit counter (no cookie). Absent = no counter. */
   analytics?: boolean;
-  creations: Array<{ id: string; alt: string; zoom?: string[]; cats?: string[]; name?: string; description?: string; dimensions?: string; weight?: string; specs?: Array<[string, string]>; price?: string; priceAlso?: string[]; images: string[] }>;
+  creations: Array<{ id: string; alt: string; zoom?: string[]; cats?: string[]; name?: string; description?: string; dimensions?: string; weight?: string; specs?: Array<[string, string]>; price?: string; priceAlso?: string[]; images: string[];
+    /** The price as a number and its currency, for structured data; only with a price she shows. */
+    amount?: [number, string];
+    /** A sold piece: said on its page and in its structured data. */
+    sold?: true;
+    /** A piece she marked for sale: the only case its structured data says « in stock ». */
+    available?: true }>;
+  /** Sold pieces whose page stays online, marked sold (model/seo.ts); never in a gallery. */
+  sold?: SiteData['creations'];
+  /** The site's addresses and what its head says (site/seo.ts); absent on a preview. */
+  seo?: SiteSeo;
   /** What a creation does under the pointer. */
   creationsHover?: CreationsHover;
   /** The blog, newest first: its HTML made at export from the post's Markdown. Absent when no post is online. */
-  posts?: Array<{ id: string; title: string; when?: string; html: string; excerpt: string; minutes: number; cover?: string }>;
+  posts?: Array<{ id: string; title: string; when?: string; date?: string; html: string; excerpt: string; minutes: number; cover?: string }>;
   /** The width of the sharp `-x` copies of the full-screen pictures (withSharpCopies); absent = none written. */
   xl?: number;
   /** The home film: its first picture while it loads, then its clips in order. Absent unless validated and complete. */
@@ -488,7 +502,7 @@ export function postWhen(day: string, lang: Lang): string {
   return new Date(`${day}T12:00:00`).toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]; pieces: Piece[]; posts?: SitePost[]; today: string; untitled: string; film?: ReturnType<typeof filmSources>; identity?: Identity; links?: Array<{ title: string; href: string }>; beats?: Record<Beat, string>; showcase?: Record<string, PieceShow>; hover?: CreationsHover; currency?: CurrencySettings; menu?: MenuNames; menuOrder?: MenuKey[]; pieceOrder?: string[]; sceneOrder?: string[]; categories?: Category[]; sceneMap?: SceneMap; pages?: SitePage[]; viewer?: ViewerSettings; legal?: Legal; analytics?: boolean }): SiteData {
+export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]; pieces: Piece[]; posts?: SitePost[]; today: string; untitled: string; film?: ReturnType<typeof filmSources>; identity?: Identity; links?: Array<{ title: string; href: string }>; beats?: Record<Beat, string>; showcase?: Record<string, PieceShow>; hover?: CreationsHover; currency?: CurrencySettings; menu?: MenuNames; menuOrder?: MenuKey[]; pieceOrder?: string[]; sceneOrder?: string[]; categories?: Category[]; sceneMap?: SceneMap; pages?: SitePage[]; viewer?: ViewerSettings; legal?: Legal; analytics?: boolean; seo?: SeoSettings }): SiteData {
   const loupe = !!input.viewer && input.viewer.loupe !== 'none';
   const pages = input.pages ?? [];
   // The rooms of some scenes, with the words over each, read from its piece's record at build time.
@@ -509,12 +523,14 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   const cur = input.currency ?? DEFAULT_CURRENCY;
   const creationsOf = (list: Piece[]) => inPieceOrder(list, input.pieceOrder ?? [])
     .filter((p) => onCreationsPage(p, input.showcase?.[p.id], online))
-    .map((p) => {
+    .map((p) => creationOf(p));
+  const creationOf = (p: Piece) => {
       // Only what the artisan chose to show; the name always names the picture.
       const sh = input.showcase?.[p.id] ?? defaultShow();
       const extra = sh.show.photos ? sh.photos.map((_, n) => creationPhotoAsset(p.id, n)) : [];
       return {
         id: p.id, alt: p.name,
+        ...(p.status === 'sold' ? { sold: true as const } : p.status === 'available' ? { available: true as const } : {}),
         ...(sh.show.name ? { name: p.name } : {}),
         ...(sh.show.description && p.description ? { description: p.description } : {}),
         // The three measures when set, else what was written freely before them.
@@ -522,7 +538,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
         ...(sh.show.weight && sh.weight !== undefined ? { weight: formatMass(sh.weight, input.lang) } : {}),
         // The same measures as a table in the viewer, one row each.
         ...(measureRows(sh.size, sh.weight, input.lang, SPEC_LABELS[input.lang], sh.show).length ? { specs: measureRows(sh.size, sh.weight, input.lang, SPEC_LABELS[input.lang], sh.show) } : {}),
-        ...(sh.show.price && p.price !== undefined ? { price: formatMoney(p.price, input.lang, cur.main) } : {}),
+        ...(sh.show.price && p.price !== undefined ? { price: formatMoney(p.price, input.lang, cur.main), amount: [p.price, cur.main] as [number, string] } : {}),
         // Other currencies only with a rate the person fetched or typed, always marked approximate.
         ...(sh.show.price && p.price !== undefined && approximations(p.price, input.lang, cur).length ? { priceAlso: approximations(p.price, input.lang, cur) } : {}),
         // Its categories that still exist: the page's filters.
@@ -531,7 +547,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
         // A loupe reads a large copy of each picture.
         ...(loupe ? { zoom: [creationZoomAsset(p.id, 0), ...extra.map((_, n) => creationZoomAsset(p.id, n + 1))] } : {}),
       };
-    });
+  };
   const creations = creationsOf(onPage(input.pieces, null, pages));
   // A post's pictures take its asset names in order; its pieces show their photo, and their name and
   // price as the Creations page does. A piece with no photo, or gone, is left out of the block.
@@ -554,7 +570,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
     // Its tile: its first photo, else the first creation it shows that has one.
     const coverPiece = postPieces(p.text).map((id) => input.pieces.find((x) => x.id === id)).find((x) => x?.photoPath);
     const cover = postImages(p.text).length ? blogImageAsset(p.id, 0) : coverPiece ? creationAsset(coverPiece.id) : undefined;
-    return { id: p.id, title: p.title, ...(p.date ? { when: postWhen(p.date, input.lang) } : {}), html, excerpt: postExcerpt(p.text), minutes: readingMinutes(p.text), ...(cover ? { cover } : {}) };
+    return { id: p.id, title: p.title, ...(p.date ? { when: postWhen(p.date, input.lang), date: p.date } : {}), html, excerpt: postExcerpt(p.text), minutes: readingMinutes(p.text), ...(cover ? { cover } : {}) };
   });
   const posts = postsOf(onPage(input.posts ?? [], null, pages));
   // The portrait's path is the person's disk: online it is the site's own file, never the path.
@@ -609,6 +625,15 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   if (socials.length) data.socials = socials;
   if (input.brand.contactNote?.trim()) data.contactHtml = markdownToHtml(input.brand.contactNote, { keepTitle: true });
   if (input.analytics) data.analytics = true;
+  // A sold piece leaves the galleries; the page it had stays, marked sold, unless she chose otherwise.
+  // « It had a page » is read from its kept slug: a piece sold before it was ever online gets none.
+  const seo = input.seo;
+  if (seo && seo.sold !== 'drop' && seo.addresses !== 'single' && seo.creationPages !== 'none') {
+    // One she keeps in a gallery although sold is already on the site: never twice.
+    const shown = new Set(allCreations(data).map((c) => c.id));
+    const sold = input.pieces.filter((p) => p.status === 'sold' && p.photoPath && seo.slugs?.[`c:${p.id}`] && !shown.has(p.id)).map((p) => creationOf(p));
+    if (sold.length) data.sold = sold;
+  }
   // Every site carries its legal notice and privacy page, from her fields and what the site does.
   data.legal = legalPages(input.legal ?? EMPTY_LEGAL, legalSiteOf(input, data));
   return data;
@@ -631,12 +656,12 @@ const escapeHtml = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '
 /** Vercel Web Analytics' script, served by Vercel itself under the site's own address. */
 export const ANALYTICS_SCRIPT = '<script defer src="/_vercel/insights/script.js"></script>';
 
-export function fillShell(template: string, brand: Brand, lang: Lang, data?: SiteData): string {
+export function fillShell(template: string, brand: Brand, lang: Lang, data?: SiteData, made: { share?: string; icon?: string } = {}): string {
   const hex = (c: string | undefined, fallback: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : fallback);
   const accent = hex(brand.accent, DEFAULT_ACCENT);
   // "</" closes a script element whatever its type: escaped inside the JSON.
   const inline = data ? JSON.stringify(data).replace(/</g, '\\u003c') : 'null';
-  return template
+  const shell = template
     .replace('__LANG__', () => lang)
     .replace('__TITLE__', () => escapeHtml(brand.tagline ? `${brand.name} · ${brand.tagline}` : brand.name))
     .replace('__DESCRIPTION__', () => escapeHtml(brand.tagline || brand.about.slice(0, 160)))
@@ -652,6 +677,26 @@ export function fillShell(template: string, brand: Brand, lang: Lang, data?: Sit
     // The font travels inside the page: the host writes no font file into a site folder.
     .replace('__FONT__', () => `data:font/woff2;base64,${JOST_WOFF2_BASE64}`)
     .replace('__DATA__', () => inline);
+  // The home's own head and words, when the site has its addresses (a preview has none).
+  return homePage(shell, data, lang, made);
+}
+
+/** The home page's head and words in a filled shell; the shell as it is when the site has no addresses. */
+function homePage(shell: string, data: SiteData | undefined, lang: Lang | undefined, made: { share?: string; icon?: string }): string {
+  const home = data?.seo?.pages.find((p) => p.id === '');
+  return home && lang ? fillPage(shell, { site: data!, d: data!, lang, mainLang: lang, ...made }, home) : shell;
+}
+
+/**
+ * The two pictures the head names and the export writes: the shared link's
+ * (a JPEG, read by every network) and the tab icon as a file a crawler can
+ * fetch. Each only when the site has what it is made from.
+ */
+export const SHARE_ASSET = 'assets/share.jpg';
+export const ICON_ASSET = 'favicon.png';
+export function seoPictures(data: SiteData): { share?: string; icon?: string } {
+  if (!data.seo) return {};
+  return { ...(homeImage(data) ? { share: SHARE_ASSET } : {}), ...(data.identity?.favicon ? { icon: ICON_ASSET } : {}) };
 }
 
 // ── The export ────────────────────────────────────────────────────────────
@@ -691,6 +736,14 @@ export interface ExportDeps {
   blogFiles?: Array<{ name: string; path: string }>;
   /** Files written as they are (the site kit's pages and their pictures), before the page that links to them. */
   extraFiles?: Array<{ rel: string; base64: string }>;
+  /** A picture as the JPEG of a shared link (1200 x 630, cropped to fill), as base64. Absent = none is written. */
+  toShare?: (dataUrl: string) => Promise<string>;
+  /** A picture or an SVG (a data URL) as a square PNG icon, as base64. Absent = none is written. */
+  toIcon?: (dataUrl: string) => Promise<string>;
+  /** The site's main language: the documents of its addresses are written in it. Absent = none is written. */
+  lang?: Lang;
+  /** Every address an earlier send wrote (model/seo.ts `written`): one gone since is written over. */
+  writtenPaths?: readonly string[];
 }
 
 /**
@@ -741,7 +794,7 @@ export async function exportSite(data: SiteData, scenes: Scene[], pieces: Piece[
     const f = pg.photo ? deps.pagePhotos?.find((x) => x.name === pg.photo) : undefined;
     if (f) jobs.push({ name: f.name, path: f.path, width: width('l') });
   }
-  for (const c of allCreations(data)) {
+  for (const c of [...allCreations(data), ...(data.sold ?? [])]) {
     if (jobs.some((j) => j.name === c.images[0])) continue;
     // The strip shows one photo across the page: 800 px would be blurred there.
     const cw = data.viewer?.layout === 'strip' ? SIZES.l : SIZES.s;
@@ -819,15 +872,59 @@ export async function exportSite(data: SiteData, scenes: Scene[], pieces: Piece[
     await deps.save(f.rel, f.base64);
     deps.onProgress(++done, total);
   }
+  // The head's two pictures, each from a file the site already reads. One that cannot be made is
+  // left out and no document names it: a head never points at a missing picture.
+  const pictures: { share?: string; icon?: string } = {};
+  const wanted = seoPictures(data);
+  let seoCount = 0;
+  if (wanted.share && deps.toShare) {
+    const from = jobs.find((j) => j.name === homeImage(data))?.path;
+    if (from) {
+      try {
+        const b64 = await deps.toShare(await deps.readImage(from));
+        imageBytes += base64Bytes(b64);
+        await deps.save(SHARE_ASSET, b64);
+        pictures.share = SHARE_ASSET;
+        seoCount++;
+      } catch (err) {
+        // The site goes without it: a shared link then shows the page's own picture.
+        console.warn('[vitrine-studio] the shared-link picture was not made:', err);
+      }
+    }
+  }
+  if (wanted.icon && deps.toIcon) {
+    const fav = data.identity!.favicon!;
+    const src = fav.startsWith('data:') ? fav : deps.logoPath ? await deps.readImage(deps.logoPath) : null;
+    if (src) {
+      try {
+        const b64 = await deps.toIcon(src);
+        imageBytes += base64Bytes(b64);
+        await deps.save(ICON_ASSET, b64);
+        pictures.icon = ICON_ASSET;
+        seoCount++;
+      } catch (err) {
+        // The tab icon stays the one the page's script sets; only the file for crawlers is missing.
+        console.warn('[vitrine-studio] the icon file was not made:', err);
+      }
+    }
+  }
+  // One document per address, the sitemap, robots.txt and the 404: after every picture, before the home page.
+  const home = homePage(shell, data, deps.lang, pictures);
+  for (const f of data.seo && deps.lang ? seoFiles(home, data, deps.lang, pictures, deps.writtenPaths ?? []) : []) {
+    const b64 = utf8Base64(f.text);
+    otherBytes += base64Bytes(b64);
+    await deps.save(f.rel, b64);
+    seoCount++;
+  }
   const json = utf8Base64(JSON.stringify(data, null, 2));
   otherBytes += base64Bytes(json);
   await deps.save('data.json', json);
   deps.onProgress(++done, total);
-  const page = utf8Base64(shell);
+  const page = utf8Base64(home);
   otherBytes += base64Bytes(page);
   await deps.save('index.html', page);
   deps.onProgress(++done, total);
-  return { files: total, bytes: imageBytes + clipBytes + otherBytes, imageBytes, clipBytes, ...(heavyClips ? { heavyClips } : {}) };
+  return { files: total + seoCount, bytes: imageBytes + clipBytes + otherBytes, imageBytes, clipBytes, ...(heavyClips ? { heavyClips } : {}) };
 }
 
 /** Everything a build of the site reads. */

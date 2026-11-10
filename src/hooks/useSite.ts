@@ -8,15 +8,17 @@ import { readSitePosts, type SitePost } from '../data/blogIO';
 import { herItems, withSecondLanguage } from '../model/translation';
 import { KitError } from '../model/kit';
 import { SITE_FONT_FILES } from '../site/fonts';
-import { toWebp } from '../data/webp';
+import { toIcon, toShare, toWebp } from '../data/webp';
+import { seoPaths, withSeo } from '../site/seo';
+import { writtenPaths } from '../model/seo';
 import { normalizeSiteSettings } from '../model/records';
 import { profileById } from '../model/profiles';
 import { filmOf } from '../model/film';
 import { filmOnSite } from '../model/filmRecord';
 import { firstSitePhoto } from '../model/scenePhotos';
-import { publishStage, siteFields, sitePrint } from '../model/publish';
+import { businessOf, publishStage, siteFields, sitePrint } from '../model/publish';
 import { legalMarkdown } from '../site/legalPages';
-import { allCreations, allRows, blogAssets, buildSiteData, cellFiles, legalSiteOf, aboutPhotoAsset, pagePhotoAsset, PORTRAIT_ASSET, EXPORT_QUALITY, exportSite, fillShell, filmSources, onlineScenes, slugify, withSharpCopies, type ExportDeps, type SiteInput } from '../site/buildSite';
+import { allCreations, allRows, blogAssets, buildSiteData, cellFiles, legalSiteOf, aboutPhotoAsset, pagePhotoAsset, PORTRAIT_ASSET, EXPORT_QUALITY, exportSite, fillShell, seoPictures, filmSources, onlineScenes, slugify, withSharpCopies, type ExportDeps, type SiteInput } from '../site/buildSite';
 import { buildPreview, swapAsset, withErrorWatch, withMenuEditing, type Preview } from '../site/preview';
 import { LOGO_ASSET } from '../site/logo';
 import siteTemplate from '../site/template.html?raw';
@@ -133,13 +135,18 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     const filmFiles = film ? filmSources(film, filmOf(profileById(film.profileId)).steps) : null;
     const records = { scenes, pieces, posts, film: filmFiles, ...(links ? { links } : {}) };
     // The second language goes online once she has read at least one of its translations.
-    const data = withSecondLanguage(lang, (l) => withSharpCopies(buildSiteData(siteInput(l, records)), site.quality), site.translation);
-    const shell = fillShell(siteTemplate, site.brand, lang, data);
-    const settings: Pick<ExportDeps, 'readImage' | 'readMedia' | 'toWebp' | 'quality' | 'imageKb' | 'logoPath' | 'portraitPath' | 'aboutPhotoPaths' | 'extraFiles' | 'creationPhotos' | 'blogFiles' | 'pagePhotos'> = {
+    // Then its addresses: one per page, creation and post, in each language (site/seo.ts).
+    const data = withSeo(withSecondLanguage(lang, (l) => withSharpCopies(buildSiteData(siteInput(l, records)), site.quality), site.translation), lang, site.seo, businessOf(site.legal));
+    const shell = fillShell(siteTemplate, site.brand, lang, data, seoPictures(data));
+    const settings: Pick<ExportDeps, 'readImage' | 'readMedia' | 'toWebp' | 'toShare' | 'toIcon' | 'lang' | 'writtenPaths' | 'quality' | 'imageKb' | 'logoPath' | 'portraitPath' | 'aboutPhotoPaths' | 'extraFiles' | 'creationPhotos' | 'blogFiles' | 'pagePhotos'> = {
       // Not the display cache: an export of a big site would keep every picture in memory.
       readImage: readMedia,
       readMedia,
       toWebp,
+      toShare,
+      toIcon,
+      lang,
+      writtenPaths: site.seo.written ?? [],
       quality: site.quality,
       imageKb: site.imageKb,
       ...(site.identity.logoPath ? { logoPath: site.identity.logoPath } : {}),
@@ -153,6 +160,9 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     };
     return { data, shell, filmFiles, settings };
   };
+
+  /** The site as it would be sent now, with its addresses: what Site › Search shows and checks. */
+  const seoData = async () => build(await readSitePosts(site.posts, hostIO)).data;
 
   const chooseSiteFolder = async () => {
     try {
@@ -171,8 +181,11 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     try {
       // The posts as written in Notes now.
       const { data, shell, filmFiles, settings } = build(await readSitePosts(site.posts, hostIO));
+      // A preview is one page in memory: the documents of the addresses and the head's two pictures are not made for it.
+      const { lang: _lang, toShare: _share, toIcon: _icon, writtenPaths: _written, ...light } = settings;
+      void _lang; void _share; void _icon; void _written;
       const built = await buildPreview(data, scenes, pieces, shell, {
-        ...settings,
+        ...light,
         onProgress: (done, total) => alive.current && setPreviewWork({ done, total }),
         toUrl: (bytes, type) => URL.createObjectURL(new Blob([bytes], { type })),
       }, filmFiles);
@@ -245,6 +258,8 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     const kit = site.kit ? await loadKit(folder, hostIO).catch((err: unknown) => { console.warn('[vitrine-studio] the kit in place is unreadable:', err); throw new KitError('KIT_IN_PLACE_UNREADABLE'); }) : null;
     const links = kit?.pages.map((p) => ({ title: p.title, href: p.rel }));
     const { data, shell, filmFiles, settings } = build(await readSitePosts(site.posts, hostIO), links);
+    sentSlugs.current = data.seo?.cfg?.slugs ?? {};
+    sentPaths.current = seoPaths(data);
     // The clips go lighter when ffmpeg is installed (Settings › Video); the rushes stay as they are.
     const tools = await videoToolsStatus().catch((err: unknown) => { console.warn('[vitrine-studio] video tools unreadable, clips go as they are:', err); return null; });
     // 🚨 Only a copy the host says it made FOR THE WEB: a host before this option ignores it and
@@ -294,7 +309,8 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     try {
       const res = await writeSite(async (name, base64) => { await saveSiteAsset(siteId, name, base64); }, (done, total) => alive.current && setWork({ kind: 'exporting', done, total }));
       // The measured weight stays with the site: it is shown until the next export.
-      await patchSite((cur) => ({ ...cur, lastExport: { ...res, at: new Date().toISOString() } }));
+      // The addresses just written are kept, sent to Vercel or carried to another host: a name changed later moves none.
+      await patchSite((cur) => { const slugs = { ...sentSlugs.current, ...(cur.seo.slugs ?? {}) }; const written = writtenPaths(cur.seo.written, sentPaths.current); return { ...cur, lastExport: { ...res, at: new Date().toISOString() }, seo: { ...cur.seo, ...(Object.keys(slugs).length ? { slugs } : {}), ...(written.length ? { written } : {}) } }; });
       if (alive.current) setWork({ kind: 'exported', files: res.files });
       return true;
     } catch (err) {
@@ -311,6 +327,11 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
    * which it is not. A send Vercel refuses is kept apart (`lastRefusal`): the
    * site still online keeps its address and its print.
    */
+  // The slugs of the last site written: kept in her settings once Vercel takes it, so a
+  // creation renamed later keeps the address it was sent under.
+  const sentSlugs = useRef<Record<string, string>>({});
+  // And its addresses: one the site drops later is written over at the next send, never left online as it was.
+  const sentPaths = useRef<string[]>([]);
   const publishNow = async () => {
     if (!site.siteId) return;
     const projectName = site.projectName || slugify(site.brand.name);
@@ -324,7 +345,8 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
       const refused = d.readyState === 'ERROR' || d.readyState === 'CANCELED';
       await patchSite((cur) => {
         if (refused) return { ...cur, projectName, lastRefusal: { at, readyState: d.readyState } };
-        const next = { ...cur, projectName, lastPublish: { url: d.url, aliases: d.aliases, readyState: d.readyState, at, ...(analytics ? { analytics: true } : {}), ...(print ? { print } : {}) } };
+        const slugs = { ...sentSlugs.current, ...(cur.seo.slugs ?? {}) };
+        const next = { ...cur, projectName, lastPublish: { url: d.url, aliases: d.aliases, readyState: d.readyState, at, ...(analytics ? { analytics: true } : {}), ...(print ? { print } : {}) }, seo: { ...cur.seo, ...(Object.keys(slugs).length ? { slugs } : {}) } };
         delete next.lastRefusal;
         return next;
       });
@@ -473,6 +495,6 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     translationWords,
     token, tokenUnread, rereadToken: readToken, clearPreviewError: () => setPreviewError(null), work, preview, previewWork, previewError, check, checking, stage, missing, connected,
     chooseSiteFolder, previewNow, previewPost, previewCreations, previewScenes, previewInfo, previewHome, legalDrafts, exportSiteTo, closePreview: () => showPreview(null), previewInWindow, checkCompression,
-    closeCheck: () => setCheck(null), exportNow, publishNow, saveToken, forgetToken, openLink,
+    closeCheck: () => setCheck(null), exportNow, publishNow, saveToken, forgetToken, openLink, seoData,
   };
 }

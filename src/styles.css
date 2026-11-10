@@ -1426,3 +1426,27 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .site-preview-failed { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); z-index: 3; display: grid; gap: 10px; justify-items: center; max-width: min(520px, calc(100% - 32px)); padding: 20px 22px; border-radius: 18px; text-align: center; }
 .site-preview-failed code { font-size: 12px; color: var(--as-muted); overflow-wrap: anywhere; }
 .site-preview-failed .primary { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Site › Search (doc 145 §10.24): cards in two columns when two fit, one page of the site per row. */
+.seo-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 16px; align-items: start; }
+.seo-panel .seo-intro, .seo-panel .seo-card:first-of-type, .seo-panel .seo-card:last-of-type { grid-column: 1 / -1; }
+.seo-card { display: grid; gap: 14px; }
+.seo-card h3 { margin: 0; }
+.seo-choice { display: grid; gap: 8px; }
+.seo-hint { font-size: 13px; margin: 0; }
+.seo-error { color: var(--as-error); font-size: 13px; margin: 0; }
+.seo-field { display: grid; gap: 6px; }
+.seo-field input, .seo-field textarea, .seo-describe-row textarea { width: 100%; box-sizing: border-box; }
+.seo-words { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.seo-inline { display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; font-size: 13px; border-radius: 11px; vertical-align: middle; }
+.seo-todo { display: grid; gap: 10px; margin: 0; padding-left: 18px; }
+.seo-describe { display: grid; gap: 12px; }
+.seo-describe-row { display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: start; }
+.seo-describe-row .thumb { width: 72px; height: 72px; object-fit: cover; border-radius: 10px; }
+.seo-describe-row > div { display: grid; gap: 6px; }
+.seo-page { display: grid; grid-template-columns: 1fr auto; gap: 8px 12px; align-items: start; padding: 12px 0; border-top: 1px solid var(--glass-edge); }
+.seo-snippet { display: grid; gap: 2px; min-width: 0; }
+.seo-snippet-url { font-size: 12px; overflow-wrap: anywhere; }
+.seo-snippet-title { font-size: 17px; color: var(--as-accent); overflow-wrap: anywhere; }
+.seo-snippet-text { font-size: 13px; color: var(--as-muted); overflow-wrap: anywhere; }
+.seo-edit { grid-column: 1 / -1; display: grid; gap: 10px; }

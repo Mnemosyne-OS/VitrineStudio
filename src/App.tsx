@@ -1,5 +1,5 @@
 import { Coins, Globe, Plus, Settings, X, type LucideIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getLanguage, useI18n } from './i18n';
 import { MODEL_FOR_QUALITY, openVideoSettings, pickImage } from './data/host';
 import { saveDroppedPhoto } from './data/photos';
@@ -23,6 +23,9 @@ import { SiteBar, type SeeWhat } from './components/SiteBar';
 import { SiteCopies, SiteScreen, type SiteSection } from './components/SiteScreen';
 import { PreviewLayer, type PreviewProgress } from './components/PagePreview';
 import { siteLink } from './model/publish';
+import { originOf } from './model/seo';
+import { defaultShow } from './model/showcase';
+import { SeoPanel } from './components/SeoPanel';
 import { describeError } from './components/errors';
 import { FilmPanel } from './components/FilmPanel';
 import { FilmWizard } from './components/FilmWizard';
@@ -145,6 +148,16 @@ export default function App() {
   const [kitLater, setKitLater] = useState(false);
   const { folder, loaded, notice, setNotice, pieces, scenes, settings, changeSettings, site, saveSite, patchSite, film, fail } = studio;
   /** A menu entry renamed, or the menu reordered, in a preview: saved with the site. */
+  // The site's one address, kept with the search settings as soon as the host gives it: the sitemap
+  // and every canonical address are written from it. One she wrote herself is never replaced, and
+  // her own domain never gives way to a .vercel.app address read before the domains were.
+  const hostOrigin = originOf(siteLink(site.lastPublish, siteAddress, hosting.liveDomains));
+  const { origin: seoOrigin, originOwn } = site.seo;
+  useEffect(() => {
+    if (!loaded || !hostOrigin || originOwn || seoOrigin === hostOrigin) return;
+    if (seoOrigin && !/\.vercel\.app$/.test(seoOrigin) && /\.vercel\.app$/.test(hostOrigin)) return;
+    void patchSite((cur) => (cur.seo.originOwn ? cur : { ...cur, seo: { ...cur.seo, origin: hostOrigin } }));
+  }, [loaded, hostOrigin, seoOrigin, originOwn, patchSite]);
   const renameMenu = (change: MenuChange) => void patchSite((cur) => ('pieces' in change
     // The page shows some of the pieces: their new order goes back among all of them.
     ? { ...cur, pieceOrder: reorderSome(inPieceOrder(studio.pieces, cur.pieceOrder).map((p) => p.id), change.pieces) }
@@ -406,6 +419,18 @@ export default function App() {
           {section === 'look' && (
             <TranslationCard translation={site.translation} words={siteActions.translationWords}
               onChange={(update) => void patchSite((cur) => { const next = { ...cur }; const tr = update(cur.translation); if (tr) next.translation = tr; else delete next.translation; return next; })} />
+          )}
+          {section === 'seo' && (
+            <SeoPanel seo={site.seo} lang={getLanguage()} load={siteActions.seoData} published={!!site.lastPublish} hasSecondLanguage={!!site.translation}
+              pieces={pieces} onOpen={siteActions.openLink}
+              onChange={(update) => void patchSite((cur) => ({ ...cur, seo: update(cur.seo) }))}
+              onDescribe={async (p, text) => {
+                // Written here to be read on the site: the description is saved on the piece, and shown.
+                const ok = await pieceActions.editPiece(p, { description: text });
+                if (ok) await patchSite((cur) => { const sh = cur.showcase[p.id] ?? defaultShow(); return { ...cur, showcase: { ...cur.showcase, [p.id]: { ...sh, show: { ...sh.show, description: true } } } }; });
+                return ok;
+              }}
+              onGo={(where) => (where === 'look' ? go('site', 'look') : setTab(where))} />
           )}
           {section === 'connect' && (
             <ConnectionCard settings={site} token={siteActions.token} onSave={(s) => void saveSite(s)}

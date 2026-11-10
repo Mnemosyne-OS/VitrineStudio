@@ -22,6 +22,7 @@ import { normalizeViewer, type ViewerSettings } from './viewer';
 import { normalizeLegal, type Legal } from './legal';
 import { PROFILES } from './profiles';
 import { normalizeLayers } from './sceneLayers';
+import { normalizeSeo, type SeoSettings } from './seo';
 
 const text = (v: unknown, max = 200): string | undefined => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : undefined);
 const isInstant = (v: unknown): v is string => typeof v === 'string' && !Number.isNaN(Date.parse(v));
@@ -292,7 +293,7 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
   if (loader) brand.loader = loader;
   const socials = normalizeSocials(b.socials, brand.instagram);
   if (Object.keys(socials).length) brand.socials = socials;
-  const out: { siteId?: string; siteName?: string; projectName: string; brand: typeof brand; lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean; print?: string }; lastRefusal?: { at: string; readyState: string }; quality: 'standard' | 'high' | 'max'; imageKb: number | null; identity: Identity; lastExport?: { files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number; lightOnly?: number; at: string }; kit?: KitApplied; kitSource?: string; analytics?: boolean; showcase: Record<string, PieceShow>; creationsHover: CreationsHover; currency: CurrencySettings; posts: BlogPost[]; menu: MenuNames; menuOrder: MenuKey[]; pieceOrder: string[]; sceneOrder: string[]; categories: Category[]; sceneMap: SceneMap; pages: SitePage[]; viewer: ViewerSettings; legal: Legal; translation?: SiteTranslation; videoLevel?: 'balanced' | 'sharp' } = {
+  const out: { seo: SeoSettings; siteId?: string; siteName?: string; projectName: string; brand: typeof brand; lastPublish?: { url: string; aliases: string[]; readyState: string; at: string; analytics?: boolean; print?: string }; lastRefusal?: { at: string; readyState: string }; quality: 'standard' | 'high' | 'max'; imageKb: number | null; identity: Identity; lastExport?: { files: number; bytes: number; imageBytes: number; clipBytes: number; heavyClips?: number; lightOnly?: number; at: string }; kit?: KitApplied; kitSource?: string; analytics?: boolean; showcase: Record<string, PieceShow>; creationsHover: CreationsHover; currency: CurrencySettings; posts: BlogPost[]; menu: MenuNames; menuOrder: MenuKey[]; pieceOrder: string[]; sceneOrder: string[]; categories: Category[]; sceneMap: SceneMap; pages: SitePage[]; viewer: ViewerSettings; legal: Legal; translation?: SiteTranslation; videoLevel?: 'balanced' | 'sharp' } = {
     projectName: str(r.projectName, 60),
     brand,
     // Absent = 'high': a site made today is meant for large screens too.
@@ -312,6 +313,7 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
     pages: normalizePages(r.pages),
     viewer: normalizeViewer(r.viewer),
     legal: normalizeLegal(r.legal),
+    seo: normalizeSeo(r.seo),
     imageKb: r.imageKb === null ? null : typeof r.imageKb === 'number' && r.imageKb >= 20 && r.imageKb <= 5000 ? Math.round(r.imageKb) : 100,
   };
   const le = r.lastExport as Record<string, unknown> | undefined;

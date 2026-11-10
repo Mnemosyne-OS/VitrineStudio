@@ -3,7 +3,7 @@ import { buildSiteData } from '../site/buildSite';
 import { domToMarkdown } from '../model/blogEdit';
 import type { Piece } from '../model/types';
 
-const labels: BlockLabels = { left: 'G', right: 'D', full: 'L', row: 'H', column: 'V', remove: 'X', gone: '?', up: 'U', down: 'B', drag: 'M', caption: 'C' };
+const labels: BlockLabels = { left: 'G', right: 'D', full: 'L', row: 'H', column: 'V', remove: 'X', gone: '?', up: 'U', down: 'B', drag: 'M', caption: 'C', fill: 'F' };
 const pieces: Piece[] = [
   { schema: 1, id: 'p1', name: 'Vase', kind: 'unique', tags: [], photoPath: 'C:/p1.jpg' },
   { schema: 1, id: 'p2', name: 'Bol', kind: 'unique', tags: [], photoPath: 'C:/p2.jpg' },

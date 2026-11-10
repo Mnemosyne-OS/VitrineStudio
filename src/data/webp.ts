@@ -70,6 +70,56 @@ export async function encodeUnder(encode: (q: number) => Promise<Blob>, start: n
   return fits ?? lowest;
 }
 
+/** Draws a decoded picture on a canvas and encodes it; the canvas is released at once. */
+async function encodeCanvas(w: number, h: number, draw: (ctx: CanvasRenderingContext2D) => void, type: 'image/jpeg' | 'image/png', quality?: number): Promise<string> {
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('NO_CANVAS');
+  draw(ctx);
+  const blob = await new Promise<Blob | null>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('ENCODE_TIMEOUT')), ENCODE_TIMEOUT_MS);
+    canvas.toBlob((b) => { clearTimeout(timer); resolve(b); }, type, quality);
+  });
+  canvas.width = 0;
+  canvas.height = 0;
+  if (!blob || blob.type !== type) throw new Error('ENCODE_NOT_SUPPORTED');
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+
+export const SHARE_SIZE = { w: 1200, h: 630 } as const;
+/** Where a picture is cut to fill a box: the largest centred part of it with the box's shape. */
+export function coverCrop(iw: number, ih: number, bw: number, bh: number): { sx: number; sy: number; sw: number; sh: number } {
+  const scale = Math.max(bw / iw, bh / ih);
+  const sw = Math.min(iw, bw / scale), sh = Math.min(ih, bh / scale);
+  return { sx: (iw - sw) / 2, sy: (ih - sh) / 2, sw, sh };
+}
+
+/**
+ * A shared link's picture: 1200 x 630, the picture cut to fill it, as a JPEG
+ * (the one format every network and messenger reads). Resolves base64.
+ */
+export async function toShare(dataUrl: string): Promise<string> {
+  const img = await decoded(dataUrl);
+  const c = coverCrop(img.naturalWidth, img.naturalHeight, SHARE_SIZE.w, SHARE_SIZE.h);
+  return encodeCanvas(SHARE_SIZE.w, SHARE_SIZE.h, (ctx) => ctx.drawImage(img, c.sx, c.sy, c.sw, c.sh, 0, 0, SHARE_SIZE.w, SHARE_SIZE.h), 'image/jpeg', 0.86);
+}
+
+export const ICON_SIZE = 192;
+/** The tab icon as a file: the logo whole inside a transparent square PNG. Resolves base64. */
+export async function toIcon(dataUrl: string): Promise<string> {
+  const img = await decoded(dataUrl);
+  // An SVG with no size of its own decodes at 0 x 0: it is drawn to fill the square.
+  const iw = img.naturalWidth || ICON_SIZE, ih = img.naturalHeight || ICON_SIZE;
+  const scale = Math.min(ICON_SIZE / iw, ICON_SIZE / ih);
+  const w = iw * scale, h = ih * scale;
+  return encodeCanvas(ICON_SIZE, ICON_SIZE, (ctx) => ctx.drawImage(img, (ICON_SIZE - w) / 2, (ICON_SIZE - h) / 2, w, h), 'image/png');
+}
+
 /**
  * Re-encodes a picture as WebP at most `width` wide, in the cartridge's own
  * canvas: the app ships no image tool, and Chromium encodes WebP natively.

@@ -18,7 +18,7 @@ const host = vi.hoisted(() => ({
   videoToolsStatus: vi.fn(),
   readMedia: vi.fn(),
 }));
-vi.mock('../data/webp', async (orig) => ({ ...(await orig<object>()), toWebp: vi.fn().mockResolvedValue('AAAA') }));
+vi.mock('../data/webp', async (orig) => ({ ...(await orig<object>()), toWebp: vi.fn().mockResolvedValue('AAAA'), toShare: vi.fn().mockResolvedValue('AAAA'), toIcon: vi.fn().mockResolvedValue('AAAA') }));
 vi.mock('../data/host', async (orig) => ({ ...(await orig<object>()), ...host }));
 
 import { useSite } from './useSite';

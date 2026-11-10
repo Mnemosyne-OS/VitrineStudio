@@ -1,4 +1,5 @@
 import { allCreations, buildSiteData, onlineScenes, type SiteInput, type SiteSettings } from '../site/buildSite';
+import { withSeo, type SeoCfg } from '../site/seo';
 import type { Piece, Scene } from './types';
 
 /** What the last publish left: Vercel's own answer, and the print of the site it sent. */
@@ -63,12 +64,17 @@ export function bareAddress(url: string): string {
   return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
 }
 
+/** The business as her legal notice names it, for the home's structured data. */
+export function businessOf(legal: SiteSettings['legal']): NonNullable<SeoCfg['business']> {
+  return { address: legal.address, phone: legal.phone, owner: legal.owner };
+}
+
 /** What every build of the site reads from her site settings; each caller adds the language and the records. */
 export function siteFields(site: SiteSettings) {
   return {
     brand: site.brand, identity: site.identity, showcase: site.showcase, hover: site.creationsHover, currency: site.currency, menu: site.menu,
     menuOrder: site.menuOrder, pieceOrder: site.pieceOrder, sceneOrder: site.sceneOrder, categories: site.categories, sceneMap: site.sceneMap,
-    pages: site.pages, viewer: site.viewer, legal: site.legal, analytics: !!site.analytics,
+    pages: site.pages, viewer: site.viewer, legal: site.legal, analytics: !!site.analytics, seo: site.seo,
   } satisfies Partial<SiteInput>;
 }
 
@@ -109,14 +115,22 @@ function hash53(text: string): string {
  * the site is built. A post rewritten there leaves the print as it was; the
  * bar's « Republish » stays for that.
  */
-export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<SiteSettings, 'quality' | 'imageKb' | 'identity' | 'brand' | 'posts' | 'kit' | 'showcase' | 'pages' | 'translation' | 'videoLevel'>, records: { scenes: Scene[]; pieces: Piece[]; film?: { id: string; updatedAt: string } | null }): string {
+export function sitePrint(input: Omit<SiteInput, 'today' | 'posts'>, site: Pick<SiteSettings, 'quality' | 'imageKb' | 'identity' | 'brand' | 'posts' | 'kit' | 'showcase' | 'pages' | 'translation' | 'videoLevel' | 'seo' | 'legal'>, records: { scenes: Scene[]; pieces: Piece[]; film?: { id: string; updatedAt: string } | null }): string {
   // buildSiteData does not read the date today (no test can see it); emptied so a later use of it
   // cannot make every print change at midnight and the bar cry « changes » for nothing.
   const data = buildSiteData({ ...input, today: '', posts: [] });
   // Only the pieces the site shows: a sold or hidden piece edited is not a change of the site.
   const shown = new Set(allCreations(data).map((c) => c.id));
+  // The addresses as the export would write them, not her settings as stored: a slug kept after
+  // a send leaves every address where it was, so keeping it is not a change of the site.
+  const plan = withSeo(data, input.lang, site.seo, businessOf(site.legal)).seo!;
+  const { slugs: _kept, ...cfg } = plan.cfg!;
+  void _kept;
   return hash53(stableJson({
     data,
+    seo: { ...plan, cfg },
+    // Read on the second language's documents only, which this plan does not hold.
+    visitorLanguage: site.seo.visitorLanguage ?? null,
     quality: site.quality,
     imageKb: site.imageKb,
     video: site.videoLevel ?? 'light',

@@ -49,7 +49,7 @@ describe('the room mounted', () => {
     const tr: SiteTranslation = { lang: 'en', entries: { Un: { to: 'One', by: 'local:q', at: 'tagline' } } };
     const { onChange, onClose, state } = mount(tr);
     await screen.findAllByText('Qwen');
-    const field = screen.getByLabelText('Translation of “Un”');
+    const field = screen.getByLabelText<HTMLTextAreaElement | HTMLInputElement>('Translation of “Un”');
     expect(field.value).toBe('One');
     field.focus();
     fireEvent.change(field, { target: { value: 'One, by her' } });
@@ -151,9 +151,9 @@ describe('the room mounted', () => {
     const tr: SiteTranslation = { lang: 'en', entries: {} };
     const { rerender } = mount(tr);
     await screen.findAllByText('Qwen');
-    const field = screen.getByLabelText('Translation of “Un”');
+    const field = screen.getByLabelText<HTMLTextAreaElement | HTMLInputElement>('Translation of “Un”');
     fireEvent.change(field, { target: { value: 'Mine' } });
     rerender({ lang: 'en', entries: { Un: { to: 'A model answer', by: 'local:q', at: 'tagline' } } });
-    expect((screen.getByLabelText('Translation of “Un”')).value).toBe('Mine');
+    expect(screen.getByLabelText<HTMLTextAreaElement | HTMLInputElement>('Translation of “Un”').value).toBe('Mine');
   });
 });

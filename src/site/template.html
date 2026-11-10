@@ -6,6 +6,8 @@
 <title>__TITLE__</title>
 <meta name="description" content="__DESCRIPTION__">
 <meta name="generator" content="Vitrine Studio (Mnemosyne OS)">
+<!--seo:head--><!--/seo:head-->
+<script>document.documentElement.classList.add('js')</script>
 <link rel="icon" id="favicon" href="data:,">
 <!--
   Built by Vitrine Studio. Everything this page shows comes from data.json,
@@ -24,6 +26,19 @@
   body { background: var(--paper); color: var(--ink); font: 300 15px/1.5 Jost, Futura, "Century Gothic", sans-serif; -webkit-font-smoothing: antialiased; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   a { color: inherit; text-decoration: none; }
+  /* The page's words without its script (a search engine, a reader without JavaScript): plain and readable, gone once the script draws. */
+  #static { position: fixed; inset: 0; z-index: 1; overflow: auto; padding: calc(var(--pad) * 2) var(--pad); background: var(--paper); }
+  .js #static { display: none; }
+  #static h1 { font-weight: 400; font-size: 28px; margin-bottom: 16px; }
+  #static h2 { font-weight: 400; font-size: 20px; margin: 28px 0 12px; }
+  #static p, #static li, #static table { margin-bottom: 12px; max-width: 70ch; }
+  #static img { display: block; max-width: min(100%, 520px); height: auto; margin: 12px 0; }
+  #static a { text-decoration: underline; }
+  #static th { text-align: left; font-weight: 400; padding-right: 16px; }
+  #static .s-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  #static nav ul, #static .s-posts { list-style: none; }
+  #static nav ul { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 32px; }
+  .v-sold { letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
 
   /* Header: the logo left, the pages right. Its measured height (--head-h, set by the script) pushes every page's top down: a big logo never covers a title. */
   header { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: var(--pad); pointer-events: none; }
@@ -476,6 +491,7 @@ __LOADER_CSS__
 </style>
 </head>
 <body>
+<!--seo:static--><!--/seo:static-->
 <header class="logo-head">
   <a class="brand" href="#"></a>
   <nav></nav>
@@ -497,13 +513,59 @@ __LOADER_CSS__
 <script>
 (async () => {
   // The data is inline (the folder opens from the disk too); data.json is the fallback.
-  const SITE = JSON.parse(document.getElementById('site-data').textContent || 'null') ?? await (await fetch('data.json', { cache: 'no-cache' })).json();
+  const SITE = JSON.parse(document.getElementById('site-data')?.textContent || 'null') ?? await (await fetch('data.json', { cache: 'no-cache' })).json();
   // The second language: asked in the address (?lang=en), else the one last chosen, else the visitor's own.
-  const MAIN_LANG = document.documentElement.lang;
+  // A site with real addresses says its language in the document (data-lang): on the web the address decides,
+  // never the visitor's browser. From the disk or in a preview there is one document, and ?lang= still chooses.
+  const HTML = document.documentElement;
+  const FIXED = /^https?:$/.test(location.protocol) ? HTML.dataset.lang || '' : '';
+  const MAIN_LANG = HTML.dataset.main || HTML.lang;
   const ALT = SITE.alt || null;
-  const wanted = (() => { const q = new URLSearchParams(location.search).get('lang'); if (q) return q; try { const s = localStorage.getItem('site-lang'); if (s) return s; } catch (err) { console.warn('No saved language:', err); } return (navigator.language || '').slice(0, 2).toLowerCase(); })();
+  const wanted = FIXED || (() => { const q = new URLSearchParams(location.search).get('lang'); if (q) return q; try { const s = localStorage.getItem('site-lang'); if (s) return s; } catch (err) { console.warn('No saved language:', err); } return (navigator.language || '').slice(0, 2).toLowerCase(); })();
   const D = ALT && wanted === ALT.lang ? ALT.data : SITE;
-  if (D !== SITE) document.documentElement.lang = ALT.lang;
+  if (D !== SITE) HTML.lang = ALT.lang;
+  // The plain words were for a reader without this script.
+  document.getElementById('static')?.remove();
+  // Real addresses (one per page, creation and post) when the site is served from the web. From
+  // the disk or in a preview, the one page and its anchors, as before.
+  const SEO = D.seo || null;
+  const REAL = !!SEO && SEO.pages.length > 1 && /^https?:$/.test(location.protocol) && !!FIXED;
+  const PATHS = {}, BYPATH = {}, TITLES = {};
+  if (SEO) for (const p of SEO.pages) { PATHS[p.id] = p.path; BYPATH[p.path] = p.id; TITLES[p.id] = p.title; }
+  // The site's root as a whole address: every relative name is read from it, wherever the address bar stands.
+  const ROOT = REAL ? new URL('./', document.baseURI).href : '';
+  if (REAL) { let b = document.querySelector('base'); if (!b) { b = document.createElement('base'); document.head.prepend(b); } b.href = ROOT; }
+  const HOME = REAL ? ROOT + SEO.prefix : '';
+  const addr = (id) => (REAL && id in PATHS ? ROOT + PATHS[id] : '#' + id);
+  const relOf = (href) => { let rel = href.split(/[?#]/)[0].slice(ROOT.length).replace(/index\.html$/, ''); if (rel && !rel.endsWith('/')) rel += '/'; return rel; };
+  // What the address asks for: its anchor first (a link from before the real addresses), else its path.
+  const idNow = () => {
+    let h = location.hash.slice(1);
+    try { h = decodeURIComponent(h); } catch (err) { console.warn('[site] an anchor that does not decode is read as it is:', err); }
+    if (h || !REAL) return h;
+    const id = BYPATH[relOf(location.href)];
+    return id === undefined ? '' : id;
+  };
+  let routedAt = '';
+  // An address the script writes itself is one it has already read: the next visit to the one before is read again.
+  const put = (url) => { history.replaceState(null, '', url); routedAt = location.href; };
+  // The other language's address of the page in sight.
+  const langHref = () => {
+    const other = (D === SITE ? ALT.data : SITE).seo, l = D === SITE ? ALT.lang : MAIN_LANG;
+    if (!REAL || !other) return '?lang=' + l;
+    const twin = other.pages.find((p) => p.id === idNow());
+    return ROOT + (twin ? twin.path : other.prefix);
+  };
+  if (REAL && ALT) {
+    // An old link (?lang=en) leads to the page's real address in that language. A visitor who chose the second
+    // language before, or whose browser speaks it, is sent there as before, unless she turned that off; never a crawler.
+    const q = new URLSearchParams(location.search).get('lang');
+    let stored = '';
+    try { stored = localStorage.getItem('site-lang') || ''; } catch (err) { console.warn('[site] no saved language:', err); }
+    const otherLang = D === SITE ? ALT.lang : MAIN_LANG;
+    const follows = !q && SEO.follow && D === SITE && (stored || (navigator.language || '').slice(0, 2).toLowerCase()) === ALT.lang && !/bot|crawl|spider|slurp|preview|lighthouse/i.test(navigator.userAgent);
+    if (q === otherLang || follows) { location.replace(langHref()); return; }
+  }
   const T = D.texts;
   if (D.brand.dark === 'auto') document.body.classList.add('dark-auto');
   // The loading screen goes once everything is in: never before half a second (no flash), never after eight.
@@ -544,6 +606,7 @@ __LOADER_CSS__
   const src = (img) => (SMALL ? img.s : SHARP && /-l\.webp$/.test(img.l) ? img.l.replace(/-l\.webp$/, '-x.webp') : img.l);
 
   const brand = document.querySelector('.brand');
+  if (REAL) brand.href = HOME;
   if (D.identity) {
     brand.innerHTML = D.identity.html;
     brand.querySelectorAll('[data-logo]').forEach((el) => {
@@ -682,15 +745,48 @@ __LOADER_CSS__
   // The menu in the order she set; a page she did not place keeps its place after them.
   const rank = (id) => { const i = (D.menuOrder || []).indexOf(id); return i < 0 ? 99 : i; };
   const stages = (D.pages || []).filter((p) => p.type === 'scenes');
-  document.querySelector('nav').innerHTML = [...pages.filter((p) => !p.sub), ...stages].sort((a, b) => rank(a.id) - rank(b.id)).map((p) => `<a href="#${p.id}">${esc(p.title)}</a>`).join('') + (D.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.title)}</a>`).join('')
+  document.querySelector('nav').innerHTML = [...pages.filter((p) => !p.sub), ...stages].sort((a, b) => rank(a.id) - rank(b.id)).map((p) => `<a href="${esc(addr(p.id))}" data-id="${esc(p.id)}">${esc(p.title)}</a>`).join('') + (D.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.title)}</a>`).join('')
     // The other language, last in the menu: its code, the page reopened in it.
-    + (ALT ? `<a class="lang-switch" href="?lang=${esc(D === SITE ? ALT.lang : MAIN_LANG)}" data-lang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}" hreflang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}">${esc((D === SITE ? ALT.lang : MAIN_LANG).toUpperCase())}</a>` : '');
+    + (ALT ? `<a class="lang-switch" href="${esc(langHref())}" data-lang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}" hreflang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}">${esc((D === SITE ? ALT.lang : MAIN_LANG).toUpperCase())}</a>` : '');
   document.querySelector('nav .lang-switch')?.addEventListener('click', (e) => {
     try { localStorage.setItem('site-lang', e.currentTarget.dataset.lang); } catch (err) { console.warn('The language was not kept:', err); }
   });
   // The legal notice and the privacy page: out of the menu, reached from the footer on every screen.
   if (D.legal) D.legal.pages.forEach((p) => pages.push({ id: p.id, title: p.title, sub: true, html: `<div class="cols"><div class="lead legal-text">${p.html}</div></div>` }));
   document.getElementById('pages').innerHTML = pages.map((p) => `<section class="page" id="p-${p.id}"><h1>${esc(p.title)}</h1>${p.html}</section>`).join('');
+  // Real addresses: a link written as an anchor gets its page's address, and a click on one changes
+  // the address without loading the document again.
+  if (REAL) document.querySelectorAll('a[href^="#"]').forEach((a) => { const id = a.getAttribute('href').slice(1); if (id in PATHS) { a.href = addr(id); a.dataset.id = id; } });
+  // The tab's title and the other language's link follow the page in sight.
+  const headNow = () => {
+    if (!SEO) return;
+    const id = idNow();
+    document.title = TITLES[id] !== undefined ? TITLES[id] : TITLES[''];
+    const sw = document.querySelector('nav .lang-switch');
+    if (sw && REAL) sw.href = langHref();
+  };
+  const seen = () => { routedAt = location.href; headNow(); };
+  if (REAL) {
+    const moved = () => dispatchEvent(new Event('hashchange'));
+    document.addEventListener('click', (e) => {
+      if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = e.target.closest ? e.target.closest('a[href]') : null;
+      if (!a || a.target === '_blank' || a.classList.contains('lang-switch')) return;
+      const raw = a.getAttribute('href');
+      let url = '';
+      if (raw.startsWith('#')) url = raw.slice(1) in PATHS ? addr(raw.slice(1)) : HOME + raw;
+      else if (a.href.startsWith(ROOT) && !a.hash && relOf(a.href) in BYPATH) url = a.href;
+      if (!url) return;
+      e.preventDefault();
+      if (url !== location.href) history.pushState(null, '', url);
+      moved();
+    });
+    addEventListener('popstate', moved);
+  }
+  // Which page lists a creation: the Creations page, or the catalogue she added.
+  const pageOf = (c) => (D.creations.includes(c) || (D.sold || []).includes(c) ? 'creations' : ((D.pages || []).find((p) => (p.creations || []).includes(c)) || {}).id || 'creations');
+  // A sold piece keeps its page, out of every gallery.
+  ALL.push(...(D.sold || []));
   // The form: through Formspree when the artisan gave her form (the message leaves from the page,
   // nothing is loaded before it is sent); otherwise through the visitor's own mail app.
   // One creation, all its photos: opened from the gallery, closed by its button or Escape.
@@ -748,13 +844,15 @@ __LOADER_CSS__
   // A piece shown with nothing to say (no name, price, size or words): its photo alone,
   // full screen on a dark ground, and the page reads as a gallery (Tony: « une galerie d'image »).
   let viewing = -1;
-  function openViewer(c, k = 0) {
+  function openViewer(c, k = 0, quiet = false) {
+    // A creation with its own page: the address follows the one in sight (a step replaces it, an opening adds it).
+    if (REAL && !quiet && ('c:' + c.id) in PATHS) { history[viewing >= 0 ? 'replaceState' : 'pushState'](null, '', addr('c:' + c.id)); seen(); }
     viewing = ALL.indexOf(c);
-    const bare = !c.name && !c.price && !c.dimensions && !c.weight && !c.description;
+    const bare = !c.name && !c.price && !c.dimensions && !c.weight && !c.description && !c.sold;
     viewer.classList.toggle('bare', bare);
     const many = ALL.length > 1;
     viewer.innerHTML = `<div><div class="v-main"><img src="${esc(c.images[k])}" alt="${esc(c.alt)}"></div>${c.images.length > 1 ? `<div class="v-thumbs">${c.images.map((im, j) => `<button data-k="${j}" aria-current="${j === k}" aria-label="${esc(c.alt)} ${j + 1}"><img src="${esc(im)}" alt=""></button>`).join('')}</div>` : ''}</div>`
-      + (bare ? '' : `<div class="v-info">${c.name ? `<h2>${esc(c.name)}</h2>` : ''}${c.price ? `<p class="v-price">${esc(c.price)}${(c.priceAlso || []).length ? `<small class="v-also">${c.priceAlso.map(esc).join(' · ')}</small>` : ''}</p>` : ''}${(c.specs || []).length ? `<table class="v-specs">${c.specs.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : c.dimensions || c.weight ? `<p class="v-dim">${[c.dimensions, c.weight].filter(Boolean).map(esc).join(' · ')}</p>` : ''}${c.description ? `<p>${esc(c.description)}</p>` : ''}</div>`)
+      + (bare ? '' : `<div class="v-info">${c.name ? `<h2>${esc(c.name)}</h2>` : ''}${c.sold && SEO && SEO.soldWord ? `<p class="v-sold">${esc(SEO.soldWord)}</p>` : ''}${c.price ? `<p class="v-price">${esc(c.price)}${(c.priceAlso || []).length ? `<small class="v-also">${c.priceAlso.map(esc).join(' · ')}</small>` : ''}</p>` : ''}${(c.specs || []).length ? `<table class="v-specs">${c.specs.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>` : c.dimensions || c.weight ? `<p class="v-dim">${[c.dimensions, c.weight].filter(Boolean).map(esc).join(' · ')}</p>` : ''}${c.description ? `<p>${esc(c.description)}</p>` : ''}</div>`)
       + (many ? '<button class="v-step prev" data-step="-1" aria-label="‹">‹</button><button class="v-step next" data-step="1" aria-label="›">›</button>' : '')
       + `<button class="v-close">${esc(T.close)} ✕</button>`;
     viewer.querySelectorAll('.v-thumbs button').forEach((b) => (b.onclick = () => openViewer(c, +b.dataset.k)));
@@ -774,7 +872,20 @@ __LOADER_CSS__
     if (at < 0 || shown.length < 2) return;
     openViewer(ALL[shown[(at + d + shown.length) % shown.length]]);
   }
-  function closeViewer() { viewer.hidden = true; viewer.innerHTML = ''; viewing = -1; }
+  function closeViewer(quiet) {
+    const was = viewing >= 0 ? ALL[viewing] : null;
+    viewer.hidden = true; viewer.innerHTML = ''; viewing = -1;
+    // Closed by the visitor on its own address: back to the page that lists it.
+    if (REAL && quiet !== true && was && idNow() === 'c:' + was.id) { put(addr(pageOf(was))); headNow(); }
+  }
+  // A creation's own address: its page under it, the creation open over it.
+  const openCreation = (h, open) => {
+    const c = h.startsWith('c:') ? ALL.find((x) => x.id === h.slice(2)) : null;
+    if (!c) { if (viewing >= 0) closeViewer(true); return false; }
+    open(pageOf(c));
+    openViewer(c, 0, true);
+    return true;
+  };
   // The viewer's own keys, before the page's: Escape closes it (not the page under it), the arrows go from piece to piece.
   addEventListener('keydown', (e) => {
     if (viewer.hidden) return;
@@ -901,12 +1012,14 @@ __LOADER_CSS__
     document.body.classList.add('intro-gone');
     // No scene online yet: the menu's pages still open, from the menu and from a link.
     const showPage = () => {
-      const h = location.hash.slice(1);
+      let h = idNow();
+      headNow();
+      if (openCreation(h, (id) => { h = id; })) document.body.classList.add('paged');
       document.querySelectorAll('.page').forEach((p) => p.classList.toggle('open', p.id === 'p-' + h));
-      document.querySelectorAll('nav a').forEach((a) => (a.hash === '#' + h ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+      document.querySelectorAll('nav a').forEach((a) => (a.dataset.id !== undefined && a.dataset.id === h ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
       document.body.classList.toggle('paged', pages.some((p) => p.id === h));
     };
-    document.querySelector('[data-close]').onclick = () => { history.replaceState(null, '', '#'); showPage(); };
+    document.querySelector('[data-close]').onclick = () => { put(HOME || '#'); showPage(); };
     addEventListener('hashchange', showPage);
     showPage();
     return;
@@ -1069,11 +1182,11 @@ __LOADER_CSS__
     r = mod(r + dr, ROWS.length);
     if (dr) v = Math.min(want, ROWS[r].scenes.length - 1);
     else { v = mod(v + dv, ROWS[r].scenes.length); want = v; }
-    history.replaceState(null, '', `#${here()}${r + 1}/${v + 1}`);
+    put(`${HOME}#${here()}${r + 1}/${v + 1}`);
     document.querySelector('.first-hint')?.classList.add('gone');
     render(dr, dv);
   }
-  function jump(ri, vi) { if (busy || (ri === r && vi === v)) return; const dr = Math.sign(ri - r), dv = ri === r ? Math.sign(vi - v) : 0; r = ri; v = vi; want = vi; history.replaceState(null, '', `#${here()}${r + 1}/${v + 1}`); render(dr, dv); }
+  function jump(ri, vi) { if (busy || (ri === r && vi === v)) return; const dr = Math.sign(ri - r), dv = ri === r ? Math.sign(vi - v) : 0; r = ri; v = vi; want = vi; put(`${HOME}#${here()}${r + 1}/${v + 1}`); render(dr, dv); }
   function here() { return stageId ? `${stageId}/` : ''; }
   function sync() {
     const row = ROWS[r];
@@ -1104,7 +1217,7 @@ __LOADER_CSS__
     ROWS = p ? p.rows : HOME_ROWS; stageId = p ? id : '';
     r = 0; v = 0; want = 0; current = null;
     drawMap();
-    document.querySelectorAll('nav a').forEach((a) => (stageId && a.hash === '#' + stageId ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+    document.querySelectorAll('nav a').forEach((a) => (stageId && a.dataset.id === stageId ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   }
   document.querySelectorAll('.hint').forEach((b) => (b.onclick = () => go(+b.dataset.dr, +b.dataset.dv)));
 
@@ -1174,7 +1287,7 @@ __LOADER_CSS__
     inIntro = false;
     document.body.classList.add('intro-gone');
     setTimeout(() => { if (!inIntro) vids.forEach((o) => o.pause()); }, 900);
-    history.replaceState(null, '', `#${r + 1}/${v + 1}`);
+    put(`${HOME}#${r + 1}/${v + 1}`);
     if (current) {
       current.classList.remove('lit', 'piece', 'alive', 'growing');
       current.querySelectorAll('.steps li').forEach((li) => li.classList.remove('on'));
@@ -1218,19 +1331,23 @@ __LOADER_CSS__
 
   function openPage(id) {
     document.querySelectorAll('.page').forEach((p) => p.classList.toggle('open', p.id === 'p-' + id));
-    document.querySelectorAll('nav a').forEach((a) => (a.hash === '#' + id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
+    document.querySelectorAll('nav a').forEach((a) => (a.dataset.id !== undefined && a.dataset.id === id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
     document.body.classList.add('paged');
   }
   function closePage() {
     document.querySelectorAll('.page').forEach((p) => p.classList.remove('open'));
     document.querySelectorAll('nav a').forEach((a) => a.removeAttribute('aria-current'));
     document.body.classList.remove('paged');
-    history.replaceState(null, '', `#${here()}${r + 1}/${v + 1}`);
+    put(`${HOME}#${here()}${r + 1}/${v + 1}`);
+    // A visitor who arrived on a page's own address has no room drawn behind it yet.
+    if (!current) render(0, 0);
+    headNow();
   }
   document.querySelector('[data-close]').onclick = closePage;
   // No hash (or #accueil, the logo's link): the film, when there is one. A link to a scene or a page goes straight there.
   function route() {
-    const h = location.hash.slice(1);
+    const h = idNow();
+    if (openCreation(h, openPage)) { if (inIntro) { inIntro = false; vids.forEach((o) => o.pause()); } document.body.classList.add('intro-gone'); return; }
     if (!h || h === 'accueil') {
       if (document.body.classList.contains('paged')) closePage();
       if (stageId) { switchStage(''); render(0, 0); }
@@ -1253,8 +1370,17 @@ __LOADER_CSS__
     }
     if (!current) render(0, 0);
   }
-  addEventListener('hashchange', route);
-  route();
+  // One reading per address: a click on a real link and the browser's own event may both ask.
+  const routeOnce = () => {
+    if (routedAt === location.href) return;
+    route();
+    // A link from before the real addresses (#creations) settles on the page's own.
+    const h = location.hash.slice(1);
+    if (REAL && h && h in PATHS) history.replaceState(null, '', addr(h));
+    seen();
+  };
+  addEventListener('hashchange', routeOnce);
+  routeOnce();
 })().catch((err) => {
   document.body.innerHTML = '<p style="padding:40px;font-family:sans-serif">This site could not load its content (data.json).</p>';
   console.error(err);
