@@ -67,6 +67,43 @@ describe('the studio\'s agent door', () => {
     expect(openTab).toHaveBeenCalledWith(`page:${(out as { pageId: string }).pageId}`);
   });
 
+  it('addPage gives a new text page the balanced look, and a form page none', async () => {
+    const { studio } = mount(async () => true);
+    await door.handlers!.addPage!({ type: 'text', name: 'Atelier' });
+    await door.handlers!.addPage!({ type: 'form', name: 'Inscription' });
+    const written = (i: number) => (studio.patchSite.mock.calls[i]![0] as (cur: { pages: unknown[] }) => { pages: Array<Record<string, unknown>> })({ pages: [] }).pages[0]!;
+    expect(written(0).look).toEqual({ margin: 'm', split: 'half', align: 'center', shape: 'natural' });
+    expect(written(1)).not.toHaveProperty('look');
+  });
+
+  it('setBrand says icons asked for with no network show nothing yet', async () => {
+    mount(async () => true);
+    await expect(door.handlers!.setBrand!({ menuSocials: true })).resolves.toMatchObject({ changed: ['menuSocials'], shown: false });
+  });
+
+  it('setPageLook lays out a text page by its name: the balanced look first, then only the parts given', async () => {
+    const { openTab, studio } = mount(async () => true);
+    const out = await door.handlers!.setPageLook!({ page: 'mon atelier', margin: 'l', layout: 'left' });
+    expect(out).toEqual({ page: 'atelier', look: { margin: 'l', split: 'half', align: 'center', shape: 'natural' } });
+    const change = studio.patchSite.mock.calls[0]![0] as (cur: unknown) => { pages: Array<Record<string, unknown>> };
+    expect(change({ pages: [{ id: 'atelier', type: 'text', name: 'Mon atelier' }] }).pages[0]).toMatchObject({ layout: 'left', look: { margin: 'l' } });
+    expect(openTab).toHaveBeenCalledWith('page:atelier');
+    await expect(door.handlers!.setPageLook!({ page: 'atelier', margin: 'huge' })).rejects.toThrow(/^BAD_ARG: margin/);
+    await expect(door.handlers!.setPageLook!({ page: 'atelier' })).rejects.toThrow(/^BAD_ARG/);
+  });
+
+  it('setPageLook on the About page, and reset takes it back to the layout of before', async () => {
+    const { studio } = mount(async () => true);
+    await door.handlers!.setPageLook!({ page: 'about', shape: 'square' });
+    const set = studio.patchSite.mock.calls[0]![0] as (cur: unknown) => { brand: Record<string, unknown> };
+    expect(set({ brand: { name: 'A' } }).brand.aboutLook).toMatchObject({ shape: 'square', margin: 'm' });
+    await expect(door.handlers!.setPageLook!({ page: 'about', reset: true })).resolves.toEqual({ page: 'about', look: null });
+    const reset = studio.patchSite.mock.calls[1]![0] as (cur: unknown) => { brand: Record<string, unknown> };
+    expect(reset({ brand: { name: 'A', aboutLook: { margin: 's' } } }).brand).not.toHaveProperty('aboutLook');
+    mount(async () => false);
+    await expect(door.handlers!.setPageLook!({ page: 'about', margin: 's' })).rejects.toThrow(/^WRITE_FAILED/);
+  });
+
   it('addPage says a refused write, never « done », and shows nothing', async () => {
     const { openTab } = mount(async () => false);
     await expect(door.handlers!.addPage!({ type: 'text', name: 'Atelier' })).rejects.toThrow(/^WRITE_FAILED/);
@@ -114,6 +151,13 @@ describe('the studio\'s agent door', () => {
     const change = studio.patchSite.mock.calls[0]![0] as (cur: { brand: Record<string, string> }) => { brand: Record<string, string> };
     expect(change({ brand: { name: 'Claire', tagline: 'x' } }).brand).toEqual({ name: 'Claire', tagline: 'Céramiste à Montpellier' });
     await expect(door.handlers!.setBrand!({})).rejects.toThrow(/^BAD_ARG/);
+    // Her networks in the menu: a switch, false stored as absent.
+    await expect(door.handlers!.setBrand!({ menuSocials: true })).resolves.toMatchObject({ changed: ['menuSocials'] });
+    const on = studio.patchSite.mock.calls[1]![0] as (cur: { brand: Record<string, unknown> }) => { brand: Record<string, unknown> };
+    expect(on({ brand: { name: 'Claire' } }).brand.menuSocials).toBe(true);
+    await door.handlers!.setBrand!({ menuSocials: false });
+    const off = studio.patchSite.mock.calls[2]![0] as (cur: { brand: Record<string, unknown> }) => { brand: Record<string, unknown> };
+    expect(off({ brand: { name: 'Claire', menuSocials: true } }).brand).not.toHaveProperty('menuSocials');
     mount(async () => false);
     await expect(door.handlers!.setBrand!({ email: 'a@b.c' })).rejects.toThrow(/^WRITE_FAILED/);
   });

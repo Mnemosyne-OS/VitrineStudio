@@ -21,7 +21,7 @@ function Harness({ onKeep, make }: { onKeep: (draft: DesignDraft) => Promise<boo
   const [draft, setDraft] = useState<DesignDraft>({});
   const [part, setPart] = useState<DesignPart>('details');
   return (
-    <DesignScreen site={site} draft={draft} onDraft={setDraft} onKeep={() => onKeep(draft)} onMeasured={() => {}} part={part} onPart={setPart}
+    <DesignScreen stepWords={{ place: "Place", piece: "Piece", alive: "Alive" }} site={site} draft={draft} onDraft={setDraft} onKeep={() => onKeep(draft)} onMeasured={() => {}} part={part} onPart={setPart}
       make={make ?? (() => new Promise<string>(() => {}))} demoPhotos={[]} themeSample={{ name: 'Atelier Rosalie', menu: ['Créations', 'À propos', 'Contact'], title: 'Créations', photos: [] }} onlineCount={1} enlarged={0} busy={false} onCheck={() => {}} checking={false} />
   );
 }

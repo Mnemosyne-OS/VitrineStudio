@@ -71,6 +71,7 @@ import { useFilm } from './hooks/useFilm';
 import { IS_PREVIEW_WINDOW, useSite } from './hooks/useSite';
 import { inPieceOrder, reorderSome } from './model/showcase';
 import { onPage, pageIdFor, type PageType, type SitePage } from './model/pages';
+import { BALANCED_LOOK } from './model/pageLook';
 import { TextPagePanel } from './components/TextPagePanel';
 import { FormPagePanel } from './components/FormPagePanel';
 import { AddPageDialog } from './components/AddPageDialog';
@@ -88,6 +89,8 @@ type Tab = Screen;
 const PIECE_EFFECTS = EFFECTS.filter((e) => e.perCreation);
 /** The built-in screen that edits an added page, by its model. */
 const KIND_OF: Partial<Record<PageType, Kind>> = { catalogue: 'pieces', scenes: 'scenes', blog: 'blog' };
+/** The page beside an editor as the site has it: without the menu's in-place renaming, which nobody there hears. */
+const asIs = (html: string) => html;
 
 /**
  * Vitrine Studio: stage your own pieces in generated rooms (doc 145).
@@ -240,7 +243,6 @@ export default function App() {
     open(known(openingOf(sp, lastSeen.current), openingOf(sp, {})));
   };
   const profileOf = (s: Scene) => profileById(s.profileId ?? settings.profileId);
-  const validated = scenes.filter((s) => s.validated);
   const online = onlineScenes(scenes, pieces);
   const viewed = viewing ? scenes.find((s) => s.id === viewing.id) : undefined;
   // What a photo frame can be filled from, besides the computer (PhotoChooser).
@@ -282,7 +284,8 @@ export default function App() {
       { id: newId('f'), label: t('form.kind.email'), kind: 'email' as const, required: true },
       { id: newId('f'), label: t('form.kind.textarea'), kind: 'textarea' as const, required: false },
     ] : undefined;
-    void patchSite((cur) => ({ ...cur, pages: [...cur.pages, { id, type, name, ...(fields ? { fields } : {}) }] }));
+    // A new text page starts balanced (model/pageLook.ts): the pages of before keep their layout.
+    void patchSite((cur) => ({ ...cur, pages: [...cur.pages, { id, type, name, ...(fields ? { fields } : {}), ...(type === 'text' ? { look: BALANCED_LOOK } : {}) }] }));
     setAddingPage(false);
     open(`page:${id}`);
   };
@@ -293,11 +296,9 @@ export default function App() {
       <Ambient path={latestPicture(scenes)} />
       <SpaceRail space={space} tool={tab === 'costs' || tab === 'settings' ? tab : null} onSpace={openSpace} onTool={open} onlineDot={siteConnected === false} trialDot={loaded && draftCount(site, designDraft) > 0} />
       <div className="work">
+      {/* One slim row (asked on 10/11): her screens, then the site's light and its two buttons. */}
       <header className="top">
-        <div className="title-block">
-          <h1>{t('app.title')}</h1>
-          <p className="muted small">{profile.label[getLanguage()]} · {tc('pieces.count', pieces.length)} · {tc('scenes.count', scenes.length)} · {tc('scenes.onSite', validated.length)}</p>
-        </div>
+        <h1 className="sr-only">{t('app.title')}</h1>
         {/* What she shows, in her order of work; her pages are one entry, a list (doc 145 §10.25). */}
         {space === 'content' && (
           <nav className="segmented glass sub-nav" aria-label={t('space.content')}>
@@ -306,15 +307,15 @@ export default function App() {
             ))}
           </nav>
         )}
+        {loaded && (
+          <SiteBar stage={siteActions.stage} tokenUnread={siteActions.tokenUnread} onRetryToken={siteActions.rereadToken}
+            onDismissError={() => { setSeeError(null); siteActions.clearPreviewError(); }} missing={siteActions.missing} link={siteLink(site.lastPublish, siteAddress, hosting.liveDomains)} work={siteActions.work}
+            staleLiving={livingFallsBack(online)} see={seeWhat} seeing={siteActions.previewWork} seeError={seeError ?? siteActions.previewError}
+            onSee={see} onPublish={() => void siteActions.publishNow()} onOpen={siteActions.openLink}
+            onConnect={() => go('site', 'connect')}
+            onFix={(item) => (item === 'name' ? go('site', 'look') : open('scenes'))} />
+        )}
       </header>
-      {loaded && (
-        <SiteBar stage={siteActions.stage} tokenUnread={siteActions.tokenUnread} onRetryToken={siteActions.rereadToken}
-          onDismissError={() => { setSeeError(null); siteActions.clearPreviewError(); }} missing={siteActions.missing} link={siteLink(site.lastPublish, siteAddress, hosting.liveDomains)} work={siteActions.work}
-          staleLiving={livingFallsBack(online)} see={seeWhat} seeing={siteActions.previewWork} seeError={seeError ?? siteActions.previewError}
-          onSee={see} onPublish={() => void siteActions.publishNow()} onOpen={siteActions.openLink}
-          onConnect={() => go('site', 'connect')}
-          onFix={(item) => (item === 'name' ? go('site', 'look') : open('scenes'))} />
-      )}
       {notice && (
         <p className={`notice glass ${notice.kind}`}>
           {notice.text}
@@ -396,8 +397,9 @@ export default function App() {
       {loaded && activePage?.type === 'text' && (
         <TextPagePanel key={activePage.id} text={activePage.text ?? ''} onText={(text) => patchPage(activePage.id, { text })}
           photo={activePage.photo} onPhoto={(photo) => patchPage(activePage.id, { photo })}
-          layout={activePage.layout ?? 'right'} onLayout={(layout) => patchPage(activePage.id, { layout: layout === 'right' ? undefined : layout })}
-          photoLabel={t('page.photo')} />
+          layout={activePage.layout ?? 'right'} look={activePage.look}
+          onLayout={(layout, look) => patchPage(activePage.id, { layout: layout === 'right' ? undefined : layout, look })}
+          photoLabel={t('page.photo')} stage={{ make: () => siteActions.previewInfo(undefined, asIs, true), page: activePage.id }} />
       )}
       {loaded && activePage?.type === 'form' && (
         <FormPagePanel key={activePage.id} text={activePage.text ?? ''} onText={(text) => patchPage(activePage.id, { text })}
@@ -406,7 +408,7 @@ export default function App() {
           sendsTo={site.brand.formspree ? 'formspree' : site.brand.email ? 'email' : 'none'}
           />
       )}
-      {loaded && tab === 'about' && <AboutPanel brand={site.brand} onBrand={setBrand} />}
+      {loaded && tab === 'about' && <AboutPanel brand={site.brand} onBrand={setBrand} preview={() => siteActions.previewInfo(undefined, asIs, true)} />}
       {loaded && tab === 'contact' && <ContactPanel brand={site.brand} onBrand={setBrand} />}
       {loaded && tab === 'legal' && (
         <section className="info-page">
@@ -438,7 +440,7 @@ export default function App() {
         );
       })()}
       {loaded && tab === 'design' && (
-        <DesignScreen site={site} draft={designDraft} onDraft={setDesignDraft} part={designPart} onPart={setDesignPart}
+        <DesignScreen stepWords={{ place: profile.beats.place[getLanguage()], piece: profile.beats.piece[getLanguage()], alive: profile.beats.alive[getLanguage()] }} site={site} draft={designDraft} onDraft={setDesignDraft} part={designPart} onPart={setDesignPart}
           // Kept: only the settings she changed, laid on the site as it is NOW; what another door wrote meanwhile stays.
           onKeep={() => patchSite((cur) => keepDesign(cur, site, designDraft))}
           onMeasured={(ratio) => void patchSite((cur) => ({ ...cur, identity: withIdentityChange(cur.identity, site.identity, { ...site.identity, ratio }) }))}

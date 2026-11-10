@@ -1,7 +1,7 @@
 {
   "name": "@mnemosyne-plugins/artisan-studio",
   "displayName": "Vitrine Studio",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "vendor": "Mnemosyne OS",
   "category": "Productivity",
   "icon": "icon.svg",
@@ -271,6 +271,74 @@
       ]
     },
     {
+      "id": "setPageLook",
+      "summary": "Lay out a page of words and one picture (the About page or an added text page): where the picture stands, the margins on a computer, the picture's share, the height, its shape.",
+      "details": "Only the parts given change; the first call on a page of before gives it the balanced look (medium margins, half and half, centred, the picture as it is). reset true takes the page back to the layout of before. Phones always stack the text and the picture.",
+      "effect": "write",
+      "params": {
+        "page": {
+          "type": "string",
+          "description": "« about » for the About page, else the added text page's id or name.",
+          "maxLength": 80
+        },
+        "layout": {
+          "type": "string",
+          "description": "Where the picture stands beside the words.",
+          "enum": [
+            "right",
+            "left",
+            "top",
+            "bottom"
+          ]
+        },
+        "margin": {
+          "type": "string",
+          "description": "The empty space around and between the blocks, on a computer.",
+          "enum": [
+            "none",
+            "s",
+            "m",
+            "l"
+          ]
+        },
+        "split": {
+          "type": "string",
+          "description": "How much of the width the picture takes beside the words.",
+          "enum": [
+            "third",
+            "half",
+            "twothirds"
+          ]
+        },
+        "align": {
+          "type": "string",
+          "description": "Where the words and the picture meet in height.",
+          "enum": [
+            "top",
+            "center",
+            "bottom"
+          ]
+        },
+        "shape": {
+          "type": "string",
+          "description": "The picture's frame.",
+          "enum": [
+            "natural",
+            "square",
+            "portrait",
+            "landscape"
+          ]
+        },
+        "reset": {
+          "type": "boolean",
+          "description": "true = back to the layout of before."
+        }
+      },
+      "required": [
+        "page"
+      ]
+    },
+    {
       "id": "publishSite",
       "summary": "Export the website and put it online, as the site bar’s « Publish » does.",
       "details": "Answers « started »; follow it with siteStatus. Refused, as the site bar refuses it, until the person has set up the hosting (folder, token, address) and the site has a scene online and a name.",
@@ -433,6 +501,10 @@
           "type": "string",
           "description": "The note beside the contact form.",
           "maxLength": 20000
+        },
+        "menuSocials": {
+          "type": "boolean",
+          "description": "true = her networks' icons also at the end of the site's menu; false = on Contact only."
         }
       }
     },

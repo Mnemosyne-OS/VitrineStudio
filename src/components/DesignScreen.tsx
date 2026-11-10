@@ -1,4 +1,4 @@
-import { Check, Fingerprint, Palette, SlidersHorizontal, Sparkles, Undo2, type LucideIcon } from 'lucide-react';
+import { Check, Fingerprint, MousePointerClick, Palette, SlidersHorizontal, Sparkles, Undo2, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useI18n } from '../i18n';
 import { designOf, draftCount, tryDesign, withDesign, DESIGN_TARGETS, type DesignDraft, type DesignTarget } from '../model/design';
@@ -11,6 +11,7 @@ import { DesignStage } from './DesignStage';
 import { EffectsCatalogue } from './EffectsCatalogue';
 import { ThemePicker, type ThemeSample } from './ThemePicker';
 import { LoaderPicker } from './LoaderPicker';
+import { MenuSocials } from './MenuSocials';
 import { LogoPanel } from './LogoPanel';
 import { SceneMapSettings } from './SceneMapSettings';
 import { ViewerSettings } from './ViewerSettings';
@@ -22,6 +23,7 @@ const PART_ICON: Record<DesignPart, LucideIcon> = { theme: Palette, identity: Fi
 const CARD_OF: Record<DesignTarget, { part: DesignPart; card: string }> = {
   logo: { part: 'identity', card: 'logo' },
   words: { part: 'identity', card: 'words' },
+  socials: { part: 'identity', card: 'socials' },
   menu: { part: 'theme', card: 'themes' },
   title: { part: 'theme', card: 'themes' },
   gallery: { part: 'effects', card: 'fx:mosaic' },
@@ -48,7 +50,9 @@ function Card({ id, lit, children }: { id: string; lit: string | null; children:
  * logo, the colours, the loading screen, the dark pages, the map of the
  * places, the pictures' quality); they replace the four places they hid in.
  */
-export function DesignScreen({ site, draft, onDraft, onKeep, onMeasured, part, onPart, make, demoPhotos, demoPending, themeSample, samplePhoto, onlineCount, enlarged, busy, onCheck, checking }: {
+export function DesignScreen({ stepWords, site, draft, onDraft, onKeep, onMeasured, part, onPart, make, demoPhotos, demoPending, themeSample, samplePhoto, onlineCount, enlarged, busy, onCheck, checking }: {
+  /** The trade's words for the three steps, in the site's language (the fields' hints). */
+  stepWords: Record<'place' | 'piece' | 'alive', string>;
   /** The site as kept. */
   site: SiteSettings;
   /** What is tried and not kept yet. */
@@ -118,7 +122,7 @@ export function DesignScreen({ site, draft, onDraft, onKeep, onMeasured, part, o
 
   return (
     <section className="design">
-      <DesignStage version={JSON.stringify(d)} onPick={pick}
+      <DesignStage version={JSON.stringify(d)} onPick={pick} quietBar={changes === 0}
         make={() => make(tried, (html) => withDesignPicking(html, labels, frameColour()))}
         bar={changes > 0 ? (
           <>
@@ -128,13 +132,14 @@ export function DesignScreen({ site, draft, onDraft, onKeep, onMeasured, part, o
               <button className="primary" disabled={keeping} onClick={() => void keep()}>{keeping ? <span className="spinner small-spin" aria-hidden /> : <Check className="ico" aria-hidden />}{t('design.keep')}</button>
             </span>
           </>
-        ) : <span className="design-trial muted">{t('design.trial.none')}</span>} />
+        ) : <span className="design-trial muted" aria-label={t('design.trial.none')} data-tip={t('design.trial.none')}><MousePointerClick className="ico solo" aria-hidden /></span>} />
 
       <div className="design-panel" ref={panel}>
         <nav className="segmented glass design-parts" aria-label={t('space.design')}>
           {PARTS.map((p) => {
             const Icon = PART_ICON[p];
-            return <button key={p} className={shownPart === p ? 'on' : ''} aria-current={shownPart === p ? 'page' : undefined} onClick={() => onPart(p)}><Icon className="ico" aria-hidden />{t(`design.part.${p}`)}</button>;
+            // An icon each, its name on hover and for screen readers: the panel keeps its height for the settings.
+            return <button key={p} className={shownPart === p ? 'on' : ''} aria-current={shownPart === p ? 'page' : undefined} aria-label={t(`design.part.${p}`)} data-tip={t(`design.part.${p}`)} onClick={() => onPart(p)}><Icon className="ico" aria-hidden /><span className="sr-only">{t(`design.part.${p}`)}</span></button>;
           })}
         </nav>
 
@@ -144,6 +149,7 @@ export function DesignScreen({ site, draft, onDraft, onKeep, onMeasured, part, o
         {shownPart === 'identity' && (
           <>
             <Card id="words" lit={lit}><BrandWords look={d.look} onTry={(look) => attempt({ look })} /></Card>
+            <Card id="socials" lit={lit}><MenuSocials look={d.look} brand={tried.brand} onTry={(look) => attempt({ look })} /></Card>
             <Card id="colours" lit={lit}><BrandColours look={d.look} samplePhoto={samplePhoto} overridden={d.theme.colours === 'theme'} onTry={(look) => attempt({ look })} /></Card>
             {/* The logo's own panel, as it was; the site beside it is the page it stands on. */}
             <Card id="logo" lit={lit}><LogoPanel identity={d.identity} brand={tried.brand} onChange={onIdentity} /></Card>
@@ -159,7 +165,7 @@ export function DesignScreen({ site, draft, onDraft, onKeep, onMeasured, part, o
           <>
             <Card id="loader" lit={lit}><LoaderPicker brand={tried.brand} onChange={(loader) => attempt({ look: { ...d.look, loader: loader ?? null } })} /></Card>
             <Card id="dark" lit={lit}><DarkMode look={d.look} onTry={(look) => attempt({ look })} /></Card>
-            <Card id="map" lit={lit}><SceneMapSettings value={d.sceneMap} onChange={(sceneMap) => attempt({ sceneMap })} /></Card>
+            <Card id="map" lit={lit}><SceneMapSettings value={d.sceneMap} onChange={(sceneMap) => attempt({ sceneMap })} stepWords={stepWords} /></Card>
             <Card id="quality" lit={lit}>
               <ImageQuality quality={d.quality} imageKb={d.imageKb} videoLevel={d.videoLevel} busy={busy} onlineCount={onlineCount} enlarged={enlarged}
                 onTry={attempt} onCheck={() => onCheck(tried)} checking={checking} />

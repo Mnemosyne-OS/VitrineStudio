@@ -1,24 +1,31 @@
 import { useEffect, useState } from 'react';
-import { Clapperboard, ImagePlus, LayoutTemplate, PanelBottom, PanelLeft, PanelRight, PanelTop, X, type LucideIcon } from 'lucide-react';
+import { Clapperboard, ImagePlus, LayoutTemplate, X } from 'lucide-react';
 import { getLanguage, useI18n } from '../i18n';
 import { PAGE_TEMPLATES, templateName, templateText } from '../model/templates';
 import { pickImage } from '../data/host';
 import { saveDroppedPhoto } from '../data/photos';
 import { newId } from '../model/records';
-import { PAGE_LAYOUTS, type PageLayout } from '../model/pages';
+import type { PageLayout } from '../model/pages';
+import { lookClasses, type PageLook } from '../model/pageLook';
+import { PageLookBar } from './PageLookBar';
+import { DesignStage } from './DesignStage';
 import { RichText } from './RichText';
 import { Thumb } from './Thumb';
 import { PhotoChooser } from './PhotoChooser';
 import { describeError, errorText } from './errors';
 
-const LAYOUT_ICON: Record<PageLayout, LucideIcon> = { right: PanelRight, left: PanelLeft, top: PanelTop, bottom: PanelBottom };
-
 /**
  * A page of words and one picture, edited as it reads: the About page, or a
  * text page she added. Her words with their formatting, the picture dropped
- * or picked (its caption when the page has one), and where it stands.
+ * or picked (its caption when the page has one), and its layout drawn as
+ * tiles (PageLookBar): where the picture stands, the margins, its shape.
+ *
+ * With `stage`, the REAL page stands beside the editor (doc 145 §10.27), at a
+ * computer's width or a phone's, made again a moment after each change: what
+ * she sees is what the site will show. The editor then keeps one column, the
+ * arrangement being read on the page itself.
  */
-export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption, layout, onLayout, photoLabel, photos, onPhotos }: {
+export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption, layout, look, onLayout, photoLabel, photos, onPhotos, stage }: {
   text: string;
   onText: (markdown: string) => void;
   photo?: string;
@@ -27,12 +34,17 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
   caption?: string;
   onCaption?: (caption: string) => void;
   layout: PageLayout;
-  onLayout: (layout: PageLayout) => void;
+  /** The margins, the picture's share and shape; absent = the layout of before. */
+  look: PageLook | undefined;
+  /** A new arrangement, with its look (undefined = back to the layout of before). */
+  onLayout: (layout: PageLayout, look: PageLook | undefined) => void;
   /** What the picture is (the portrait, a photo). */
   photoLabel: string;
   /** The About page's further photos ('' = a frame to fill); absent = the page has one picture. */
   photos?: string[];
   onPhotos?: (photos: string[]) => void;
+  /** The page as on the site (useSite.previewInfo) and its address on it (`a-propos`, the page's id); absent = no stage. */
+  stage?: { make: () => Promise<string>; page: string };
 }) {
   const { t } = useI18n();
   const [draft, setDraft] = useState(caption ?? '');
@@ -49,17 +61,13 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
     }
   };
 
-  return (
+  // What the page shows: any of it changed, the real page is made again.
+  const version = JSON.stringify([text, photo ?? null, caption ?? null, layout, look ?? null, photos ?? null]);
+
+  const editor = (
     <section className="info-page">
       {sceneChoosing && <PhotoChooser start="scenes" onPick={onPhoto} onClose={() => setSceneChoosing(false)} />}
-      <div className="info-bar glass">
-        <div className="segmented glass" role="group" aria-label={t('about.layout')}>
-          {PAGE_LAYOUTS.map((l) => {
-            const Icon = LAYOUT_ICON[l];
-            return <button key={l} className={`icon-btn ${layout === l ? 'on' : ''}`} aria-pressed={layout === l} aria-label={t(`about.layouts.${l}`)} data-tip={t(`about.layouts.${l}`)} onClick={() => onLayout(l)}><Icon className="ico solo" aria-hidden /></button>;
-          })}
-        </div>
-      </div>
+      <PageLookBar layout={layout} look={look} onChange={onLayout} />
       {error && <p className="error small">{errorText(error)}</p>}
       {/* An empty page offers its models: a start, never words she wrote replaced. */}
       {!text.trim() && (
@@ -68,7 +76,7 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
           {PAGE_TEMPLATES.map((tpl) => (
             <button key={tpl.id} className="chip-tile glass" onClick={() => {
               onText(templateText(tpl, getLanguage()));
-              if (tpl.layout) onLayout(tpl.layout);
+              if (tpl.layout) onLayout(tpl.layout, look);
               // Its empty frames, beside the photos already there.
               if (onPhotos && tpl.photos && (photos ?? []).length < tpl.photos) onPhotos([...(photos ?? []), ...Array<string>(tpl.photos - (photos ?? []).length).fill('')]);
             }}>
@@ -77,7 +85,7 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
           ))}
         </div>
       )}
-      <div className={`info-cols about-${layout}`}>
+      <div className={stage ? 'info-cols page-edit-cols' : `info-cols about-${layout} ${lookClasses(look)}`}>
         <RichText value={text} onChange={onText} label={t('page.text')} placeholder={t('site.brand.aboutHint')} />
         <div className="info-side glass card-pad">
           <div className={`portrait-drop ${over ? 'over' : ''}`}
@@ -103,6 +111,23 @@ export function TextPagePanel({ text, onText, photo, onPhoto, caption, onCaption
         </div>
       </div>
     </section>
+  );
+  if (!stage) return editor;
+  return (
+    <div className="page-edit">
+      <div className="page-edit-in">
+        {editor}
+        {/* The site has no such page while it has no words: the stage would show the home under « your page ». */}
+        {text.trim() ? (
+          <DesignStage make={stage.make} version={version} page={stage.page} title={t('page.stage.label')}
+            bar={<span className="design-trial small muted">{t('page.stage.label')}</span>} />
+        ) : (
+          <div className="design-main">
+            <div className="design-stage page-edit-empty"><p className="design-stage-note muted">{t('page.stage.empty')}</p></div>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

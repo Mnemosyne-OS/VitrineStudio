@@ -1,6 +1,7 @@
 import { EyeOff, RectangleHorizontal, RotateCcw, SquareMousePointer, Type, type LucideIcon } from 'lucide-react';
-import { useI18n } from '../i18n';
-import { SCENE_GUIDES, SCENE_MAP_STYLES, type SceneGuide, type SceneMap, type SceneMapStyle } from '../model/sceneMap';
+import { useEffect, useState } from 'react';
+import { getLanguage, useI18n } from '../i18n';
+import { normalizeStepNames, SCENE_GUIDES, SCENE_MAP_STYLES, STEP_BEATS, type SceneGuide, type SceneMap, type SceneMapStyle, type StepBeat, type StepLang } from '../model/sceneMap';
 
 const GUIDE_ICON: Record<SceneGuide, LucideIcon> = { box: SquareMousePointer, text: Type, none: EyeOff };
 const EDGE_ICON: Record<SceneGuide, LucideIcon> = { box: RectangleHorizontal, text: Type, none: EyeOff };
@@ -29,8 +30,9 @@ function Sample({ style, color }: { style: SceneMapStyle; color?: string }) {
  * model, drawn small so the choice is seen, and its own colour, apart from
  * the site's. Saved at once; the preview shows it on the page.
  */
-export function SceneMapSettings({ value, onChange }: { value: SceneMap; onChange: (next: SceneMap) => void }) {
+export function SceneMapSettings({ value, onChange, stepWords }: { value: SceneMap; onChange: (next: SceneMap) => void; stepWords: Record<StepBeat, string> }) {
   const { t } = useI18n();
+  const lang = getLanguage() as StepLang;
   return (
     <div className="scene-map-settings glass">
       <span className="form-label">{t('sceneMap.model')}</span>
@@ -107,6 +109,50 @@ export function SceneMapSettings({ value, onChange }: { value: SceneMap; onChang
           })}
         </div>
       </div>
+      <div className="ms-way">
+        <span className="form-label">{t('sceneMap.steps')}</span>
+        <div className="ms-colors">
+          {(['on', 'off'] as const).map((v) => {
+            const on = (value.steps ?? 'on') === v;
+            const next: SceneMap = { ...value };
+            if (v === 'on') delete next.steps;
+            else next.steps = 'off';
+            const Icon = v === 'on' ? Type : EyeOff;
+            return (
+              <button key={v} className={`chip-tile glass ${on ? 'chosen' : ''}`} aria-pressed={on} onClick={() => onChange(next)}>
+                <Icon className="ico" aria-hidden />{t(`sceneMap.stepsShown.${v}`)}
+              </button>
+            );
+          })}
+        </div>
+        {value.steps !== 'off' && (
+          <>
+            <span className="form-label muted small">{t('sceneMap.stepNames')}</span>
+            {STEP_BEATS.map((b) => (
+              <StepName key={`${lang}-${b}`} label={t(`sceneMap.stepName.${b}`)} word={stepWords[b]} value={value.stepNames?.[lang]?.[b] ?? ''}
+                onCommit={(name) => onChange(withStepName(value, lang, b, name))} />
+            ))}
+          </>
+        )}
+      </div>
     </div>
+  );
+}
+
+/** The map with one step's name set for one language; an empty name gives the trade's word back. */
+export function withStepName(map: SceneMap, lang: StepLang, beat: StepBeat, name: string): SceneMap {
+  const names = normalizeStepNames({ ...map.stepNames, [lang]: { ...map.stepNames?.[lang], [beat]: name } });
+  const { stepNames: _old, ...rest } = map;
+  void _old;
+  return names ? { ...rest, stepNames: names } : rest;
+}
+
+/** One step's name: typed freely, written when she leaves the field. */
+function StepName({ label, word, value, onCommit }: { label: string; word: string; value: string; onCommit: (name: string) => void }) {
+  const [text, setText] = useState(value);
+  useEffect(() => setText(value), [value]);
+  return (
+    <label>{label}<input value={text} maxLength={40} placeholder={word} onChange={(e) => setText(e.target.value)}
+      onBlur={() => { if (text !== value) onCommit(text); }} onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); }} /></label>
   );
 }

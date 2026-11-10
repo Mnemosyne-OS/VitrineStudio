@@ -118,4 +118,35 @@ describe('the site bar', () => {
     bar('behind', { work: { kind: 'error', key: 'error.TOKEN_REFUSED' } });
     expect(screen.queryByText('Changes not online yet')).toBeNull();
   });
+  describe('a light for a calm state, words for what asks for her', () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+    const quiet = (text: string) => screen.getByText(text).closest('.sb-quiet') !== null;
+
+    it('writes a calm state 4 s, then the light alone says it, its words on hover', () => {
+      bar('behind');
+      expect(quiet('Changes not online yet')).toBe(false);
+      act(() => { vi.advanceTimersByTime(3900); });
+      expect(quiet('Changes not online yet')).toBe(false);
+      act(() => { vi.advanceTimersByTime(200); });
+      expect(quiet('Changes not online yet')).toBe(true);
+      expect(document.querySelector('.sb-status')?.getAttribute('data-tip')).toBe('Changes not online yet');
+    });
+
+    it('never quiets a refusal, an error or what is missing', () => {
+      bar('failed');
+      act(() => { vi.advanceTimersByTime(10_000); });
+      expect(quiet('Vercel refused the last update')).toBe(false);
+      document.body.innerHTML = '';
+      bar('incomplete', { missing: ['name'], link: null });
+      act(() => { vi.advanceTimersByTime(10_000); });
+      expect(screen.getByText('a name').closest('.sb-quiet')).toBeNull();
+    });
+
+    it('names its eye for screen readers and on hover', () => {
+      bar('current');
+      const see = screen.getByRole('button', { name: 'This page as on the site' });
+      expect(see.getAttribute('data-tip')).toBe(see.getAttribute('aria-label'));
+    });
+  });
 });

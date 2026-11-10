@@ -88,6 +88,9 @@ describe('sitePrint', () => {
   it('changes with what the visitor would see', () => {
     expect(print({ ...site, brand: { ...site.brand, tagline: 'Grès tourné' } })).not.toBe(print());
     expect(print({ ...site, analytics: true })).not.toBe(print());
+    // The step list's names and its hiding are on the page: the bar must not say 'up to date'.
+    expect(print({ ...site, sceneMap: { ...site.sceneMap, steps: 'off' } })).not.toBe(print());
+    expect(print({ ...site, sceneMap: { ...site.sceneMap, stepNames: { fr: { place: 'Mon atelier' } } } })).not.toBe(print());
     expect(print(site, [{ ...scene, validated: false }])).not.toBe(print());
   });
 

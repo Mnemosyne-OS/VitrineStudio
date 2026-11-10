@@ -26,14 +26,24 @@ const MAKE_TIMEOUT_MS = 30_000;
  * Three states, always one of them: being made, failed (said, with « retry »),
  * shown. The page shown stays until the next one has drawn.
  */
-export function DesignStage({ make, version, onPick, bar }: {
+export function DesignStage({ make, version, onPick, bar, page, title, quietBar = false }: {
   /** The site as tried, at an in-memory address (useSite.previewDesign). */
   make: () => Promise<string>;
   /** Changes when what is tried changes: the page is made again. */
   version: string;
-  onPick: (target: DesignTarget) => void;
+  /** Absent: the page shown has no click-to-set layer (a page being edited). */
+  onPick?: (target: DesignTarget) => void;
   /** What stands left of the stage's own tools: the trial's state and its two buttons. */
-  bar: ReactNode;
+  bar?: ReactNode;
+  /**
+   * The page it always opens on (`a-propos`, a page's id), made again or not: the
+   * page being edited stays in sight. Absent: it reopens on the page she went to.
+   */
+  page?: string;
+  /** What the frame is, for a screen reader; absent = the Design screen's own words. */
+  title?: string;
+  /** Nothing to say in the bar (no trial): its tools stand alone, without a band. */
+  quietBar?: boolean;
 }) {
   const { t } = useI18n();
   const [screen, setScreen] = useState<Screen>('desktop');
@@ -45,7 +55,7 @@ export function DesignStage({ make, version, onPick, bar }: {
   const wrap = useRef<HTMLDivElement | null>(null);
   const frame = useRef<HTMLIFrameElement | null>(null);
   const held = useRef<string | null>(null);
-  const hash = useRef('');
+  const hash = useRef(page ? `#${page}` : '');
   const latest = useRef({ make, onPick });
   latest.current = { make, onPick };
 
@@ -60,8 +70,12 @@ export function DesignStage({ make, version, onPick, bar }: {
       Promise.race([making, late]).then((made) => {
         if (!alive) { URL.revokeObjectURL(made); return; }
         // The page she is on, read from the frame itself: its own script writes the address without an event.
-        try { hash.current = frame.current?.contentWindow?.location.hash ?? hash.current; }
-        catch (err) { console.debug('[vitrine-studio] the preview\'s address was not readable, it reopens on its home:', err); }
+        // A page being edited is always the one reopened.
+        if (page) hash.current = `#${page}`;
+        else {
+          try { hash.current = frame.current?.contentWindow?.location.hash ?? hash.current; }
+          catch (err) { console.debug('[vitrine-studio] the preview\'s address was not readable, it reopens on its home:', err); }
+        }
         if (held.current) URL.revokeObjectURL(held.current);
         held.current = made;
         setUrl(made);
@@ -73,7 +87,7 @@ export function DesignStage({ make, version, onPick, bar }: {
       }).finally(() => window.clearTimeout(timeout));
     }, SETTLE_MS);
     return () => { alive = false; window.clearTimeout(settle); window.clearTimeout(timeout); };
-  }, [version, again]);
+  }, [version, again, page]);
   useEffect(() => () => { if (held.current) URL.revokeObjectURL(held.current); }, []);
 
   // A part of the site clicked in the frame: only this frame's own message is heard.
@@ -82,7 +96,7 @@ export function DesignStage({ make, version, onPick, bar }: {
       if (e.source !== frame.current?.contentWindow) return;
       const d = e.data as { type?: unknown; target?: unknown } | null;
       if (d?.type !== DESIGN_PICKED || typeof d.target !== 'string') return;
-      if ((DESIGN_TARGETS as readonly string[]).includes(d.target)) latest.current.onPick(d.target as DesignTarget);
+      if ((DESIGN_TARGETS as readonly string[]).includes(d.target)) latest.current.onPick?.(d.target as DesignTarget);
     };
     window.addEventListener('message', onMessage);
     return () => window.removeEventListener('message', onMessage);
@@ -107,7 +121,7 @@ export function DesignStage({ make, version, onPick, bar }: {
 
   return (
     <div className="design-main">
-      <div className="design-bar glass">
+      <div className={`design-bar glass${quietBar ? ' quiet' : ''}`}>
         {bar}
         <div className="segmented glass design-screens" role="group" aria-label={t('caption.screen')}>
           {SCREENS.map((sc) => {
@@ -119,7 +133,7 @@ export function DesignStage({ make, version, onPick, bar }: {
       </div>
       <div className={`design-stage screen-${screen}`} ref={wrap}>
         {url && (
-          <iframe ref={frame} key={screen} className={shown ? 'drawn' : ''} title={t('design.stage.title')} src={`${url}${hash.current}`} sandbox="allow-scripts allow-same-origin allow-forms"
+          <iframe ref={frame} key={screen} className={shown ? 'drawn' : ''} title={title ?? t('design.stage.title')} src={`${url}${hash.current}`} sandbox="allow-scripts allow-same-origin allow-forms"
             style={{ width: w, height: h, left, transform: `scale(${scale})` }} onLoad={() => setDrawn(url)} />
         )}
         {error ? (

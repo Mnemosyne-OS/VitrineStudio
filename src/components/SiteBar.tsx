@@ -14,6 +14,9 @@ const DOT: Record<PublishStage, 'ok' | 'warn' | 'error' | 'idle'> = {
   checking: 'idle', unconnected: 'idle', incomplete: 'warn', never: 'idle', pending: 'warn', failed: 'error', current: 'ok', behind: 'warn', unknown: 'ok',
 };
 
+/** How long a calm state is written beside its light after it changes; then the light alone says it (its words on hover). */
+const FLASH_MS = 4000;
+
 /** Minutes and seconds since `since`, as a clock reads. */
 function elapsed(since: number, now: number): string {
   const s = Math.max(0, Math.floor((now - since) / 1000));
@@ -27,6 +30,11 @@ function elapsed(since: number, now: number): string {
  * she is on, and the one button that sends it. While it is sent, the bar says
  * which step it is at: the files made, counted, then the time Vercel has taken
  * (the host gives no count of its own, so none is made up).
+ *
+ * A calm state (connected or not, up to date, changes waiting) is a light:
+ * its words show a few seconds when it changes, then stay on hover and for
+ * screen readers. What asks for her (an error, a step, what is missing) is
+ * always written.
  */
 export function SiteBar({ stage, tokenUnread = false, missing, link, work, staleLiving, see, seeing, seeError, onSee, onPublish, onOpen, onConnect, onFix, onRetryToken, onDismissError }: {
   stage: PublishStage;
@@ -67,6 +75,13 @@ export function SiteBar({ stage, tokenUnread = false, missing, link, work, stale
   }, [sending]);
 
   const busy = work.kind === 'exporting' || sending;
+  const [flash, setFlash] = useState(true);
+  const calmKey = `${stage}|${work.kind}`;
+  useEffect(() => {
+    setFlash(true);
+    const id = window.setTimeout(() => setFlash(false), FLASH_MS);
+    return () => window.clearTimeout(id);
+  }, [calmKey]);
   // « It's online » only while it is true: a change made during the send is not on the site.
   const justOnline = work.kind === 'published' && stage === 'current';
 
@@ -102,12 +117,15 @@ export function SiteBar({ stage, tokenUnread = false, missing, link, work, stale
   // A site never sent has no address yet: its first send is « Publish », whatever is still missing.
   const sendLabel = !link ? t('site.go.publish') : stage === 'current' ? t('bar.republish') : t('site.hero.update');
   const dot = sending || work.kind === 'exporting' ? 'busy' : work.kind === 'error' ? 'error' : justOnline ? 'ok' : DOT[stage];
+  // Calm: nothing running, nothing refused, nothing for her to do from here.
+  const calm = !busy && work.kind !== 'error' && stage !== 'failed' && stage !== 'incomplete' && !(stage === 'checking' && tokenUnread);
+  const stageWords = calm ? t(justOnline ? 'bar.published' : `bar.stage.${stage}`) : undefined;
 
   return (
     <div className={`site-bar glass ${justOnline ? 'just-published' : ''}`} role="region" aria-label={t('bar.label')}>
-      <div className="sb-status" aria-live="polite">
+      <div className="sb-status" aria-live="polite" data-tip={calm && !flash ? stageWords : undefined}>
         <span className={`sb-dot ${dot}`} aria-hidden />
-        {state}
+        <span className={calm && !flash ? 'sb-quiet' : 'sb-said'}>{state}</span>
         {link && (
           <span className="sb-link">
             <button className="sb-address" onClick={() => onOpen(link)} data-tip={t('bar.open')}>
@@ -135,9 +153,9 @@ export function SiteBar({ stage, tokenUnread = false, missing, link, work, stale
         )}
       </div>
       <div className="sb-actions">
-        <button disabled={!!seeing} onClick={onSee} data-tip={t(see === 'page' ? 'bar.seePage' : 'bar.seeSite')}>
-          {seeing ? <span className="spinner small-spin" aria-hidden /> : <Eye className="ico" aria-hidden />}
-          {seeing && seeing.total > 0 ? t('bar.seeing', { done: seeing.done, total: seeing.total }) : t('bar.see')}
+        <button className={seeing ? '' : 'icon-btn sb-see'} disabled={!!seeing} onClick={onSee} aria-label={t(see === 'page' ? 'bar.seePage' : 'bar.seeSite')} data-tip={t(see === 'page' ? 'bar.seePage' : 'bar.seeSite')}>
+          {seeing ? <span className="spinner small-spin" aria-hidden /> : <Eye className="ico solo" aria-hidden />}
+          {seeing && seeing.total > 0 ? t('bar.seeing', { done: seeing.done, total: seeing.total }) : null}
         </button>
         {stage === 'unconnected' ? (
           <button className="primary" onClick={onConnect}><Link2 className="ico" aria-hidden />{t('site.hero.connect')}</button>

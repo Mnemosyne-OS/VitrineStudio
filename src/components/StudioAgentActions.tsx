@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react';
 import { sdk } from '../data/host';
 import { useI18n } from '../i18n';
 import { newId, nextBeat } from '../model/records';
-import { pageIdFor, PAGE_TYPES, type PageType } from '../model/pages';
+import { pageIdFor, PAGE_LAYOUTS, PAGE_TYPES, type PageType } from '../model/pages';
+import { BALANCED_LOOK, PAGE_ALIGNS, PAGE_MARGINS, PAGE_SPLITS, PHOTO_SHAPES, type PageLook } from '../model/pageLook';
 import { SPACES } from '../model/spaces';
 import { BEATS, CLIP_CAMERAS, CLIP_LIGHTS, SCENE_MOTIONS, type Beat, type ClipStyle, type Piece, type Scene, type SceneMotion, type StudioSettings } from '../model/types';
 import type { Studio } from '../hooks/useStudio';
@@ -16,6 +17,7 @@ import { findNamed, fold, listNames } from '../data/agentFind';
 import type { SceneWizardInitial } from './SceneWizard';
 import { siteLink } from '../model/publish';
 import { slugify } from '../site/buildSite';
+import { normalizeSocials, socialLinks } from '../model/socials';
 
 type SceneActions = ReturnType<typeof useScenes>;
 type SiteActions = ReturnType<typeof useSite>;
@@ -263,7 +265,7 @@ export function StudioAgentActions({ studio, sceneActions, siteActions, pieceAct
           { id: newId('f'), label: tr('form.kind.textarea'), kind: 'textarea' as const, required: false },
         ] : undefined;
         const text = str(args.text);
-        const written = await st.patchSite((cur) => ({ ...cur, pages: [...cur.pages, { id, type, name, ...(fields ? { fields } : {}), ...(text && (type === 'text' || type === 'form') ? { text: text.slice(0, 20_000) } : {}) }] }));
+        const written = await st.patchSite((cur) => ({ ...cur, pages: [...cur.pages, { id, type, name, ...(fields ? { fields } : {}), ...(text && (type === 'text' || type === 'form') ? { text: text.slice(0, 20_000) } : {}), ...(type === 'text' ? { look: BALANCED_LOOK } : {}) }] }));
         // A refused write is said, never reported done: the page would vanish at the next start.
         if (!written) throw new Error('WRITE_FAILED: the page could not be saved; the reason is on the person\'s screen');
         open(`page:${id}`);
@@ -358,10 +360,60 @@ export function StudioAgentActions({ studio, sceneActions, siteActions, pieceAct
       setBrand: async (args) => {
         const change: Record<string, string> = {};
         for (const k of BRAND_FIELDS) if (str(args[k])) change[k] = str(args[k]).slice(0, k === 'about' || k === 'contactNote' ? 20_000 : 300);
-        if (!Object.keys(change).length) throw new Error(`BAD_ARG: say what changes: ${BRAND_FIELDS.join(', ')}`);
-        const written = await latest.current.studio.patchSite((cur) => ({ ...cur, brand: { ...cur.brand, ...change } }));
+        const icons = typeof args.menuSocials === 'boolean' ? args.menuSocials : undefined;
+        if (!Object.keys(change).length && icons === undefined) throw new Error(`BAD_ARG: say what changes: ${BRAND_FIELDS.join(', ')}, menuSocials`);
+        const written = await latest.current.studio.patchSite((cur) => {
+          const brand = { ...cur.brand, ...change };
+          if (icons === true) brand.menuSocials = true; else if (icons === false) delete brand.menuSocials;
+          return { ...cur, brand };
+        });
         if (!written) throw new Error('WRITE_FAILED: the site settings could not be saved; the reason is on the person\'s screen');
-        return { changed: Object.keys(change) };
+        // Icons asked for with no network set: written, and said to show nothing until she sets one in Contact.
+        const site = latest.current.studio.siteRef.current;
+        const none = icons === true && socialLinks(site.brand.socials ?? normalizeSocials(undefined, site.brand.instagram)).length === 0;
+        return { changed: [...Object.keys(change), ...(icons === undefined ? [] : ['menuSocials'])], ...(none ? { shown: false, why: 'NO_NETWORK: no network is set; she adds them in Contact' } : {}) };
+      },
+
+      setPageLook: async (args) => {
+        const { studio: st, openTab: open } = latest.current;
+        const ref = str(args.page);
+        const about = fold(ref) === 'about' || fold(ref) === 'a propos' || ref === 'a-propos';
+        const textPages = st.siteRef.current.pages.filter((p) => p.type === 'text');
+        const page = about ? null : findNamed(textPages.map((p) => ({ item: p, id: p.id, names: [p.name], label: p.name })), ref, { code: 'NO_PAGE', noun: 'text page' });
+        const oneOf = <T extends string>(key: string, list: readonly T[]): T | undefined => {
+          const v = str(args[key]);
+          if (!v) return undefined;
+          if (!(list as readonly string[]).includes(v)) throw new Error(`BAD_ARG: ${key} is one of ${list.join(', ')}`);
+          return v as T;
+        };
+        const layout = oneOf('layout', PAGE_LAYOUTS);
+        const change: Partial<PageLook> = {};
+        const margin = oneOf('margin', PAGE_MARGINS), split = oneOf('split', PAGE_SPLITS), align = oneOf('align', PAGE_ALIGNS), shape = oneOf('shape', PHOTO_SHAPES);
+        if (margin) change.margin = margin;
+        if (split) change.split = split;
+        if (align) change.align = align;
+        if (shape) change.shape = shape;
+        const reset = args.reset === true;
+        if (!reset && !layout && !Object.keys(change).length) throw new Error('BAD_ARG: say what changes: layout, margin, split, align, shape, or reset');
+        const before = about ? st.siteRef.current.brand.aboutLook : page!.look;
+        const look = reset ? undefined : { ...(before ?? BALANCED_LOOK), ...change };
+        const written = await st.patchSite((cur) => {
+          if (about) {
+            const brand = { ...cur.brand, ...(layout ? { aboutLayout: layout } : {}) };
+            if (look) brand.aboutLook = look; else delete brand.aboutLook;
+            return { ...cur, brand };
+          }
+          return { ...cur, pages: cur.pages.map((p) => {
+            if (p.id !== page!.id) return p;
+            const next = { ...p };
+            if (layout) { if (layout === 'right') delete next.layout; else next.layout = layout; }
+            if (look) next.look = look; else delete next.look;
+            return next;
+          }) };
+        });
+        if (!written) throw new Error('WRITE_FAILED: the site settings could not be saved; the reason is on the person\'s screen');
+        open(about ? 'about' : `page:${page!.id}`);
+        return { page: about ? 'about' : page!.id, look: look ?? null };
       },
 
       setSettings: async (args) => {

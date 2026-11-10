@@ -1,6 +1,7 @@
 import type { PreviewProgress } from '../components/PagePreview';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getLanguage, useI18n } from '../i18n';
+import { stageAssetUrl } from '../data/stageAssets';
 import { declareSiteFolder, deploySite, hostIO, joinFilm, openStudioWindow, readImage, readMedia, removeSiteToken, saveSiteAsset, sdk, takeawayDoor, setSiteToken, siteTokenState, videoToolsStatus, webClipBase, type TokenState } from '../data/host';
 import { loadStudioJson, SITE_FILE } from '../data/folderStore';
 import { loadKit } from '../data/kitIO';
@@ -448,15 +449,16 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   /**
    * About or Contact as on the site, quickly: the words as formatted, the portrait read
    * from disk, the rest of the site left out so the page opens straight on itself.
+   * `dress` replaces the menu's in-place renaming (the page beside an editor has no one to hear it).
    */
-  const previewInfo = async (progress?: PreviewProgress): Promise<string> => {
+  const previewInfo = async (progress?: PreviewProgress, dress?: (html: string) => string, inPage = false): Promise<string> => {
     const lang = getLanguage();
     // The text and form pages come along, so their own preview opens on them.
     const pages = site.pages.filter((p) => p.type === 'text' || p.type === 'form');
     const data = buildSiteData(siteInput(lang, { scenes: [], pieces: [], pages }));
     if (site.brand.portrait) data.portrait = PORTRAIT_ASSET;
     const about = (site.brand.aboutPhotos ?? []).filter(Boolean).map((path, i) => ({ name: aboutPhotoAsset(i), path }));
-    return pageUrl(data, lang, [...(site.brand.portrait ? [{ name: PORTRAIT_ASSET, path: site.brand.portrait }] : []), ...about, ...pagePhotos()], progress);
+    return pageUrl(data, lang, [...(site.brand.portrait ? [{ name: PORTRAIT_ASSET, path: site.brand.portrait }] : []), ...about, ...pagePhotos()], progress, site, dress, inPage);
   };
 
   /**
@@ -481,7 +483,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     const files = [...rooms, ...clips, ...creationFiles(data), ...pagePhotos(), ...(tried.brand.portrait ? [{ name: PORTRAIT_ASSET, path: tried.brand.portrait }] : []), ...about, ...blogAssets(posts, pieces)];
     // One name once: a piece shown on the Creations page and in a post is read once.
     const once = files.filter((f, i) => files.findIndex((g) => g.name === f.name) === i);
-    return pageUrl(data, lang, once, undefined, tried, dress);
+    return pageUrl(data, lang, once, undefined, tried, dress, true);
   };
 
   /** The two legal pages as the site would write them now, for the editor to start from. */
@@ -495,7 +497,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
    * `of` is the site it is a page of when that is not the site as kept (a trial of the Design screen);
    * `dress` replaces the menu's in-place renaming with what that preview adds to the page.
    */
-  const pageUrl = async (data: ReturnType<typeof buildSiteData>, lang: ReturnType<typeof getLanguage>, files: Array<{ name: string; path: string }>, progress?: PreviewProgress, of: SiteSettings = site, dress: (html: string) => string = withMenuEditing): Promise<string> => {
+  const pageUrl = async (data: ReturnType<typeof buildSiteData>, lang: ReturnType<typeof getLanguage>, files: Array<{ name: string; path: string }>, progress?: PreviewProgress, of: SiteSettings = site, dress: (html: string) => string = withMenuEditing, inPage = false): Promise<string> => {
     let html = fillShell(siteTemplate, of.brand, lang, data);
     const all = [...files, ...(data.identity?.logoSrc && of.identity.logoPath ? [{ name: LOGO_ASSET, path: of.identity.logoPath }] : [])];
     let done = 0;
@@ -503,7 +505,9 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     for (const f of all) {
       // A photo that cannot be read stays a hole in the preview: the export would say so by name.
       // A clip is read as a video; everything else as a picture.
-      const url = await (/\.mp4$/i.test(f.name) ? readMedia(f.path) : readImage(f.path)).catch((err: unknown) => { console.warn('[vitrine-studio] preview picture unreadable:', f.path, err); return ''; });
+      // Shown inside the studio, a picture is named by a short blob address read once (data/stageAssets.ts).
+      const reader = /\.mp4$/i.test(f.name) ? readMedia : readImage;
+      const url = await (inPage ? stageAssetUrl(f.path, reader) : reader(f.path)).catch((err: unknown) => { console.warn('[vitrine-studio] preview picture unreadable:', f.path, err); return ''; });
       if (url) html = swapAsset(html, f.name, url);
       progress?.(++done, all.length);
     }

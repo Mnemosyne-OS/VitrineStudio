@@ -16,6 +16,7 @@ import { keepTakes, MAX_TAKES } from './takes';
 import { normalizeCaption } from './caption';
 import { normalizeSceneMap, type SceneMap } from './sceneMap';
 import { normalizePageId, normalizePages, type SitePage } from './pages';
+import { normalizeLook } from './pageLook';
 import { normalizeSocials } from './socials';
 import { PHOTO_TAKES_MAX } from './photoTakes';
 import { normalizeViewer, type ViewerSettings } from './viewer';
@@ -290,6 +291,9 @@ export function normalizeSiteSettings(raw: unknown, fallbackName: string) {
   }
   if (b.aboutLayout === 'left' || b.aboutLayout === 'top' || b.aboutLayout === 'bottom') brand.aboutLayout = b.aboutLayout;
   if (b.contactLayout === 'right') brand.contactLayout = b.contactLayout;
+  if (b.menuSocials === true) brand.menuSocials = true;
+  const aboutLook = normalizeLook(b.aboutLook);
+  if (aboutLook) brand.aboutLook = aboutLook;
   if (b.dark === 'auto') brand.dark = 'auto';
   const loader = normalizeLoader(b.loader);
   if (loader) brand.loader = loader;

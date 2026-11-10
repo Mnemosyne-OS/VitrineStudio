@@ -33,7 +33,7 @@ body { background: var(--as-bg); color: var(--as-text); font: 14px/1.45 Jost, Fu
 
 /* ── Ambient light ───────────────────────────────────────────── */
 .app, .wizard { scrollbar-width: thin; scrollbar-color: var(--glass-edge) transparent; }
-.app { position: relative; height: 100%; overflow-y: auto; padding: 20px 24px 48px; isolation: isolate; }
+.app { position: relative; height: 100%; overflow-y: auto; padding: 12px 20px 24px; isolation: isolate; }
 .ambient { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--board-wallpaper, none); }
 .blob { position: absolute; width: 55vmax; height: 55vmax; border-radius: 50%; filter: blur(80px); opacity: .35; }
 .blob.a { left: -15vmax; top: -20vmax; background: radial-gradient(circle, var(--as-accent), transparent 65%); }
@@ -63,7 +63,10 @@ body { background: var(--as-bg); color: var(--as-text); font: 14px/1.45 Jost, Fu
 button.glass:hover, .tile.glass:hover, .scene-card.glass:hover { background: var(--glass-fill-hover); transform: translateY(-2px); }
 
 /* ── Header ──────────────────────────────────────────────────── */
-.top { display: flex; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+.top { position: sticky; top: 0; z-index: 6; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.top > .site-bar { flex: 0 1 auto; margin: 0 0 0 auto; position: relative; top: auto; max-width: 100%; }
+.top > .site-bar .sb-status { flex: 0 1 auto; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* The tools (site, costs, settings) as icons, right, apart from the work's tabs. */
 .top-tools { display: flex; gap: 8px; margin-left: auto; }
 .top-tools .icon-btn { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
@@ -1068,6 +1071,40 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .info-cols.about-top { grid-template-columns: minmax(0, 1fr); }
 .info-cols.about-top > .info-side { order: -1; }
 .info-cols.about-bottom { grid-template-columns: minmax(0, 1fr); }
+/* A page's layout by drawings (PageLookBar): six arrangements, then the margins, the height, the picture's shape. */
+.look-bar { display: grid; gap: 10px; border-radius: 18px; }
+.look-presets { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+.look-tile { display: grid; justify-items: center; gap: 6px; padding: 10px 8px; border-radius: 14px; border: 1px solid var(--glass-edge); background: transparent; color: var(--as-muted); text-align: center; }
+.look-tile:hover { color: var(--as-text); border-color: color-mix(in srgb, var(--as-text) 30%, var(--glass-edge)); }
+.look-tile.on { color: var(--as-text); border-color: var(--as-chosen); background: color-mix(in srgb, var(--as-chosen) 12%, transparent); }
+.sketch { width: 100%; max-width: 96px; height: auto; }
+.sketch .sk-page { fill: none; stroke: currentColor; stroke-opacity: .45; }
+.sketch .sk-img { fill: currentColor; fill-opacity: .55; }
+.sketch .sk-line { fill: currentColor; fill-opacity: .35; }
+.look-tile.on .sketch .sk-img { fill: var(--as-chosen); fill-opacity: .8; }
+.look-fine { display: flex; flex-wrap: wrap; align-items: end; gap: 12px 18px; }
+.look-field { display: grid; gap: 4px; }
+.look-reset { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; box-shadow: none; color: var(--as-muted); padding: 6px 4px; }
+.look-reset:hover { color: var(--as-text); }
+.look-bar > p { margin: 0; }
+/* The editor mirrors her look: the picture's share, the height, the shape, the margins scaled to the panel. On a narrow panel, stacked as before. */
+@media (min-width: 761px) {
+  .info-cols.looked { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .info-cols.looked.s-third { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .info-cols.looked.s-twothirds { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+  .info-cols.looked.about-left { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .info-cols.looked.about-left.s-third { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); }
+  .info-cols.looked.about-left.s-twothirds { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
+  .info-cols.looked.about-top, .info-cols.looked.about-bottom { grid-template-columns: minmax(0, 1fr); }
+  .info-cols.looked.a-center { align-items: center; } .info-cols.looked.a-bottom { align-items: end; }
+  .info-cols.looked.m-s { padding-inline: 12px; gap: 16px; } .info-cols.looked.m-m { padding-inline: 32px; gap: 32px; } .info-cols.looked.m-l { padding-inline: 64px; gap: 64px; }
+  .info-cols.looked .portrait-drop { max-width: none; aspect-ratio: auto; min-height: 160px; }
+  .info-cols.looked .portrait-drop img { height: auto; object-fit: contain; }
+  .info-cols.looked.sh-square .portrait-drop img { aspect-ratio: 1; object-fit: cover; }
+  .info-cols.looked.sh-portrait .portrait-drop img { aspect-ratio: 4 / 5; object-fit: cover; }
+  .info-cols.looked.sh-landscape .portrait-drop img { aspect-ratio: 3 / 2; object-fit: cover; }
+  .info-cols.looked.about-top .portrait-drop img, .info-cols.looked.about-bottom .portrait-drop img { aspect-ratio: auto; height: 220px; object-fit: cover; }
+}
 /* The models offered on an empty page or a new post: a row of chips above the words. */
 .template-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 /* The loading screen's sample: the site's own markup and CSS, held in a box instead of the window. */
@@ -1248,7 +1285,7 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 
 /* ── The site bar (doc 145 §10.20): where the site stands, its address, See, Publish ── */
 /* Held at the top while the work scrolls under it: the address and the button are always one look away. */
-.site-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 10px 8px 16px; margin: 0 0 16px; border-radius: 16px; overflow: hidden;
+.site-bar { position: sticky; top: 0; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; padding: 4px 6px 4px 14px; min-height: 48px; box-sizing: border-box; margin: 0 0 16px; border-radius: 16px; overflow: hidden;
   background: color-mix(in srgb, var(--as-bg) 72%, transparent); }
 .site-bar.just-published { border-color: color-mix(in srgb, var(--as-chosen) 60%, transparent); box-shadow: inset 0 1px 0 var(--glass-shine), 0 10px 30px -12px color-mix(in srgb, var(--as-chosen) 55%, transparent); }
 .sb-status { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; flex: 1 1 320px; }
@@ -1267,6 +1304,10 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .sb-address .ico { width: 14px; height: 14px; margin: 0; opacity: .7; }
 .sb-link .icon-btn { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; border-color: transparent; background: transparent; box-shadow: none; backdrop-filter: none; }
 .sb-note { font-size: 12px; }
+.sb-quiet { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.sb-said { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; animation: sb-said-in .25s ease; }
+@keyframes sb-said-in { from { opacity: 0; transform: translateX(-4px); } }
+.sb-actions .sb-see { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; border-radius: 50%; }
 .sb-actions { display: flex; gap: 8px; margin-left: auto; }
 .sb-actions button { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; }
 /* Measured while the files are made; a sliding light while Vercel works, which gives no count. */
@@ -1497,9 +1538,9 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 
 /* ── The Design screen (doc 145 §10.25) ──────────────────────── */
 /* The real site in the middle, a panel beside it. The site stays in sight while the panel scrolls. */
-.design { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 36%, 480px); gap: 16px; align-items: start; }
-.design-main { position: sticky; top: 68px; display: grid; gap: 10px; min-width: 0; }
-.design-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 52px; padding: 6px 8px 6px 16px; border-radius: 16px; }
+.design { display: grid; grid-template-columns: minmax(0, 1fr) clamp(340px, 34%, 460px); gap: 12px; align-items: stretch; height: calc(100vh - 100px); min-height: 420px; }
+.design-main { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; min-width: 0; min-height: 0; }
+.design-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-height: 44px; padding: 3px 6px 3px 12px; border-radius: 14px; box-sizing: border-box; }
 .design-trial { display: inline-flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 200px; font-size: 13px; }
 .design-trial.on { font-weight: 500; }
 .design-trial-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -1512,10 +1553,12 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .design-stage iframe.drawn { opacity: 1; }
 .design-stage.screen-mobile iframe { border-radius: 22px; box-shadow: 0 20px 50px -20px color-mix(in srgb, #000 60%, transparent); }
 .design-stage-note { position: absolute; inset: auto 12px 12px 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; padding: 8px 14px; border-radius: 12px; background: color-mix(in srgb, var(--as-bg) 86%, transparent); font-size: 13px; }
-.design-panel { display: grid; gap: 12px; min-width: 0; align-content: start; }
+.design-panel { display: grid; gap: 10px; min-width: 0; min-height: 0; align-content: start; overflow-y: auto; padding-right: 4px; scrollbar-width: thin; }
+.design-panel > .design-parts { position: sticky; top: 0; z-index: 2; }
 /* The four parts always fit the panel, whatever its width: equal columns, the icon over its word. A row that scrolled sideways hid its last part with nothing to say so. */
 .design-parts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); width: 100%; box-sizing: border-box; }
-.design-parts button { display: grid; justify-items: center; gap: 2px; min-width: 0; padding: 7px 4px; font-size: 12px; }
+.design-parts button { display: grid; place-items: center; min-width: 0; min-height: 40px; padding: 6px 4px; }
+.design-parts button .ico { width: 20px; height: 20px; }
 .design-parts button .ico { margin: 0; }
 .design-parts button > span, .design-parts button { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .design-card { display: grid; gap: 12px; min-width: 0; border-radius: var(--radius); }
@@ -1528,6 +1571,20 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .design-panel .logo-tab .logo-stage { min-height: 160px; }
 .design-panel .scene-map-settings { margin: 0; }
 .design-panel .card-pad { margin: 0; }
+/* ── A text page or About edited beside the real page (doc 145 §10.27) ── */
+/* Side by side only when the editor's own width allows it (a container query: the studio's rail and the
+   window both take width), the page above the editor otherwise. Beside, the page stays in sight while the editor scrolls. */
+.page-edit { container-type: inline-size; }
+.page-edit-in { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+.page-edit-in > * { min-width: 0; }
+.page-edit-in > .design-main { order: -1; position: static; }
+.info-cols.page-edit-cols { grid-template-columns: minmax(0, 1fr); }
+/* A page with no words yet: the site has no such page, a short note stands in its place. */
+.design-stage.page-edit-empty { height: 200px; }
+@container (min-width: 900px) {
+  .page-edit-in { grid-template-columns: minmax(420px, 1fr) minmax(0, 1.25fr); }
+  .page-edit-in > .design-main { order: 0; position: sticky; top: 68px; }
+}
 @media (max-width: 1000px) {
   .design { grid-template-columns: minmax(0, 1fr); }
   .design-main { position: static; }
@@ -1561,12 +1618,12 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 @media (prefers-reduced-motion: reduce) { .fx-switch > span { transition: none; } }
 
 /* ── The themes (Design › Theme, doc 145 §10.25) ─────────────── */
-.theme-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 176px), 1fr)); gap: 12px; }
-.theme-card { display: grid; gap: 8px; align-content: start; padding: 10px 12px 12px; }
-.theme-card p { margin: 0; }
-.theme-card .chip { display: inline-flex; align-items: center; }
-.theme-card .chip .ico { margin-right: .25em; }
-.theme-card .small-btn { justify-self: start; }
+.theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.theme-card { display: grid; gap: 6px; align-content: start; padding: 6px; border-radius: 14px; text-align: left; cursor: pointer; }
+.theme-card.chosen { border-color: var(--as-chosen); box-shadow: 0 0 0 2px color-mix(in srgb, var(--as-chosen) 55%, transparent); }
+.theme-name { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 0 4px 2px; }
+.theme-kept { color: var(--as-chosen); margin: 0; }
+.theme-colours h3 { margin: 0 0 8px; }
 /* A theme in miniature: the site's own variables (set inline from the theme's tokens and her colours), her words, her photos. */
 .theme-thumb { display: grid; grid-template-rows: auto auto minmax(0, 1fr); gap: 6px; aspect-ratio: 4 / 3; overflow: hidden; padding: 9px 10px; border-radius: 10px; background: var(--paper); color: var(--ink); font-family: var(--font); font-weight: var(--body-weight); font-size: 7px; line-height: 1.3; }
 .tt-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; overflow: hidden; white-space: nowrap; font-family: var(--font-label); text-transform: var(--label-case); letter-spacing: calc(.14em * var(--track)); color: color-mix(in srgb, var(--ink) 72%, var(--paper)); }
@@ -1585,3 +1642,16 @@ button.armed { border-color: var(--as-armed) !important; background: color-mix(i
 .tt-blank { background: color-mix(in srgb, var(--ink) 12%, var(--paper)); }
 .theme-swatches { display: inline-flex; gap: 4px; }
 .theme-swatches i { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--glass-edge); }
+/* The Design screen fits the window (10/11): the stage fills its column at any screen, never the 16:10 box with a band under it. */
+.design .design-stage, .design .design-stage.screen-desktop { height: 100%; max-height: none; aspect-ratio: auto; min-height: 0; }
+.design-bar.quiet { background: none; border-color: transparent; box-shadow: none; backdrop-filter: none; min-height: 40px; padding: 0; }
+/* On Design the header holds only the site's pill: it stands over the panel, and the stage rises to the top. */
+.work:has(.design) > .top { position: absolute; top: 0; right: 0; margin: 0; z-index: 7; }
+.work:has(.design) { position: relative; }
+.work:has(.design) .design { height: calc(100vh - 36px); }
+.work:has(.design) .design-panel { margin-top: 60px; }
+.menu-socials-tile { display: grid; gap: 6px; justify-items: start; }
+.ms-menu { display: inline-flex; align-items: center; gap: 6px; height: 18px; }
+.ms-menu i { width: 18px; height: 3px; border-radius: 2px; background: currentColor; opacity: .35; }
+.ms-menu .social-ico { display: inline-grid; width: 16px; height: 16px; }
+.ms-menu .social-ico svg { width: 16px; height: 16px; }

@@ -32,6 +32,8 @@ export interface DesignLook {
   dark: 'auto' | 'never';
   /** null is stored as absent. */
   loader: Loader | null;
+  /** Her networks' icons in the site's menu too; false is stored as absent. */
+  menuSocials: boolean;
 }
 
 /** Every field the Design screen sets, each with a value (what is absent in the settings has its starting value here). */
@@ -58,7 +60,7 @@ export type DesignDraft = Partial<DesignFields>;
 export function designOf(site: SiteSettings): DesignFields {
   const b = site.brand;
   return {
-    look: { name: b.name, tagline: b.tagline, introLine: b.introLine, ink: b.ink, paper: b.paper, accent: b.accent, dark: b.dark ?? 'never', loader: b.loader ?? null },
+    look: { name: b.name, tagline: b.tagline, introLine: b.introLine, ink: b.ink, paper: b.paper, accent: b.accent, dark: b.dark ?? 'never', loader: b.loader ?? null, menuSocials: b.menuSocials === true },
     identity: site.identity,
     viewer: site.viewer,
     creationsHover: site.creationsHover,
@@ -112,9 +114,10 @@ export function withDesign(site: SiteSettings, draft: DesignDraft): SiteSettings
   if (!draftKeys(draft).length) return site;
   const next: SiteSettings = { ...site };
   if (draft.look) {
-    const { dark, loader, ...words } = draft.look;
+    const { dark, loader, menuSocials, ...words } = draft.look;
     const brand: Brand = { ...site.brand, ...words };
     if (dark === 'auto') brand.dark = 'auto'; else delete brand.dark;
+    if (menuSocials) brand.menuSocials = true; else delete brand.menuSocials;
     if (loader) brand.loader = loader; else delete brand.loader;
     next.brand = brand;
   }
@@ -171,5 +174,5 @@ export function rebaseDesign(before: SiteSettings, now: SiteSettings, draft: Des
 }
 
 /** The parts of the site a click on the preview can lead to: each has its card in the panel. */
-export const DESIGN_TARGETS = ['logo', 'words', 'menu', 'title', 'gallery', 'viewer', 'scene', 'map', 'loader'] as const;
+export const DESIGN_TARGETS = ['logo', 'words', 'socials', 'menu', 'title', 'gallery', 'viewer', 'scene', 'map', 'loader'] as const;
 export type DesignTarget = (typeof DESIGN_TARGETS)[number];

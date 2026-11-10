@@ -2,7 +2,6 @@ import { Check } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import { getLanguage, useI18n } from '../i18n';
 import type { DesignFields } from '../model/design';
-import { STARTING_THEME } from '../model/theme';
 import { JOST_WOFF2_BASE64 } from '../site/fonts/jost';
 import { THEMES, themeClasses } from '../site/themes';
 import { tokensStyle, type ThemeSheet } from '../site/themes/contract';
@@ -44,9 +43,9 @@ function ThemeThumb({ theme, colours, sample }: { theme: ThemeSheet; colours: { 
 
 /**
  * Design › Theme: the themes, each a thumbnail of HER site in it, and whose
- * colours paint the site. « Try » lays a theme on the real site beside the
- * panel, like every setting of this screen: nothing is written until she
- * keeps it. Her own colours stay hers whatever the theme; the theme's are
+ * colours paint the site. A click on a thumbnail lays its theme on the real
+ * site beside the panel, like every setting of this screen: nothing is
+ * written until she keeps it. Her own colours stay hers whatever the theme; the theme's are
  * there to be asked for.
  */
 export function ThemePicker({ theme, look, kept, sample, onTry }: {
@@ -71,30 +70,28 @@ export function ThemePicker({ theme, look, kept, sample, onTry }: {
           const tried = theme.id === th.id;
           const isKept = kept.id === th.id;
           return (
-            <article key={th.id} className={`theme-card glass${tried ? ' chosen' : ''}`}>
+            // The card is the button: she judges a theme by its picture; its words are on hover.
+            <button key={th.id} className={`theme-card glass${tried ? ' chosen' : ''}`} aria-pressed={tried}
+              aria-label={`${th.name[lang]}${isKept ? ` · ${t('theme.kept')}` : ''}`} data-tip={`${th.about[lang]} ${th.font === 'jost' ? t('theme.font.own', { kb: fontKb }) : t('theme.font.system')}`}
+              onClick={() => { if (!tried) onTry({ ...theme, id: th.id }); }}>
               <ThemeThumb theme={th} colours={theme.colours === 'theme' ? th.colours : hers} sample={sample} />
-              <div className="fx-head">
+              <span className="theme-name">
                 <strong>{th.name[lang]}</strong>
-                {isKept ? <span className="chip"><Check className="ico" aria-hidden />{t('theme.kept')}</span> : tried ? <span className="chip">{t('theme.tried')}</span> : null}
-              </div>
-              <p className="fx-about">{th.about[lang]}</p>
-              <p className="small muted">{th.font === 'jost' ? t('theme.font.own', { kb: fontKb }) : t('theme.font.system')}</p>
-              {th.id === STARTING_THEME && <p className="small muted">{t('theme.starting')}</p>}
-              <button className="small-btn" disabled={tried} aria-pressed={tried} onClick={() => onTry({ ...theme, id: th.id })}>{t('theme.try')}</button>
-            </article>
+                {isKept && <Check className="ico theme-kept" aria-hidden />}
+              </span>
+            </button>
           );
         })}
       </div>
-      <div className="glass card-pad">
-        <h3>{t('theme.colours.title')}</h3>
+      <div className="glass card-pad theme-colours">
+        <h3 className="small">{t('theme.colours.title')}</h3>
         <div className="idea-row">
           {(['own', 'theme'] as const).map((c) => {
             const shown = c === 'own' ? hers : THEMES.find((x) => x.id === theme.id)?.colours ?? hers;
             return (
-              <button key={c} className={`chip-tile glass ${theme.colours === c ? 'chosen' : ''}`} aria-pressed={theme.colours === c} onClick={() => onTry({ ...theme, colours: c })}>
-                <strong>{t(`theme.colours.${c}`)}</strong>
+              <button key={c} className={`chip-tile glass ${theme.colours === c ? 'chosen' : ''}`} aria-pressed={theme.colours === c} data-tip={t(`theme.colours.${c}Hint`)} onClick={() => onTry({ ...theme, colours: c })}>
                 <span className="theme-swatches" aria-hidden>{(['paper', 'ink', 'accent'] as const).map((k) => <i key={k} style={{ background: shown[k] }} />)}</span>
-                <span className="muted small">{t(`theme.colours.${c}Hint`)}</span>
+                <strong>{t(`theme.colours.${c}`)}</strong>
               </button>
             );
           })}

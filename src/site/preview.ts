@@ -144,7 +144,7 @@ export const DESIGN_PICKED = 'atelier-studio:design-picked';
  * (model/design.ts names them). A selector the page does not have is simply never hit.
  */
 const DESIGN_PICKS: ReadonlyArray<readonly [string, string]> = [
-  ['.loader', 'loader'], ['.viewer:not([hidden])', 'viewer'], ['header .brand', 'logo'], ['header nav', 'menu'], ['.intro-text', 'words'], ['.page h1', 'title'],
+  ['.loader', 'loader'], ['.viewer:not([hidden])', 'viewer'], ['header .brand', 'logo'], ['header nav .nav-socials', 'socials'], ['header nav', 'menu'], ['.intro-text', 'words'], ['.page h1', 'title'],
   ['.map', 'map'], ['.hint', 'map'], ['.first-hint', 'map'],
   ['.strip-wrap', 'gallery'], ['.strip-thumbs', 'gallery'], ['.cats', 'gallery'], ['.gallery', 'gallery'], ['.cell', 'scene'],
 ];

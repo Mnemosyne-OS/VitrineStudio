@@ -183,6 +183,27 @@ __LOADER_CSS__
   .page .about-top .side { grid-column: 1 / -1; grid-row: 1; } .page .about-top .lead { grid-column: 1 / span 8; }
   .page .about-bottom .lead { grid-column: 1 / span 8; } .page .about-bottom .side { grid-column: 1 / -1; grid-row: 2; }
   .page .contact-right form { grid-column: 7 / span 6; } .page .contact-right .side { grid-column: 1 / span 5; grid-row: 1; }
+  /* Her look on a page of words and one picture (studio: Layout), on a large screen only: the space around equals the space between. */
+  @media (min-width: 761px) {
+    .page .cols.looked { --look-m: 0px; --look-img: 1fr; --look-txt: 1fr; column-gap: max(var(--gap), var(--look-m)); row-gap: max(var(--gap), var(--look-m)); padding-inline: var(--look-m); grid-template-columns: var(--look-txt) var(--look-img); align-items: start; }
+    /* The margins grow from 760px up: nothing at a tablet held upright, the full space on a large screen (about 4, 8 and 14% at 1440px). */
+    .page .cols.looked.m-s { --look-m: max(0px, (100vw - 760px) * .085); } .page .cols.looked.m-m { --look-m: max(0px, (100vw - 760px) * .17); } .page .cols.looked.m-l { --look-m: max(0px, (100vw - 760px) * .3); }
+    .page .cols.looked.s-third { --look-img: 1fr; --look-txt: 2fr; } .page .cols.looked.s-twothirds { --look-img: 2fr; --look-txt: 1fr; }
+    .page .cols.looked.a-center { align-items: center; } .page .cols.looked.a-bottom { align-items: end; }
+    .page .cols.looked > .lead, .page .cols.looked > .side { grid-column: auto; grid-row: auto; min-width: 0; }
+    .page .cols.looked.about-left { grid-template-columns: var(--look-img) var(--look-txt); } .page .cols.looked.about-left > .side { order: -1; }
+    .page .cols.looked.about-top, .page .cols.looked.about-bottom { grid-template-columns: minmax(0, 1fr); }
+    .page .cols.looked.about-top > .side { order: -1; }
+    .page .cols.looked:not(:has(> .side)) { grid-template-columns: minmax(0, 1fr); }
+    .page .cols.looked .lead p, .page .cols.looked .lead li { max-width: 70ch; }
+    .page .cols.looked .portrait { max-width: none; aspect-ratio: auto; margin: 0; }
+    .page .cols.looked .portrait img { width: 100%; height: auto; display: block; }
+    .page .cols.looked.sh-square .portrait img { aspect-ratio: 1; object-fit: cover; } .page .cols.looked.sh-portrait .portrait img { aspect-ratio: 4 / 5; object-fit: cover; } .page .cols.looked.sh-landscape .portrait img { aspect-ratio: 3 / 2; object-fit: cover; }
+    /* Above or below the words, the picture is a band across the page, whatever its shape: the margins stay its edges. */
+    .page .cols.looked.about-top .portrait img, .page .cols.looked.about-bottom .portrait img { aspect-ratio: auto; height: min(60vh, 46vw); object-fit: cover; }
+    /* The title stands where the words start, not at the page's edge. */
+    .page:has(> .cols.looked.m-s) > h1 { padding-inline: 4vw; } .page:has(> .cols.looked.m-m) > h1 { padding-inline: 8vw; } .page:has(> .cols.looked.m-l) > h1 { padding-inline: 14vw; }
+  }
   /* Her formatting: titles, lists, quotes, links, as the blog's. */
   .rich h3 { font-size: 20px; font-weight: 400; margin: 24px 0 10px; } .rich h4 { font-size: 16px; font-weight: 500; margin: 18px 0 8px; }
   .rich p + p { margin-top: 12px; } .rich ul, .rich ol { margin: 10px 0 10px 20px; } .rich li + li { margin-top: 4px; }
@@ -339,6 +360,7 @@ __LOADER_CSS__
   .btn { justify-self: start; border: 1px solid var(--ink); border-radius: var(--radius-btn); padding: 12px 26px; font-size: 12px; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); transition: background .3s, color .3s; }
   .btn:hover { background: var(--ink); color: var(--paper); }
   .btn:disabled { opacity: .5; cursor: default; }
+  nav .nav-socials { display: inline-flex; align-items: center; gap: 10px; } nav a.nav-social { display: inline-grid; place-items: center; padding: 2px; opacity: .8; transition: opacity .3s, color .3s; } nav a.nav-social:hover { opacity: 1; color: var(--accent); } nav a.nav-social svg { width: 16px; height: 16px; display: block; }
   nav a.lang-switch { padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius-pill); letter-spacing: calc(.1em * var(--track)); }
   .form-status { font-size: 14px; color: var(--ink-soft); margin: 0; min-height: 1.5em; }
   .form-status.ok { font-size: 16px; color: var(--accent); }
@@ -430,15 +452,15 @@ __LOADER_CSS__
   nav a, .brand, .index, .steps, .roomname, .hint, .map, .first-hint, .generated, .cats button, .post-meta, label, .btn, .close, .legal-foot, .intro-kicker, .intro-enter, .viewer .v-close, .viewer .v-specs th { font-family: var(--font-label); }
   /* The menu's shape (the theme's): the words alone, each in a pill, or underlined. */
   .menu-pill nav { gap: 8px; }
-  .menu-pill nav a:not(.lang-switch) { padding: 6px 14px; border: 1px solid var(--line); border-radius: var(--radius-pill); transition: color .4s, background .3s, border-color .3s; }
+  .menu-pill nav a:not(.lang-switch):not(.nav-social) { padding: 6px 14px; border: 1px solid var(--line); border-radius: var(--radius-pill); transition: color .4s, background .3s, border-color .3s; }
   .menu-pill nav a:not(.lang-switch):hover { border-color: var(--accent); }
   .menu-pill nav a[aria-current="page"]:not(.lang-switch) { background: var(--accent); border-color: var(--accent); color: var(--paper); }
-  .menu-under nav a:not(.lang-switch) { padding-bottom: 5px; border-bottom: 1px solid transparent; transition: color .4s, border-color .3s; }
+  .menu-under nav a:not(.lang-switch):not(.nav-social) { padding-bottom: 5px; border-bottom: 1px solid transparent; transition: color .4s, border-color .3s; }
   .menu-under nav a:not(.lang-switch):hover, .menu-under nav a[aria-current="page"]:not(.lang-switch) { border-bottom-color: currentColor; }
   /* The titles' shape (the theme's): as they come, centred, or over a rule. */
   .titles-centered .page h1 { text-align: center; }
   .titles-rule .page h1 { padding-bottom: .22em; border-bottom: 1px solid var(--line); }
-  @media (max-width: 760px) { .menu-pill nav { gap: 14px; } .menu-pill nav a:not(.lang-switch) { padding: 8px 22px; } }
+  @media (max-width: 760px) { .menu-pill nav { gap: 14px; } .menu-pill nav a:not(.lang-switch):not(.nav-social) { padding: 8px 22px; } }
 /*__EFFECTS_CSS__*/
 </style>
 </head>
@@ -541,6 +563,8 @@ __LOADER_CSS__
   const lines = (s) => esc(s).replace(/\n/g, '<br>');
   const paragraphs = (s) => String(s ?? '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean).map((p) => `<p>${lines(p)}</p>`).join('');
   const mod = (n, m) => ((n % m) + m) % m;
+  // The three steps beside a scene, unless she hid the list (the counter stays).
+  const STEPS = D.sceneMap && D.sceneMap.steps === 'off' ? '' : `<ol class="steps"><li data-s="1">${esc(T.place)}</li><li data-s="2">${esc(T.piece)}</li><li data-s="3">${esc(T.alive)}</li></ol>`;
   // « Generated setting · real piece » under the scenes, when she chose it.
   const CREDIT = D.sceneMap && D.sceneMap.credit === 'line' ? `<p class="generated">${esc(T.generated)}</p>` : '';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -654,7 +678,7 @@ __LOADER_CSS__
   if (B.about || D.portrait) {
     const side = (D.portrait ? `<figure class="portrait"><img src="${esc(D.portrait)}" alt="${esc(B.portraitCaption || B.name)}" loading="lazy" decoding="async"></figure>` : '') + (B.portraitCaption ? `<p>${esc(B.portraitCaption)}</p>` : '')
       + ((D.aboutPhotos || []).length ? `<div class="about-photos">${D.aboutPhotos.map((src) => `<figure><img src="${esc(src)}" alt="${esc(B.name)}" loading="lazy" decoding="async"></figure>`).join('')}</div>` : '');
-    pages.push({ id: 'a-propos', title: T.about, html: `<div class="cols about-${esc(B.aboutLayout || 'right')}"><div class="lead rich">${D.aboutHtml || paragraphs(B.about)}</div>${side ? `<div class="side">${side}</div>` : ''}</div>` });
+    pages.push({ id: 'a-propos', title: T.about, html: `<div class="cols about-${esc(B.aboutLayout || 'right')}${D.aboutLook ? ` ${esc(D.aboutLook)}` : ''}"><div class="lead rich">${D.aboutHtml || paragraphs(B.about)}</div>${side ? `<div class="side">${side}</div>` : ''}</div>` });
   }
   // A blog: the list, then each post on its own page (not in the menu). Its HTML was made
   // at export from the post's Markdown, everything escaped but the studio's own tags.
@@ -683,7 +707,7 @@ __LOADER_CSS__
   (D.pages || []).forEach((p) => {
     if (p.type === 'catalogue') pages.push({ id: p.id, title: p.title, html: gallery(p.creations, p.categories) });
     else if (p.type === 'blog') blog(p.id, p.title, p.posts);
-    else if (p.type === 'text') pages.push({ id: p.id, title: p.title, html: `<div class="cols about-${esc(p.layout || 'right')}"><div class="lead rich">${p.html || ''}</div>${p.photo ? `<div class="side"><figure class="portrait page-photo"><img src="${esc(p.photo)}" alt="${esc(p.title)}" loading="lazy" decoding="async"></figure></div>` : ''}</div>` });
+    else if (p.type === 'text') pages.push({ id: p.id, title: p.title, html: `<div class="cols about-${esc(p.layout || 'right')}${p.look ? ` ${esc(p.look)}` : ''}"><div class="lead rich">${p.html || ''}</div>${p.photo ? `<div class="side"><figure class="portrait page-photo"><img src="${esc(p.photo)}" alt="${esc(p.title)}" loading="lazy" decoding="async"></figure></div>` : ''}</div>` });
     // A form whose answers go nowhere (no e-mail, no Formspree) is never drawn: the page keeps its words alone.
     else if (p.type === 'form') pages.push({ id: p.id, title: p.title, html: `<div class="cols contact-${esc(p.layout || 'left')}">${B.email || B.formspree ? `<form class="mail" novalidate data-title="${esc(p.title)}">${p.fields.map(fieldHtml).join('')}<button class="btn">${esc(T.formSend)}</button><p class="form-status" role="status"></p>${B.formspree ? `<p class="form-via">${esc(T.formVia)}</p>` : ''}</form>` : ''}<div class="side">${p.html ? `<div class="rich">${p.html}</div>` : ''}</div></div>` });
   });
@@ -698,6 +722,8 @@ __LOADER_CSS__
   const rank = (id) => { const i = (D.menuOrder || []).indexOf(id); return i < 0 ? 99 : i; };
   const stages = (D.pages || []).filter((p) => p.type === 'scenes');
   document.querySelector('nav').innerHTML = [...pages.filter((p) => !p.sub), ...stages].sort((a, b) => rank(a.id) - rank(b.id)).map((p) => `<a href="${esc(addr(p.id))}" data-id="${esc(p.id)}">${esc(p.title)}</a>`).join('') + (D.links || []).map((l) => `<a href="${esc(l.href)}">${esc(l.title)}</a>`).join('')
+    // Her networks' icons after the pages, when she asked for them there too.
+    + (D.menuSocials ? `<span class="nav-socials">${(D.socials || []).map((s) => `<a class="nav-social" href="${esc(s.href)}" rel="noopener" target="_blank" aria-label="${esc(s.name)}" title="${esc(s.name)}">${s.icon}</a>`).join('')}</span>` : '')
     // The other language, last in the menu: its code, the page reopened in it.
     + (ALT ? `<a class="lang-switch" href="${esc(langHref())}" data-lang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}" hreflang="${esc(D === SITE ? ALT.lang : MAIN_LANG)}">${esc((D === SITE ? ALT.lang : MAIN_LANG).toUpperCase())}</a>` : '');
   document.querySelector('nav .lang-switch')?.addEventListener('click', (e) => {
@@ -933,7 +959,7 @@ __LOADER_CSS__
     const alt = `${s.piece} · ${T.generated}`;
     el.innerHTML = `<div class="room">${fxFirst('room', s, alt) || `${pic(s.images.place, 'sa', T.generated, true)}${pic(s.images.piece, 'sb', alt)}${pic(s.images.alive, 'sc', alt)}`}${s.clip ? `<video class="sv" muted playsinline preload="auto" src="${esc(s.clip)}"${s.cut ? ` data-in="${+s.cut.in}" data-out="${+s.cut.out}"` : ''}></video>` : ''}</div>`
       + `<div class="meta"><div class="index"><b>${pad2(ri + 1)}.${vi + 1}</b> / ${pad2(ROWS.length)}.${row.scenes.length}</div><div class="variant">${esc(s.name)}</div>`
-      + `<ol class="steps"><li data-s="1">${esc(T.place)}</li><li data-s="2">${esc(T.piece)}</li><li data-s="3">${esc(T.alive)}</li></ol>${CREDIT}</div>`
+      + `${STEPS}${CREDIT}</div>`
       + `<h2 class="roomname">${esc(row.name)}</h2>`
       + (s.caption ? `<div class="cap cap-${esc(s.caption.place)} cap-anim-${esc(s.caption.anim || 'rise')}${s.caption.pos ? ' free' : ''}"${capStyle(s.caption.pos)}>${[...(s.caption.title ? [`<b>${esc(s.caption.title)}</b>`] : []), ...s.caption.lines.map((l) => `<span>${esc(l)}</span>`)].map((h, i) => h.replace(/^<(b|span)>/, `<$1 style="--i:${i}">`)).join('')}</div>` : '');
     return el;
@@ -942,7 +968,7 @@ __LOADER_CSS__
   function play(el) {
     timers.forEach(clearTimeout); timers = [];
     prefetch();
-    const step = (n, cls, ms) => timers.push(setTimeout(() => { el.classList.add(cls); el.querySelector(`.steps [data-s="${n}"]`).classList.add('on'); }, reduced ? 0 : ms));
+    const step = (n, cls, ms) => timers.push(setTimeout(() => { el.classList.add(cls); el.querySelector(`.steps [data-s="${n}"]`)?.classList.add('on'); }, reduced ? 0 : ms));
     // An effect may play the scene its own way (a living scene is shown alive from the start).
     if (fxFirst('play', el)) return;
     step(1, 'lit', 50);
@@ -950,7 +976,7 @@ __LOADER_CSS__
     // With a clip, the living GROWS (the clip ends on its last frame); without, it dissolves in.
     timers.push(setTimeout(() => {
       const vid = el.querySelector('video.sv');
-      el.querySelector('.steps [data-s="3"]').classList.add('on');
+      el.querySelector('.steps [data-s="3"]')?.classList.add('on');
       if (vid && !reduced && vid.readyState >= 2) {
         el.classList.add('growing');
         vid.currentTime = +vid.dataset.in || 0;

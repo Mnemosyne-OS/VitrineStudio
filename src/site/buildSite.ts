@@ -17,8 +17,9 @@ import { JOST_WOFF2_BASE64 } from './fonts/jost';
 import { defaultShow, formatSize, formatMass, inPieceOrder, type Category, measureRows, onCreationsPage, type CreationsHover, type PieceShow } from '../model/showcase';
 import { approximations, DEFAULT_CURRENCY, formatMoney, type CurrencySettings } from '../model/currency';
 import { captionLines, type CaptionLines } from '../model/caption';
-import type { SceneMap } from '../model/sceneMap';
+import { normalizeStepNames, type SceneMap } from '../model/sceneMap';
 import { onPage, type FormField, type PageLayout, type SitePage } from '../model/pages';
+import { lookClasses, type PageLook } from '../model/pageLook';
 import { normalizeSocials, socialLinks, type Socials } from '../model/socials';
 import { creationZoomAsset, type ViewerSettings } from '../model/viewer';
 import { EMPTY_LEGAL, type Legal } from '../model/legal';
@@ -67,8 +68,12 @@ export interface Brand {
   contactNote: string;
   /** Where the portrait stands on the About page; absent = right of the words. */
   aboutLayout?: AboutLayout;
+  /** The About page's margins, the portrait's share and shape (model/pageLook.ts); absent = the layout of before. */
+  aboutLook?: PageLook;
   /** Which side the contact form stands; absent = left. */
   contactLayout?: ContactLayout;
+  /** Her networks' icons at the end of the site's menu too, not only on Contact; absent = Contact only. */
+  menuSocials?: true;
   /** The About page's photos after the portrait, in her order; '' = a frame still to fill (never on the site). */
   aboutPhotos?: string[];
   /**
@@ -424,6 +429,10 @@ export interface SiteData {
   pages?: AddedPageData[];
   /** The About and Contact words with their formatting, made from her Markdown at build. */
   aboutHtml?: string;
+  /** The About page's look as the classes of its columns (model/pageLook.ts); absent = the layout of before. */
+  aboutLook?: string;
+  /** Her networks' icons in the menu as well (Brand.menuSocials), only when she has some. */
+  menuSocials?: true;
   contactHtml?: string;
   /** Her networks as icons and links on the Contact page. */
   socials?: ReturnType<typeof socialLinks>;
@@ -445,6 +454,8 @@ export interface AddedPageData {
   /** A text page's picture on the site. */
   photo?: string;
   layout?: PageLayout;
+  /** A text page: the classes of its look (model/pageLook.ts). */
+  look?: string;
   /** A form page: what it asks. */
   fields?: FormField[];
 }
@@ -599,7 +610,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   const { portrait, aboutPhotos, ...brand } = input.brand;
   // The three beats are named by the trade (a lamp's third beat is its light, not the living).
   // The menu as she named it: the same words name each page's title.
-  const texts = { ...TEXTS[input.lang], ...(input.beats ? { place: input.beats.place, piece: input.beats.piece, alive: input.beats.alive } : {}), ...normalizeMenu(input.menu) };
+  const texts = { ...TEXTS[input.lang], ...(input.beats ? { place: input.beats.place, piece: input.beats.piece, alive: input.beats.alive } : {}), ...normalizeStepNames(input.sceneMap?.stepNames)?.[input.lang], ...normalizeMenu(input.menu) };
   const data: SiteData = { brand, texts, rows, creations };
   if (posts.length) data.posts = posts;
   if (input.hover && input.hover !== 'none') data.creationsHover = input.hover;
@@ -619,7 +630,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   // The page's filters: the categories that hold a creation on it, in her order.
   const used = (input.categories ?? []).filter((c) => creations.some((x) => x.cats?.includes(c.id)));
   if (used.length) data.categories = used;
-  if (input.sceneMap && (input.sceneMap.style !== 'dots' || input.sceneMap.color || input.sceneMap.guide || input.sceneMap.edges || input.sceneMap.credit || input.sceneMap.titles)) data.sceneMap = input.sceneMap;
+  if (input.sceneMap && (input.sceneMap.style !== 'dots' || input.sceneMap.color || input.sceneMap.guide || input.sceneMap.edges || input.sceneMap.credit || input.sceneMap.titles || input.sceneMap.steps || input.sceneMap.stepNames)) data.sceneMap = input.sceneMap;
   // Her added pages, in her order, each with its own content; an empty one stays off the site.
   const added = pages.flatMap((pg): AddedPageData[] => {
     const head = { id: pg.id, type: pg.type, title: pg.name };
@@ -634,7 +645,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
       const html = pg.text?.trim() ? markdownToHtml(pg.text, { keepTitle: true }) : '';
       const more = { ...(html ? { html } : {}), ...(pg.layout ? { layout: pg.layout } : {}) };
       if (pg.type === 'form') return (pg.fields ?? []).length ? [{ ...head, ...more, fields: pg.fields }] : [];
-      return html || pg.photo ? [{ ...head, ...more, ...(pg.photo ? { photo: pagePhotoAsset(pg.id) } : {}) }] : [];
+      return html || pg.photo ? [{ ...head, ...more, ...(pg.look ? { look: lookClasses(pg.look) } : {}), ...(pg.photo ? { photo: pagePhotoAsset(pg.id) } : {}) }] : [];
     }
     const p = postsOf(onPage(input.posts ?? [], pg.id, pages));
     return p.length ? [{ ...head, posts: p }] : [];
@@ -643,8 +654,10 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
   if (input.viewer && (input.viewer.loupe !== 'none' || input.viewer.frame !== 'none' || input.viewer.layout || input.viewer.parallax)) data.viewer = input.viewer;
   // Her words with their formatting; every character escaped but the studio's own tags.
   if (input.brand.about?.trim()) data.aboutHtml = markdownToHtml(input.brand.about, { keepTitle: true });
+  if (input.brand.aboutLook) data.aboutLook = lookClasses(input.brand.aboutLook);
   const socials = socialLinks(input.brand.socials ?? normalizeSocials(undefined, input.brand.instagram ?? ''));
   if (socials.length) data.socials = socials;
+  if (socials.length && input.brand.menuSocials) data.menuSocials = true;
   if (input.brand.contactNote?.trim()) data.contactHtml = markdownToHtml(input.brand.contactNote, { keepTitle: true });
   if (input.analytics) data.analytics = true;
   // A sold piece leaves the galleries; the page it had stays, marked sold, unless she chose otherwise.

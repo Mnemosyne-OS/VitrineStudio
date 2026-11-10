@@ -9,6 +9,7 @@
  * of its kind, so every file written before pages existed keeps its place.
  * Nothing moves on disk: the records stay in their folders and say whose they are.
  */
+import { normalizeLook, type PageLook } from './pageLook';
 /** The same rule as a record's file name: it becomes the site's `#address`. */
 const isSafeId = (id: string) => /^[A-Za-z0-9_-]{1,80}$/.test(id);
 
@@ -48,6 +49,8 @@ export interface SitePage {
   layout?: PageLayout;
   /** A form page: what it asks. */
   fields?: FormField[];
+  /** A text page: its margins, the picture's share and shape (model/pageLook.ts); absent = the layout of before. */
+  look?: PageLook;
 }
 
 export const PAGE_NAME_MAX = 40;
@@ -71,6 +74,8 @@ export function normalizePages(raw: unknown): SitePage[] {
       if ((PAGE_LAYOUTS as readonly unknown[]).includes(r.layout) && kept.includes(r.layout as string)) page.layout = r.layout as PageLayout;
     }
     if (page.type === 'text' && typeof r.photo === 'string' && r.photo) page.photo = r.photo.slice(0, 1000);
+    const look = page.type === 'text' ? normalizeLook(r.look) : undefined;
+    if (look) page.look = look;
     if (page.type === 'form') page.fields = normalizeFields(r.fields);
     out.push(page);
   }

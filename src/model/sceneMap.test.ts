@@ -38,3 +38,30 @@ describe('the first visitor guide', () => {
     expect(buildSiteData({ ...(base as any), sceneMap: { style: 'dots', titles: 'off' } }).sceneMap).toEqual({ style: 'dots', titles: 'off' });
   });
 });
+
+describe('the names of the steps', () => {
+  const base = { brand: { name: 'A' }, lang: 'fr', scenes: [], pieces: [], today: '2026-11-10', untitled: 'x', beats: { place: 'Le lieu', piece: 'Votre création', alive: 'Le vivant' } };
+  const texts = (sceneMap: unknown, lang = 'fr') => buildSiteData({ ...(base as any), lang, sceneMap: normalizeSceneMap(sceneMap) }).texts as Record<string, string>;
+
+  it('reads back known languages and steps, one short line each, an empty one dropped', () => {
+    expect(normalizeSceneMap({ style: 'dots', stepNames: { fr: { place: '  Mon  atelier ', piece: '', alive: 3 }, de: { place: 'x' }, es: {} } }).stepNames).toEqual({ fr: { place: 'Mon atelier' } });
+    expect(normalizeSceneMap({ style: 'dots', stepNames: { fr: { place: 'x'.repeat(60) } } }).stepNames?.fr?.place).toHaveLength(40);
+    expect(normalizeSceneMap({ style: 'dots', steps: 'off' }).steps).toBe('off');
+    expect(normalizeSceneMap({ style: 'dots', steps: 'on' }).steps).toBeUndefined();
+    // A site written before this setting reads as it always did.
+    expect(normalizeSceneMap({ style: 'dots' })).toEqual({ style: 'dots' });
+  });
+  it('replaces the trade\'s word in the site\'s language only, the others keeping it', () => {
+    const map = { style: 'dots', stepNames: { fr: { piece: 'Ma céramique' } } };
+    expect(texts(map).piece).toBe('Ma céramique');
+    expect(texts(map).place).toBe('Le lieu');
+    expect(texts(map, 'en').piece).toBe('Votre création');
+    expect(texts({ style: 'dots' }).piece).toBe('Votre création');
+  });
+  it('reaches the site when set, with the list hidden or not', () => {
+    const data = (sceneMap: unknown) => buildSiteData({ ...(base as any), sceneMap: normalizeSceneMap(sceneMap) }).sceneMap;
+    expect(data({ style: 'dots', steps: 'off' })).toEqual({ style: 'dots', steps: 'off' });
+    expect(data({ style: 'dots', stepNames: { fr: { place: 'x' } } })).toEqual({ style: 'dots', stepNames: { fr: { place: 'x' } } });
+    expect(data({ style: 'dots' })).toBeUndefined();
+  });
+});
