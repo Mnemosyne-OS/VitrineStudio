@@ -101,6 +101,13 @@ describe('the studio\'s agent door', () => {
     expect(() => door.handlers!.showTab!({ tab: 'boutique' })).toThrow(/^NO_TAB: no page named "boutique"; pages: Mon atelier/);
   });
 
+  it('the names of before, the new screens and a space by its name all open something', () => {
+    const { openTab } = mount(async () => true);
+    for (const tab of ['hosting', 'logo', 'site', 'legal', 'design', 'online', 'content']) door.handlers!.showTab!({ tab });
+    // The door hands the name over as it is: App leads each one to where it is filed now (model/spaces.ts).
+    expect(openTab.mock.calls.map((c) => c[0])).toEqual(['hosting', 'logo', 'site', 'legal', 'design', 'site', 'pieces']);
+  });
+
   it('her texts change only where given, and the answer waits for the write', async () => {
     const { studio } = mount(async () => true);
     await expect(door.handlers!.setBrand!({ tagline: 'Céramiste à Montpellier' })).resolves.toEqual({ changed: ['tagline'] });

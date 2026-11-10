@@ -14,6 +14,7 @@
 import type { Lang } from '../model/profiles';
 import { AI_BOTS, RESERVED_FOLDERS, WORD_DEFAULTS, slugOf, slugsFor, type AddressWord, type SeoSettings } from '../model/seo';
 import type { SiteData } from './buildSite';
+import { paletteOf, themeOf } from './themes';
 
 export type SeoKind = 'home' | 'page' | 'creation' | 'post' | 'legal';
 
@@ -449,10 +450,12 @@ export function sitemapXml(site: SiteData): string | null {
 
 /** The page shown for an address the site does not have. */
 export function notFoundHtml(site: SiteData, lang: Lang): string {
-  const B = site.brand;
   const w = WORDS[lang];
+  // The colours and the letters of the site itself: the theme she chose, her colours unless she asked for its own.
+  const B = { ...site.brand, ...paletteOf(site.theme, site.brand) };
+  const font = themeOf(site.theme?.id).tokens.font.replace(/, /g, ',');
   const hex = (c: string | undefined, f: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : f);
-  return `<!doctype html>\n<html lang="${esc(lang)}">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n<title>${esc(w.notFound)} · ${esc(B.name)}</title>\n<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:${hex(B.paper, '#EEECE7')};color:${hex(B.ink, '#2B2926')};font:300 16px/1.6 Jost,Futura,"Century Gothic",sans-serif;text-align:center;padding:24px}h1{font-weight:400;font-size:28px;margin:0 0 12px}a{color:inherit}</style>\n</head>\n<body>\n<main><h1>${esc(w.notFound)}</h1><p>${esc(w.notFoundText)}</p><p><a href="/">${esc(w.home)} · ${esc(B.name)}</a></p></main>\n</body>\n</html>\n`;
+  return `<!doctype html>\n<html lang="${esc(lang)}">\n<head>\n<meta charset="utf-8">\n<meta name="viewport" content="width=device-width, initial-scale=1">\n<meta name="robots" content="noindex">\n<title>${esc(w.notFound)} · ${esc(B.name)}</title>\n<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:${hex(B.paper, '#EEECE7')};color:${hex(B.ink, '#2B2926')};font:300 16px/1.6 ${font};text-align:center;padding:24px}h1{font-weight:400;font-size:28px;margin:0 0 12px}a{color:inherit}</style>\n</head>\n<body>\n<main><h1>${esc(w.notFound)}</h1><p>${esc(w.notFoundText)}</p><p><a href="/">${esc(w.home)} · ${esc(B.name)}</a></p></main>\n</body>\n</html>\n`;
 }
 
 /** vercel.json, only when an address moved: the old one leads to the new one for good. */
@@ -480,7 +483,8 @@ export function fillPage(doc: string, ctx: Ctx, p: SeoPage): string {
     // A page with nothing to say of itself carries no description, never an empty one.
     .replace(/<meta name="description" content="[^"]*">\r?\n?/, () => (p.description ? `<meta name="description" content="${esc(p.description)}">\n` : ''))
     // The script reads its language and the main one here; absent on a one-page site, which keeps ?lang=.
-    .replace(/<html lang="[^"]*"[^>]*>/, () => `<html lang="${esc(ctx.lang)}"${main ? ` data-lang="${esc(ctx.lang)}" data-main="${esc(ctx.mainLang)}"` : ''}>`);
+    // The root keeps the theme's classes (its menu, its titles): only its language is this page's own.
+    .replace(/<html lang="[^"]*"[^>]*>/, (tag) => `<html lang="${esc(ctx.lang)}"${/ class="[a-z -]*"/.exec(tag)?.[0] ?? ''}${main ? ` data-lang="${esc(ctx.lang)}" data-main="${esc(ctx.mainLang)}"` : ''}>`);
 }
 
 export interface SeoFile { rel: string; text: string }

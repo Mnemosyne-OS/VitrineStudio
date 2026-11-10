@@ -1,0 +1,29 @@
+/* A living scene (doc 145 §10.18): the place, and over it the piece and the life as layers in a box
+   set exactly on the cropped picture, so a layer never slides against the room. */
+/* Until the room's picture is known, the box covers the cell and the room is cropped like any
+   picture, the layers hidden: the slide arrives with the room, never a white frame (field,
+   2026-10-12: « écran blanc puis apparaît »). fitLay sets the exact box, then .fit. */
+.room .lay { position: absolute; inset: 0; }
+.room .lay:not(.fit) .lb > .lplace { object-fit: cover; object-position: 50% 70%; }
+.room .lay:not(.fit) .lg { visibility: hidden; }
+.room .lay > img, .room .lay > div { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
+/* Two depths at ONE scale (field, 2026-10-12: a white outline around the piece): the room with the shadows cast
+   on it (.lb), and the piece and the life (.lg). At rest they sit exactly on each other; the
+   pointer moves them against each other. The room at 104 % and the layers at 100 % had left
+   every hole of the room and every shadow beside its place. */
+.room .lay .lb, .room .lay .lg { transform: scale(1.04); transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
+.room .lay .lb > img, .room .lay .lg > img, .room .lay .lg > canvas { position: absolute; display: block; }
+.room .lay .lb > .lplace { inset: 0; width: 100%; height: 100%; object-fit: fill; }
+.room .lp, .room .lps { opacity: 0; transition: opacity 1s ease; }
+.cell.piece .room .lp, .cell.piece .room .lps { opacity: 1; }
+.room .la, .room .las { opacity: 0; transition: opacity 1.2s ease; }
+.cell.alive .room .la, .cell.alive .room .las { opacity: 1; }
+.cell.alive .room .lp, .cell.alive .room .lps { opacity: 0; }
+/* A living scene opens ON its life (field, 2026-10-12): stepping through the place and the piece
+   first showed the cut — an empty room, then a piece laid on it. Its layers are there at once. */
+.cell.living .room .la, .cell.living .room .las { opacity: 1; transition: none; }
+.cell.living .room .lp, .cell.living .room .lps { opacity: 0; transition: none; }
+@keyframes sun { 0%, 100% { opacity: 0; } 50% { opacity: .07; } }
+.room .sun { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(60% 50% at 70% 30%, #fff8e6, transparent 70%); opacity: 0; }
+.cell.alive .room .sun { animation: sun 9s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .cell.alive .room .sun { animation: none; } .room .lay .lg, .room .lay .lb { transition: none; } }

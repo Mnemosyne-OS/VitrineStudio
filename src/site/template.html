@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="__LANG__">
+<html lang="__LANG__"__THEME_CLASS__>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -14,16 +14,17 @@
   written next to it: the places (rows), the ambiances (columns), the three
   pictures of every scene, the texts and the blog. Edit the scenes in the
   studio and publish again; never edit this file by hand.
-  The design is Atelier Rosalie's site (Claire and Tony, October 2026), made
-  for every artisan. Jost is inside this page (SIL Open Font License,
+  The design started as Atelier Rosalie's site (Claire and Tony, October 2026),
+  made for every artisan; a theme (src/site/themes) sets its tokens. When the
+  theme reads Jost, the font is inside this page (SIL Open Font License,
   assets/jost-OFL.txt): nothing is loaded from a third party.
 -->
 <style>
-  @font-face { font-family: Jost; src: url("__FONT__") format("woff2"); font-weight: 300 500; font-style: normal; font-display: swap; }
-  :root { --paper: __PAPER__; --ink: __INK__; --ink-soft: color-mix(in srgb, __INK__ 72%, __PAPER__); --line: color-mix(in srgb, __INK__ 18%, transparent); --accent: __ACCENT__; --ease: cubic-bezier(.65, 0, .2, 1); --dur: 750ms; --pad: clamp(16px, 3vw, 40px); }
+__FONT_FACE__  /* The tokens (src/site/themes): her colours, then what the theme sets. Everything below is structure and reads them. */
+  :root { --paper: __PAPER__; --ink: __INK__; --ink-soft: color-mix(in srgb, __INK__ 72%, __PAPER__); --line: color-mix(in srgb, __INK__ 18%, transparent); --accent: __ACCENT__; --ease: cubic-bezier(.65, 0, .2, 1); --dur: 750ms; __TOKENS__ }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; overflow: hidden; }
-  body { background: var(--paper); color: var(--ink); font: 300 15px/1.5 Jost, Futura, "Century Gothic", sans-serif; -webkit-font-smoothing: antialiased; }
+  body { background: var(--paper); color: var(--ink); font: var(--body-weight) 15px/1.5 var(--font); -webkit-font-smoothing: antialiased; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
   a { color: inherit; text-decoration: none; }
   /* The page's words without its script (a search engine, a reader without JavaScript): plain and readable, gone once the script draws. */
@@ -38,7 +39,7 @@
   #static .s-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
   #static nav ul, #static .s-posts { list-style: none; }
   #static nav ul { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 32px; }
-  .v-sold { letter-spacing: .08em; text-transform: uppercase; font-size: 12px; }
+  .v-sold { letter-spacing: calc(.08em * var(--track)); text-transform: var(--label-case); font-size: 12px; }
 
   /* Header: the logo left, the pages right. Its measured height (--head-h, set by the script) pushes every page's top down: a big logo never covers a title. */
   header { position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; padding: var(--pad); pointer-events: none; }
@@ -55,9 +56,9 @@ __LOADER_CSS__
     body.dark-auto.paged { --paper: __INK__; --ink: __PAPER__; --ink-soft: color-mix(in srgb, __PAPER__ 72%, __INK__); --line: color-mix(in srgb, __PAPER__ 18%, transparent); color-scheme: dark; }
     body.dark-auto.paged .portrait:not(.page-photo) img { filter: grayscale(1) brightness(.92); }
   }
-  .brand { font-size: 15px; font-weight: 400; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); }
+  .brand { font-size: 15px; font-weight: 400; letter-spacing: calc(.16em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); }
   nav { display: flex; gap: clamp(14px, 2.4vw, 36px); }
-  nav a { white-space: nowrap; font-size: 12px; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); transition: color .4s; }
+  nav a { white-space: nowrap; font-size: 12px; font-weight: 400; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); transition: color .4s; }
   nav a:hover, nav a[aria-current="page"] { color: var(--accent); }
   /* The phone's menu: two lines that become a cross, the pages over the whole screen. */
   .burger { display: none; position: relative; z-index: 2; width: 44px; height: 44px; place-items: center; color: var(--ink); }
@@ -79,49 +80,20 @@ __LOADER_CSS__
   .room video { opacity: 0; }
   .cell.growing .room video { opacity: 1; }
   .cell.growing .room .sc { opacity: 0; transition: none; }
-  /* A living scene (doc 145 §10.18): the place, and over it the piece and the life as layers in a box
-     set exactly on the cropped picture, so a layer never slides against the room. */
-  /* Until the room's picture is known, the box covers the cell and the room is cropped like any
-     picture, the layers hidden: the slide arrives with the room, never a white frame (field,
-     2026-10-12: « écran blanc puis apparaît »). fitLay sets the exact box, then .fit. */
-  .room .lay { position: absolute; inset: 0; }
-  .room .lay:not(.fit) .lb > .lplace { object-fit: cover; object-position: 50% 70%; }
-  .room .lay:not(.fit) .lg { visibility: hidden; }
-  .room .lay > img, .room .lay > div { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: fill; }
-  /* Two depths at ONE scale (Tony, 2026-10-12: « le contour blanc »): the room with the shadows cast
-     on it (.lb), and the piece and the life (.lg). At rest they sit exactly on each other; the
-     pointer moves them against each other. The room at 104 % and the layers at 100 % had left
-     every hole of the room and every shadow beside its place. */
-  .room .lay .lb, .room .lay .lg { transform: scale(1.04); transition: transform .5s cubic-bezier(.2, .8, .2, 1); }
-  .room .lay .lb > img, .room .lay .lg > img, .room .lay .lg > canvas { position: absolute; display: block; }
-  .room .lay .lb > .lplace { inset: 0; width: 100%; height: 100%; object-fit: fill; }
-  .room .lp, .room .lps { opacity: 0; transition: opacity 1s ease; }
-  .cell.piece .room .lp, .cell.piece .room .lps { opacity: 1; }
-  .room .la, .room .las { opacity: 0; transition: opacity 1.2s ease; }
-  .cell.alive .room .la, .cell.alive .room .las { opacity: 1; }
-  .cell.alive .room .lp, .cell.alive .room .lps { opacity: 0; }
-  /* A living scene opens ON its life (Tony, 2026-10-12): stepping through the place and the piece
-     first showed the cut — an empty room, then a piece laid on it. Its layers are there at once. */
-  .cell.living .room .la, .cell.living .room .las { opacity: 1; transition: none; }
-  .cell.living .room .lp, .cell.living .room .lps { opacity: 0; transition: none; }
-  @keyframes sun { 0%, 100% { opacity: 0; } 50% { opacity: .07; } }
-  .room .sun { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(60% 50% at 70% 30%, #fff8e6, transparent 70%); opacity: 0; }
-  .cell.alive .room .sun { animation: sun 9s ease-in-out infinite; }
-  @media (prefers-reduced-motion: reduce) { .cell.alive .room .sun { animation: none; } .room .lay .lg, .room .lay .lb { transition: none; } }
   .meta { grid-column: 1 / span 4; grid-row: 1; align-self: start; }
-  .index { font-size: 12px; letter-spacing: .14em; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .index { font-size: 12px; letter-spacing: calc(.14em * var(--track)); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
   .index b { font-weight: 500; color: var(--ink); }
   .variant { margin-top: 6px; font-size: 18px; font-weight: 400; }
-  .steps { margin-top: 28px; list-style: none; display: grid; gap: 6px; font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .steps { margin-top: 28px; list-style: none; display: grid; gap: 6px; font-size: 12px; letter-spacing: calc(.1em * var(--track)); text-transform: var(--label-case); }
   .steps li { color: var(--line); transition: color .8s; display: flex; gap: 10px; align-items: center; }
   .steps li::before { content: ""; width: 24px; height: 1px; background: currentColor; transition: width .8s var(--ease); }
   .steps li.on { color: var(--ink); }
   .steps li.on::before { width: 40px; }
   /* Every staged picture says it is generated (doc 145 §5) in its alt; the line on screen only when she chose it (studio: the map's settings). */
-  .generated { margin-top: 18px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); opacity: .8; }
+  .generated { margin-top: 18px; font-size: 10px; letter-spacing: calc(.12em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); opacity: .8; }
   #intro .generated { position: absolute; right: var(--pad); bottom: var(--pad); margin: 0; }
   /* The words over a scene, from its piece's record: a soft glass card in a corner. */
-  .cap { grid-row: 1; align-self: end; display: grid; gap: 4px; max-width: 360px; padding: 14px 18px; border-radius: 16px; color: #fff; background: color-mix(in srgb, #000 34%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border: 1px solid color-mix(in srgb, #fff 22%, transparent); font-size: 13px; line-height: 1.4; visibility: hidden; }
+  .cap { grid-row: 1; align-self: end; display: grid; gap: 4px; max-width: 360px; padding: 14px 18px; border-radius: var(--radius-ui); color: #fff; background: color-mix(in srgb, #000 34%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border: 1px solid color-mix(in srgb, #fff 22%, transparent); font-size: 13px; line-height: 1.4; visibility: hidden; }
   /* The words come in once the scene shows, the way she chose (the studio previews the same keyframes). */
   .cell.lit .cap { visibility: visible; animation-delay: .5s; }
   .cell.lit .cap-anim-fade { animation: cap-fade .9s ease both; }
@@ -136,15 +108,15 @@ __LOADER_CSS__
   @media (prefers-reduced-motion: reduce) { .cell.lit .cap, .cell.lit .cap > * { animation: none !important; } }
   .cap.free { position: absolute; left: var(--dx, 50%); top: var(--dy, 80%); transform: translate(-50%, -50%); }
   @media (max-width: 1024px) { .cap.free { left: var(--tx, var(--dx, 50%)); top: var(--ty, var(--dy, 80%)); } }
-  .cap b { font-size: 16px; font-weight: 500; letter-spacing: .01em; }
+  .cap b { font-size: 16px; font-weight: 500; letter-spacing: calc(.01em * var(--track)); }
   .cap span { opacity: .88; }
   .cap-br { grid-column: 8 / -1; justify-self: end; }
   .cap-bl { grid-column: 1 / span 5; justify-self: start; }
   .cap-tr { grid-column: 8 / -1; justify-self: end; align-self: start; }
-  .roomname { grid-column: 1 / -1; grid-row: 2; align-self: end; font-size: 12px; line-height: 1; font-weight: 400; letter-spacing: .18em; text-transform: uppercase; color: var(--ink-soft); pointer-events: none; }
+  .roomname { grid-column: 1 / -1; grid-row: 2; align-self: end; font-size: 12px; line-height: 1; font-weight: 400; letter-spacing: calc(.18em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); pointer-events: none; }
 
   /* Neighbour hints on the four edges */
-  .hint { position: fixed; z-index: 15; font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); padding: 8px; transition: color .3s; }
+  .hint { position: fixed; z-index: 15; font-size: 11px; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); padding: 8px; transition: color .3s; }
   .hint:hover { color: var(--accent); }
   .hint.up { top: calc(var(--pad) + 6px); left: 50%; transform: translateX(-50%); }
   .hint.down { bottom: calc(var(--pad) - 4px); left: 50%; transform: translateX(-50%); }
@@ -155,14 +127,14 @@ __LOADER_CSS__
   body.edges-none .hint { display: none; }
   /* The scenes without their names (the Scenes settings): the pieces speak alone. */
   body.titles-off .roomname, body.titles-off .meta .variant, body.titles-off .map-row > span { display: none; }
-  body.edges-box .hint { padding: 9px 16px; border-radius: 99px; font-size: 12px; color: var(--ink); background: color-mix(in srgb, var(--paper) 72%, transparent); border: 1px solid var(--line);
+  body.edges-box .hint { padding: 9px 16px; border-radius: var(--radius-pill); font-size: 12px; color: var(--ink); background: color-mix(in srgb, var(--paper) 72%, transparent); border: 1px solid var(--line);
     -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); box-shadow: 0 12px 30px -18px rgb(0 0 0 / .45); transition: color .3s, border-color .3s; }
   body.edges-box .hint:hover { color: var(--accent); border-color: var(--accent); }
   body.edges-box .hint.left, body.edges-box .hint.right { padding: 16px 9px; }
   body.edges-box .hint.left { left: 10px; } body.edges-box .hint.right { right: 10px; }
 
   /* Mini-map: places in rows, ambiances in columns */
-  .map { position: fixed; z-index: 15; right: var(--pad); bottom: var(--pad); display: grid; gap: 6px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); }
+  .map { position: fixed; z-index: 15; right: var(--pad); bottom: var(--pad); display: grid; gap: 6px; font-size: 10px; letter-spacing: calc(.12em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); }
   .map-row { display: grid; grid-template-columns: auto repeat(var(--cols, 1), 14px); column-gap: 8px; align-items: center; }
   .map-row span { text-align: right; }
   .map-row span.on { color: var(--ink); }
@@ -189,14 +161,14 @@ __LOADER_CSS__
   .map.m-thumbs button img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .map.m-thumbs button:hover { opacity: .85; }
   .map.m-thumbs button[aria-current="true"] { opacity: 1; outline: 2px solid var(--map-ink); outline-offset: 1px; }
-  .map.m-glass { padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); box-shadow: 0 10px 30px -14px rgb(0 0 0 / .35); }
+  .map.m-glass { padding: 12px 14px; border-radius: var(--radius-ui); background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%); border: 1px solid color-mix(in srgb, var(--ink) 12%, transparent); box-shadow: 0 10px 30px -14px rgb(0 0 0 / .35); }
   .map.m-glass button[aria-current="true"]::after { box-shadow: 0 0 0 4px color-mix(in srgb, var(--map-ink) 25%, transparent); }
 
   /* Pages slide over the scenes */
   .page { position: fixed; inset: 0; z-index: 18; overflow-y: auto; background: var(--paper); padding: max(calc(var(--pad) + 120px), calc(var(--head-h, 0px) + 24px)) var(--pad) var(--pad); transform: translateY(100%); transition: transform 900ms var(--ease); }
   .page.open { transform: none; }
-  .page h1 { font-size: clamp(48px, 9vw, 140px); font-weight: 400; letter-spacing: -.035em; line-height: .9; margin-bottom: 48px; }
-  .page .cols { display: grid; grid-template-columns: repeat(12, 1fr); gap: 16px; }
+  .page h1 { font-family: var(--font-title); font-size: var(--title-size); font-weight: var(--title-weight); font-style: var(--title-style); letter-spacing: var(--title-tracking); line-height: var(--title-lh); text-transform: var(--title-case); margin-bottom: var(--title-gap); }
+  .page .cols { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--gap); }
   .page p { font-size: 19px; line-height: 1.55; max-width: 38em; margin-bottom: 1em; }
   .page .lead { grid-column: 1 / span 6; }
   .page .side { grid-column: 8 / span 5; font-size: 14px; color: var(--ink-soft); }
@@ -205,7 +177,7 @@ __LOADER_CSS__
   .portrait { max-width: 360px; width: 100%; margin: 0 0 20px; aspect-ratio: 1; }
   .about-photos { display: grid; gap: 14px; margin-top: 18px; }
   .about-top .about-photos, .about-bottom .about-photos { grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); }
-  .about-photos figure { margin: 0; } .about-photos img { width: 100%; height: auto; display: block; }
+  .about-photos figure { margin: 0; } .about-photos img { width: 100%; height: auto; display: block; border-radius: var(--radius); }
   /* Her layouts (studio: About, Contact): the portrait left or above the words, the form right of them. */
   .page .about-left .lead { grid-column: 6 / span 7; } .page .about-left .side { grid-column: 1 / span 4; grid-row: 1; }
   .page .about-top .side { grid-column: 1 / -1; grid-row: 1; } .page .about-top .lead { grid-column: 1 / span 8; }
@@ -220,15 +192,6 @@ __LOADER_CSS__
   form .check input { width: auto; }
   form select { font: inherit; }
   .page-photo { aspect-ratio: auto; } .page-photo img { filter: none; height: auto; }
-  /* Her loupe over a creation opened large (studio: Creations ⚙): a lens that follows the pointer, or the picture zooming in place. */
-  .viewer .v-main.loupe-zoom, .viewer .v-main.loupe-lens { overflow: hidden; }
-  .v-main.loupe-zoom img { cursor: zoom-in; transition: transform .35s var(--ease); }
-  .v-main.loupe-zoom img.zoomed { transform: scale(2.4); cursor: crosshair; }
-  .v-main.loupe-lens img { cursor: none; }
-  .v-lens { position: absolute; left: 0; top: 0; width: 190px; height: 190px; pointer-events: none; z-index: 2; border-radius: 50%; background-repeat: no-repeat; background-color: var(--paper);
-    border: 3px solid color-mix(in srgb, var(--paper) 70%, #fff); box-shadow: 0 16px 44px -12px rgb(0 0 0 / .5), inset 0 0 0 1px rgb(0 0 0 / .08); opacity: 0; transform: scale(.85); transition: opacity .2s ease, transform .25s var(--ease); }
-  .v-lens.square { width: 220px; height: 220px; border-radius: 18px; }
-  .v-lens.on { opacity: 1; transform: none; }
   /* Her frame on the pictures, in the catalogue and opened large. */
   .viewer.frame-shadow .v-main img { filter: drop-shadow(0 20px 28px rgb(0 0 0 / .2)); }
   /* A mat or round corners wrap the picture itself, not its box: the picture is sized to fit and centred in the box. */
@@ -245,50 +208,24 @@ __LOADER_CSS__
   .page .side .socials a:hover { color: var(--accent); border-color: var(--accent); transform: translateY(-2px); }
   .socials svg { width: 19px; height: 19px; }
   .rich a { border-bottom: 1px solid var(--line); } .page .side .rich p { white-space: normal; }
-  .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .portrait img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: var(--radius); }
   /* Black and white is the About portrait's look only: a text page's photo keeps its colours. */
   .portrait:not(.page-photo) img { filter: grayscale(1) contrast(1.02); }
-  .gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px; }
+  .gallery { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--tile), 1fr)); gap: var(--gap); }
   .gallery figure { position: relative; margin-bottom: 28px; cursor: pointer; transition: transform .5s var(--ease), opacity .35s ease; }
   .gallery figure.out { opacity: 0; transform: scale(.96); }
-  /* The mosaic: columns, each photo at its own shape, so the rows fall staggered. */
-  .gallery.layout-mosaic { display: block; columns: 220px; column-gap: 16px; }
-  .gallery.layout-mosaic figure { break-inside: avoid; margin: 0 0 22px; }
-  .gallery.layout-mosaic .ph { aspect-ratio: auto; }
-  .gallery.layout-mosaic .ph img.g0 { position: relative; height: auto; }
-  .gallery.layout-mosaic.frame-frame .ph { padding: 12px; }
-  .gallery.layout-mosaic.frame-frame .ph img.g0 { inset: auto; width: 100%; height: auto; }
-  /* The strip: one large photo at a time, swiped or stepped, the next ones small under it. */
-  .strip-wrap { grid-column: 1 / -1; position: relative; min-width: 0; }
-  .gallery.layout-strip { display: flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; padding: 0 8%; }
-  .gallery.layout-strip::-webkit-scrollbar { display: none; }
-  .gallery.layout-strip figure { flex: 0 0 min(84%, 960px); scroll-snap-align: center; margin-bottom: 12px; }
-  .gallery.layout-strip .ph { aspect-ratio: 4 / 3; }
-  .gallery.layout-strip .ph img { object-fit: contain; }
-  .strip-go { position: absolute; top: 40%; z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 80%, transparent); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; transition: color .3s, border-color .3s; }
-  .strip-go:hover { color: var(--accent); border-color: var(--accent); }
-  .strip-go.prev { left: 0; } .strip-go.next { right: 0; }
-  .strip-thumbs { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: safe center; overflow-x: auto; scrollbar-width: none; padding: 6px 2px; }
-  .strip-thumbs button { flex: 0 0 64px; height: 64px; padding: 0; border: 0; border-radius: 6px; overflow: hidden; opacity: .5; cursor: pointer; transition: opacity .3s, outline-color .3s; outline: 2px solid transparent; outline-offset: 2px; }
-  .strip-thumbs button.on { opacity: 1; outline-color: var(--accent); }
-  .strip-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  @media (hover: none) { .strip-go { display: none; } }
-  /* The parallax: under the pointer each photo drifts a little, at its own depth. */
-  .gallery.parallax .ph img { scale: 1.1; translate: calc(var(--px, 0) * var(--d, 8px)) calc(var(--py, 0) * var(--d, 8px)); transition: transform .7s var(--ease), opacity .5s ease, translate .8s var(--ease); }
-  .gallery.parallax figure:nth-child(3n + 1) { --d: 6px; } .gallery.parallax figure:nth-child(3n + 2) { --d: 12px; } .gallery.parallax figure:nth-child(3n) { --d: 9px; }
-  @media (prefers-reduced-motion: reduce), (hover: none) { .gallery.parallax .ph img { translate: none; scale: none; } }
   .cats { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
-  .cats button { padding: 7px 16px; border-radius: 99px; border: 1px solid var(--line); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); transition: color .3s, background .3s, border-color .3s; }
+  .cats button { padding: 7px 16px; border-radius: var(--radius-pill); border: 1px solid var(--line); font-size: 12px; letter-spacing: calc(.12em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); transition: color .3s, background .3s, border-color .3s; }
   .cats button:hover { color: var(--ink); border-color: var(--ink-soft); }
   .cats button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--paper); }
-  .gallery .ph { position: relative; aspect-ratio: 4 / 5; overflow: hidden; transition: box-shadow .5s var(--ease); }
+  .gallery .ph { position: relative; aspect-ratio: 4 / 5; overflow: hidden; border-radius: var(--radius); transition: box-shadow .5s var(--ease); }
   .gallery .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .7s var(--ease), opacity .5s ease; }
   .gallery .ph .g1 { opacity: 0; }
-  .gallery figcaption { margin-top: 8px; display: flex; justify-content: space-between; gap: 12px; font-size: 12px; letter-spacing: .06em; color: var(--ink-soft); transition: opacity .4s ease; }
+  .gallery figcaption { margin-top: 8px; display: flex; justify-content: space-between; gap: 12px; font-size: 12px; letter-spacing: calc(.06em * var(--track)); color: var(--ink-soft); transition: opacity .4s ease; }
   .gallery figcaption .c-name { color: var(--ink); font-size: 13px; }
   /* The measures: a band of the site's accent, each value a cell of it. */
   .gallery .c-band { flex-basis: 100%; display: flex; flex-wrap: wrap; margin-top: 4px; border-radius: 4px; overflow: hidden; background: color-mix(in srgb, var(--accent) 16%, var(--paper)); }
-  .gallery .c-band span { flex: 1 1 auto; padding: 7px 10px; text-align: center; font-size: 11px; letter-spacing: .08em; color: color-mix(in srgb, var(--accent) 70%, var(--ink)); font-variant-numeric: tabular-nums; }
+  .gallery .c-band span { flex: 1 1 auto; padding: 7px 10px; text-align: center; font-size: 11px; letter-spacing: calc(.08em * var(--track)); color: color-mix(in srgb, var(--accent) 70%, var(--ink)); font-variant-numeric: tabular-nums; }
   .gallery .c-band span + span { border-left: 1px solid color-mix(in srgb, var(--accent) 22%, var(--paper)); }
   .gallery .c-band span:nth-child(even) { background: color-mix(in srgb, var(--accent) 10%, var(--paper)); }
   /* Its words: a veil that rises over the picture, the text sliding up behind it. */
@@ -315,22 +252,22 @@ __LOADER_CSS__
   .viewer .v-thumbs button { width: 64px; height: 80px; padding: 0; opacity: .55; transition: opacity .3s; }
   .viewer .v-thumbs button[aria-current="true"], .viewer .v-thumbs button:hover { opacity: 1; }
   .viewer .v-thumbs img { width: 100%; height: 100%; object-fit: cover; }
-  .viewer .v-info h2 { font-size: clamp(28px, 4vw, 52px); font-weight: 400; letter-spacing: -.02em; line-height: 1; margin-bottom: 24px; }
+  .viewer .v-info h2 { font-family: var(--font-title); font-size: clamp(28px, 4vw, 52px); font-weight: var(--title-weight); font-style: var(--title-style); letter-spacing: -.02em; line-height: 1; margin-bottom: 24px; }
   .viewer .v-info p { font-size: 17px; line-height: 1.55; margin-bottom: .6em; white-space: pre-line; }
   .viewer .v-info .v-price { font-size: 22px; }
   .viewer .v-info .v-also { display: block; font-size: 13px; color: var(--ink-soft); }
   .gallery figcaption small { font-size: 11px; }
-  .viewer .v-info .v-dim { color: var(--ink-soft); font-size: 14px; letter-spacing: .06em; }
+  .viewer .v-info .v-dim { color: var(--ink-soft); font-size: 14px; letter-spacing: calc(.06em * var(--track)); }
   /* The measures: one row each, on grounds that alternate in the site's own tones. */
   .viewer .v-specs { width: 100%; max-width: 420px; border-collapse: collapse; margin: 8px 0 28px; font-size: 15px; }
   .viewer .v-specs th, .viewer .v-specs td { padding: 12px 16px; text-align: left; }
-  .viewer .v-specs th { width: 45%; font-weight: 400; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+  .viewer .v-specs th { width: 45%; font-weight: 400; font-size: 12px; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); }
   .viewer .v-specs td { font-variant-numeric: tabular-nums; }
   .viewer .v-specs tr:nth-child(odd) { background: color-mix(in srgb, var(--ink) 5%, var(--paper)); }
   .viewer .v-specs tr:nth-child(even) { background: color-mix(in srgb, var(--accent) 9%, var(--paper)); }
   .viewer .v-specs tr:first-child th { border-top-left-radius: 6px; } .viewer .v-specs tr:first-child td { border-top-right-radius: 6px; }
   .viewer .v-specs tr:last-child th { border-bottom-left-radius: 6px; } .viewer .v-specs tr:last-child td { border-bottom-right-radius: 6px; }
-  .viewer .v-close { position: absolute; right: var(--pad); top: calc(var(--pad) + 40px); font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); }
+  .viewer .v-close { position: absolute; right: var(--pad); top: calc(var(--pad) + 40px); font-size: 12px; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); }
   /* The viewer fits the screen: its photo never taller than the window, the arrows in a margin of their own. */
   .viewer { grid-template-rows: minmax(0, 1fr); padding-left: calc(var(--pad) + 48px); padding-right: calc(var(--pad) + 48px); }
   .viewer > div:first-child { display: grid; grid-template-rows: minmax(0, 1fr) auto; min-height: 0; }
@@ -365,24 +302,24 @@ __LOADER_CSS__
   }
   .post-cards { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 40px 28px; }
   .post-card { display: grid; gap: 10px; align-content: start; color: inherit; text-decoration: none; }
-  .post-card .ph { aspect-ratio: 4 / 3; overflow: hidden; background: var(--line); }
+  .post-card .ph { aspect-ratio: 4 / 3; overflow: hidden; border-radius: var(--radius); background: var(--line); }
   .post-card .ph img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform var(--dur, .6s) ease; }
   .post-card:hover .ph img { transform: scale(1.03); }
-  .post-card h2 { font-size: 24px; font-weight: 400; line-height: 1.2; }
+  .post-card h2 { font-family: var(--font-title); font-size: 24px; font-weight: var(--title-weight); line-height: 1.2; }
   .post-card:hover h2 { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
   .post-card p { font-size: 15px; line-height: 1.55; color: var(--ink-soft); }
-  .post-meta { color: var(--ink-soft); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; }
+  .post-meta { color: var(--ink-soft); font-size: 12px; letter-spacing: calc(.1em * var(--track)); text-transform: var(--label-case); }
   .post > .post-meta { display: block; margin-bottom: 1.2em; }
   .post { grid-column: 1 / span 8; font-size: 18px; line-height: 1.65; max-width: 68ch; }
   .post p, .post ul, .post ol, .post blockquote { margin-bottom: 1em; }
   .post ul, .post ol { padding-left: 1.3em; }
-  .post h2, .post h3, .post h4 { font-weight: 400; margin: 1.4em 0 .5em; }
+  .post h2, .post h3, .post h4 { font-family: var(--font-title); font-weight: var(--title-weight); margin: 1.4em 0 .5em; }
   .post blockquote { border-left: 2px solid var(--line); padding-left: 1em; color: var(--ink-soft); }
   .post hr { border: 0; border-top: 1px solid var(--line); margin: 1.6em 0; }
   .post a { color: inherit; text-underline-offset: 3px; }
   .post code { font-size: .9em; }
   .post-img { margin: 0 0 1em; }
-  .post-img img { width: 100%; height: auto; display: block; }
+  .post-img img { width: 100%; height: auto; display: block; border-radius: var(--radius); }
   .post-img figcaption { font-size: 13px; line-height: 1.4; color: var(--ink-soft); padding-top: 6px; }
   .post-img.left { float: left; width: 42%; margin: .3em 1.6em 1em 0; }
   .post-img.right { float: right; width: 42%; margin: .3em 0 1em 1.6em; }
@@ -391,46 +328,46 @@ __LOADER_CSS__
   .post-pieces.row { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
   .post-pieces.column figure { display: grid; grid-template-columns: 38% 1fr; gap: 18px; align-items: center; }
   .post-pieces.single figure { max-width: 560px; }
-  .post-pieces img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; }
+  .post-pieces img { width: 100%; aspect-ratio: 4 / 5; object-fit: cover; display: block; border-radius: var(--radius); }
   .post-pieces figcaption { display: grid; gap: 2px; padding-top: 8px; font-size: 14px; }
   .post-pieces figcaption span + span { color: var(--ink-soft); }
-  .post .post-back { margin-top: 2em; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+  .post .post-back { margin-top: 2em; font-size: 13px; letter-spacing: calc(.1em * var(--track)); text-transform: var(--label-case); }
   form { grid-column: 1 / span 6; display: grid; gap: 20px; }
-  label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-soft); display: grid; gap: 6px; }
+  label { font-size: 12px; letter-spacing: calc(.12em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); display: grid; gap: 6px; }
   input, textarea { font: inherit; font-size: 17px; border: 0; border-bottom: 1px solid var(--line); background: transparent; padding: 8px 0; color: var(--ink); }
   input:focus, textarea:focus { outline: none; border-color: var(--ink); }
-  .btn { justify-self: start; border: 1px solid var(--ink); padding: 12px 26px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; transition: background .3s, color .3s; }
+  .btn { justify-self: start; border: 1px solid var(--ink); border-radius: var(--radius-btn); padding: 12px 26px; font-size: 12px; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); transition: background .3s, color .3s; }
   .btn:hover { background: var(--ink); color: var(--paper); }
   .btn:disabled { opacity: .5; cursor: default; }
-  nav a.lang-switch { padding: 2px 8px; border: 1px solid var(--line); border-radius: 99px; letter-spacing: .1em; }
+  nav a.lang-switch { padding: 2px 8px; border: 1px solid var(--line); border-radius: var(--radius-pill); letter-spacing: calc(.1em * var(--track)); }
   .form-status { font-size: 14px; color: var(--ink-soft); margin: 0; min-height: 1.5em; }
   .form-status.ok { font-size: 16px; color: var(--accent); }
   .form-status.bad { color: var(--ink); }
   form [aria-invalid] { border-color: var(--accent); }
-  .form-via { font-size: 11px; letter-spacing: .08em; color: var(--ink-soft); margin: 0; }
-  .close { position: fixed; z-index: 19; right: var(--pad); bottom: var(--pad); background: var(--paper); padding: 8px 12px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; display: none; }
+  .form-via { font-size: 11px; letter-spacing: calc(.08em * var(--track)); color: var(--ink-soft); margin: 0; }
+  .close { position: fixed; z-index: 19; right: var(--pad); bottom: var(--pad); background: var(--paper); padding: 8px 12px; font-size: 12px; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); display: none; }
   body.paged .close { display: block; }
   body.paged .map, body.paged .hint, body.paged .first-hint { display: none; }
 
-  .first-hint { position: fixed; z-index: 16; left: 50%; top: max(calc(var(--pad) + 40px), calc(var(--head-h, 0px) + 8px)); transform: translateX(-50%); white-space: nowrap; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); transition: opacity .8s; pointer-events: none; }
+  .first-hint { position: fixed; z-index: 16; left: 50%; top: max(calc(var(--pad) + 40px), calc(var(--head-h, 0px) + 8px)); transform: translateX(-50%); white-space: nowrap; font-size: 12px; letter-spacing: calc(.14em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); transition: opacity .8s; pointer-events: none; }
   .first-hint.gone { opacity: 0; }
   /* The footer: the legal pages and the credit, small, bottom left, on every screen. */
-  .legal-foot { position: fixed; z-index: 21; left: var(--pad); bottom: calc(var(--pad) - 8px); display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-soft); }
+  .legal-foot { position: fixed; z-index: 21; left: var(--pad); bottom: calc(var(--pad) - 8px); display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 10px; letter-spacing: calc(.1em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); }
   .legal-foot a { opacity: .75; transition: opacity .3s, color .3s; }
   .legal-foot a:hover { opacity: 1; color: var(--accent); }
-  .legal-text h3, .legal-text h4 { font-size: 13px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; margin: 30px 0 10px; }
+  .legal-text h3, .legal-text h4 { font-size: 13px; font-weight: 500; letter-spacing: calc(.12em * var(--track)); text-transform: var(--label-case); margin: 30px 0 10px; }
   .legal-text h3:first-child, .legal-text h4:first-child { margin-top: 0; }
   .page .legal-text p { font-size: 16px; }
   .legal-text a { border-bottom: 1px solid var(--line); }
   /* The first visit's notice: no cookie here, said once; closing it is remembered in the browser. */
-  .cookie-note { position: fixed; z-index: 30; left: var(--pad); bottom: calc(var(--pad) + 18px); display: flex; align-items: center; gap: 14px; max-width: calc(100% - 2 * var(--pad)); padding: 10px 10px 10px 18px; border-radius: 99px; font-size: 13px; color: var(--ink);
+  .cookie-note { position: fixed; z-index: 30; left: var(--pad); bottom: calc(var(--pad) + 18px); display: flex; align-items: center; gap: 14px; max-width: calc(100% - 2 * var(--pad)); padding: 10px 10px 10px 18px; border-radius: var(--radius-pill); font-size: 13px; color: var(--ink);
     background: color-mix(in srgb, var(--paper) 78%, transparent); border: 1px solid var(--line); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); box-shadow: 0 14px 36px -18px rgb(0 0 0 / .45); }
   .cookie-note[hidden] { display: none; }
   .cookie-note a { border-bottom: 1px solid var(--line); white-space: nowrap; }
   .cookie-note button { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; font-size: 15px; line-height: 1; }
   .cookie-note button:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
   /* The framed guide (studio: the map's settings): a computer gets the wheel and the arrow keys, a touch screen a hand. */
-  .first-hint.boxed { display: flex; align-items: center; gap: 22px; padding: 12px 20px; border-radius: 16px; letter-spacing: .12em; color: var(--ink);
+  .first-hint.boxed { display: flex; align-items: center; gap: 22px; padding: 12px 20px; border-radius: var(--radius-ui); letter-spacing: calc(.12em * var(--track)); color: var(--ink);
     background: color-mix(in srgb, var(--paper) 72%, transparent); border: 1px solid var(--line); -webkit-backdrop-filter: blur(14px) saturate(160%); backdrop-filter: blur(14px) saturate(160%); box-shadow: 0 14px 36px -18px rgb(0 0 0 / .45); }
   .g-item { display: inline-flex; align-items: center; gap: 10px; }
   .g-item svg { width: 26px; height: 26px; flex: none; }
@@ -449,9 +386,9 @@ __LOADER_CSS__
   #intro video { opacity: 0; transition: opacity .25s linear; }
   #intro video.on { opacity: 1; }
   .intro-text { position: absolute; left: 73%; right: var(--pad); top: 30%; }
-  .intro-kicker { font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); margin-bottom: 18px; }
+  .intro-kicker { font-size: 12px; letter-spacing: calc(.16em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); margin-bottom: 18px; }
   .intro-line { font-size: clamp(18px, 1.8vw, 28px); line-height: 1.25; font-weight: 300; letter-spacing: -.01em; }
-  .intro-enter { position: absolute; left: 50%; bottom: calc(var(--pad) + 4px); transform: translateX(-50%); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink-soft); padding: 10px; }
+  .intro-enter { position: absolute; left: 50%; bottom: calc(var(--pad) + 4px); transform: translateX(-50%); font-size: 12px; letter-spacing: calc(.16em * var(--track)); text-transform: var(--label-case); color: var(--ink-soft); padding: 10px; }
   .intro-enter:hover { color: var(--accent); }
   body:not(.intro-gone) .map, body:not(.intro-gone) .hint, body:not(.intro-gone) .first-hint { visibility: hidden; }
   .empty { position: fixed; inset: 0; display: grid; place-items: center; color: var(--ink-soft); }
@@ -465,7 +402,7 @@ __LOADER_CSS__
     header.place-center .burger { position: absolute; top: var(--pad); right: var(--pad); }
     nav { position: fixed; inset: 0; z-index: 1; flex-direction: column; align-items: center; justify-content: center; gap: 26px; padding: calc(var(--head-h, 96px) + 8px) var(--pad) var(--pad); background: var(--paper); opacity: 0; visibility: hidden; transition: opacity .45s var(--ease), visibility 0s linear .45s; }
     header.menu-open nav { opacity: 1; visibility: visible; transition: opacity .45s var(--ease); }
-    nav a { font-size: 20px; letter-spacing: .16em; opacity: 0; transform: translateY(10px); transition: opacity .5s var(--ease), transform .5s var(--ease), color .4s; }
+    nav a { font-size: 20px; letter-spacing: calc(.16em * var(--track)); opacity: 0; transform: translateY(10px); transition: opacity .5s var(--ease), transform .5s var(--ease), color .4s; }
     header.menu-open nav a { opacity: 1; transform: none; }
     header.menu-open nav a:nth-child(2) { transition-delay: .05s; } header.menu-open nav a:nth-child(3) { transition-delay: .1s; } header.menu-open nav a:nth-child(4) { transition-delay: .15s; } header.menu-open nav a:nth-child(n+5) { transition-delay: .2s; }
     .cell { padding-top: max(calc(var(--pad) + 76px), calc(var(--head-h, 0px) + 12px)); }
@@ -488,6 +425,21 @@ __LOADER_CSS__
     .post-img.left, .post-img.right { float: none; width: 100%; margin: 0 0 1em; }
   }
   @media (prefers-reduced-motion: reduce) { :root { --dur: 0ms; } * { transition-duration: 0ms !important; } }
+  /* The effects she turned on (src/site/effects): only those are written here. */
+  /* The labels' own font, when the theme gives them one. */
+  nav a, .brand, .index, .steps, .roomname, .hint, .map, .first-hint, .generated, .cats button, .post-meta, label, .btn, .close, .legal-foot, .intro-kicker, .intro-enter, .viewer .v-close, .viewer .v-specs th { font-family: var(--font-label); }
+  /* The menu's shape (the theme's): the words alone, each in a pill, or underlined. */
+  .menu-pill nav { gap: 8px; }
+  .menu-pill nav a:not(.lang-switch) { padding: 6px 14px; border: 1px solid var(--line); border-radius: var(--radius-pill); transition: color .4s, background .3s, border-color .3s; }
+  .menu-pill nav a:not(.lang-switch):hover { border-color: var(--accent); }
+  .menu-pill nav a[aria-current="page"]:not(.lang-switch) { background: var(--accent); border-color: var(--accent); color: var(--paper); }
+  .menu-under nav a:not(.lang-switch) { padding-bottom: 5px; border-bottom: 1px solid transparent; transition: color .4s, border-color .3s; }
+  .menu-under nav a:not(.lang-switch):hover, .menu-under nav a[aria-current="page"]:not(.lang-switch) { border-bottom-color: currentColor; }
+  /* The titles' shape (the theme's): as they come, centred, or over a rule. */
+  .titles-centered .page h1 { text-align: center; }
+  .titles-rule .page h1 { padding-bottom: .22em; border-bottom: 1px solid var(--line); }
+  @media (max-width: 760px) { .menu-pill nav { gap: 14px; } .menu-pill nav a:not(.lang-switch) { padding: 8px 22px; } }
+/*__EFFECTS_CSS__*/
 </style>
 </head>
 <body>
@@ -783,6 +735,25 @@ __LOADER_CSS__
     });
     addEventListener('popstate', moved);
   }
+  // ── The effects she turned on (src/site/effects): each one written here registers itself, then is
+  // given the page's own helpers. An effect that fails says so and leaves the site standing.
+  const stage = document.getElementById('stage');
+  let current = null;
+  const EFFECTS = [];
+  const effect = (id, make) => EFFECTS.push([id, make]);
+/*__EFFECTS_JS__*/
+  const PLAYS = D.effects || {};
+  const fxApi = {
+    D, T, esc, src, reduced, stage, small: SMALL, hovers: matchMedia('(hover: hover)').matches, current: () => current,
+    // Whether an effect plays on a creation: on for the whole site, or on her list for it.
+    on: (id, c) => PLAYS[id] === true || (Array.isArray(PLAYS[id]) && !!c && PLAYS[id].includes(c.id)),
+    // Whether she put it on THIS creation herself (its own card), rather than on the whole site.
+    listed: (id, c) => Array.isArray(PLAYS[id]) && !!c && PLAYS[id].includes(c.id),
+  };
+  const FX = EFFECTS.map(([id, make]) => { try { return make(fxApi) || {}; } catch (err) { console.error('[site] the effect ' + id + ' did not start:', err); return {}; } });
+  const fx = (hook, ...args) => { for (const e of FX) if (e[hook]) { try { e[hook](...args); } catch (err) { console.error('[site] an effect stopped (' + hook + '):', err); } } };
+  // The first effect that answers: a room's markup, or « I play this scene ».
+  const fxFirst = (hook, ...args) => { for (const e of FX) if (e[hook]) { try { const r = e[hook](...args); if (r) return r; } catch (err) { console.error('[site] an effect stopped (' + hook + '):', err); } } return null; };
   // Which page lists a creation: the Creations page, or the catalogue she added.
   const pageOf = (c) => (D.creations.includes(c) || (D.sold || []).includes(c) ? 'creations' : ((D.pages || []).find((p) => (p.creations || []).includes(c)) || {}).id || 'creations');
   // A sold piece keeps its page, out of every gallery.
@@ -793,54 +764,9 @@ __LOADER_CSS__
   const viewer = document.createElement('div');
   viewer.className = 'viewer'; viewer.hidden = true; viewer.setAttribute('role', 'dialog');
   document.body.appendChild(viewer);
-  // Her loupe and her frame (studio: Creations ⚙); none of either by default.
-  const LOUPE = (D.viewer && D.viewer.loupe) || 'none';
+  // Her frame (studio: Design › Effects); none by default.
   const FRAME = (D.viewer && D.viewer.frame) || 'none';
   if (FRAME !== 'none') { viewer.classList.add(`frame-${FRAME}`); document.querySelectorAll('.gallery').forEach((g) => g.classList.add(`frame-${FRAME}`)); }
-  // The loupe reads the large copy of the picture; a touch screen zooms on a tap, a second tap comes back.
-  function armLoupe(c, k) {
-    if (LOUPE === 'none') return;
-    const main = viewer.querySelector('.v-main');
-    const img = main && main.querySelector('img');
-    if (!img) return;
-    const big = (c.zoom && c.zoom[k]) || c.images[k];
-    const Z = 2.6;
-    // Where the picture is drawn inside its box (object-fit leaves margins; a mat adds padding).
-    const box = () => {
-      const r = img.getBoundingClientRect(), cs = getComputedStyle(img);
-      const pl = parseFloat(cs.paddingLeft) || 0, pt = parseFloat(cs.paddingTop) || 0;
-      const bw = r.width - pl - (parseFloat(cs.paddingRight) || 0), bh = r.height - pt - (parseFloat(cs.paddingBottom) || 0);
-      const nw = img.naturalWidth || bw, nh = img.naturalHeight || bh, sc = Math.min(bw / nw, bh / nh), w = nw * sc, h = nh * sc;
-      return { x: r.left + pl + (bw - w) / 2, y: r.top + pt + (bh - h) / 2, w, h };
-    };
-    const touch = matchMedia('(hover: none)').matches;
-    if (LOUPE === 'zoom' || touch) {
-      main.classList.add('loupe-zoom');
-      const at = (e) => { const b = box(); img.style.transformOrigin = `${Math.max(0, Math.min(100, ((e.clientX - b.x) / b.w) * 100))}% ${Math.max(0, Math.min(100, ((e.clientY - b.y) / b.h) * 100))}%`; };
-      const sharp = () => { if (!img.dataset.big) { img.dataset.big = '1'; img.src = big; } };
-      if (touch) { img.addEventListener('click', (e) => { e.stopPropagation(); sharp(); at(e); img.classList.toggle('zoomed'); }); return; }
-      img.addEventListener('pointerenter', (e) => { sharp(); at(e); img.classList.add('zoomed'); });
-      img.addEventListener('pointermove', at);
-      img.addEventListener('pointerleave', () => img.classList.remove('zoomed'));
-      return;
-    }
-    main.classList.add('loupe-lens');
-    const lens = document.createElement('div');
-    lens.className = `v-lens ${LOUPE}`;
-    lens.style.backgroundImage = `url("${String(big).replace(/"/g, '%22')}")`;
-    main.appendChild(lens);
-    main.addEventListener('pointermove', (e) => {
-      const b = box(), x = e.clientX - b.x, y = e.clientY - b.y;
-      if (x < 0 || y < 0 || x > b.w || y > b.h) { lens.classList.remove('on'); return; }
-      const mr = main.getBoundingClientRect(), half = lens.offsetWidth / 2;
-      lens.classList.add('on');
-      lens.style.left = `${e.clientX - mr.left - half}px`;
-      lens.style.top = `${e.clientY - mr.top - half}px`;
-      lens.style.backgroundSize = `${b.w * Z}px ${b.h * Z}px`;
-      lens.style.backgroundPosition = `${half - x * Z}px ${half - y * Z}px`;
-    });
-    main.addEventListener('pointerleave', () => lens.classList.remove('on'));
-  }
   // A piece shown with nothing to say (no name, price, size or words): its photo alone,
   // full screen on a dark ground, and the page reads as a gallery (Tony: « une galerie d'image »).
   let viewing = -1;
@@ -858,7 +784,7 @@ __LOADER_CSS__
     viewer.querySelectorAll('.v-thumbs button').forEach((b) => (b.onclick = () => openViewer(c, +b.dataset.k)));
     viewer.querySelectorAll('.v-step').forEach((b) => (b.onclick = () => stepViewer(+b.dataset.step)));
     viewer.querySelector('.v-close').onclick = closeViewer;
-    armLoupe(c, k);
+    fx('viewer', c, k, viewer);
     // A bare photo closes from its dark ground too, as a gallery does.
     viewer.onclick = (e) => { if (viewer.classList.contains('bare') && (e.target === viewer || e.target.classList.contains('v-main'))) closeViewer(); };
     viewer.hidden = false;
@@ -907,49 +833,8 @@ __LOADER_CSS__
       if (th) th.hidden = !keep;
     });
   }));
-  // The catalogue's layout and its parallax (the Creations page's settings).
-  const LAYOUT = (D.viewer && D.viewer.layout) || 'grid';
-  const MOVES = !!(D.viewer && D.viewer.parallax) && matchMedia('(hover: hover)').matches && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  document.querySelectorAll('.gallery').forEach((g) => {
-    if (LAYOUT !== 'grid') g.classList.add(`layout-${LAYOUT}`);
-    if (LAYOUT === 'strip') strip(g);
-    if (!MOVES) return;
-    g.classList.add('parallax');
-    let raf = 0;
-    g.addEventListener('pointermove', (e) => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const r = g.getBoundingClientRect();
-        g.style.setProperty('--px', (((e.clientX - r.left) / r.width - 0.5) * 2).toFixed(3));
-        g.style.setProperty('--py', (((e.clientY - r.top) / r.height - 0.5) * 2).toFixed(3));
-      });
-    });
-    g.addEventListener('pointerleave', () => { cancelAnimationFrame(raf); g.style.setProperty('--px', '0'); g.style.setProperty('--py', '0'); });
-  });
-  // One large photo at a time: its arrows, its thumbnails, the current one lit as it is swiped.
-  function strip(g) {
-    const wrap = document.createElement('div');
-    wrap.className = 'strip-wrap';
-    g.before(wrap);
-    wrap.append(g);
-    const figs = [...g.querySelectorAll('figure')];
-    const centre = (f) => g.scrollTo({ left: f.offsetLeft - (g.clientWidth - f.clientWidth) / 2 });
-    const step = (k) => { const at = figs.filter((f) => !f.hidden); const i = Math.max(0, at.findIndex((f) => f.classList.contains('cur'))); const to = at[Math.min(at.length - 1, Math.max(0, i + k))]; if (to) centre(to); };
-    wrap.insertAdjacentHTML('beforeend', '<button class="strip-go prev" aria-label="‹">‹</button><button class="strip-go next" aria-label="›">›</button>');
-    wrap.querySelector('.prev').addEventListener('click', () => step(-1));
-    wrap.querySelector('.next').addEventListener('click', () => step(1));
-    const thumbs = document.createElement('div');
-    thumbs.className = 'strip-thumbs';
-    thumbs.innerHTML = figs.map((f) => `<button data-c="${esc(f.dataset.c)}" aria-label="${esc(f.getAttribute('aria-label') || '')}"><img src="${esc(f.querySelector('img').getAttribute('src'))}" alt="" loading="lazy" decoding="async"></button>`).join('');
-    wrap.after(thumbs);
-    thumbs.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => { const f = g.querySelector(`figure[data-c="${b.dataset.c}"]`); if (f) centre(f); }));
-    const io = new IntersectionObserver((seen) => seen.forEach((x) => {
-      if (!x.isIntersecting) return;
-      figs.forEach((f) => f.classList.toggle('cur', f === x.target));
-      thumbs.querySelectorAll('button').forEach((b) => b.classList.toggle('on', b.dataset.c === x.target.dataset.c));
-    }), { root: g, threshold: 0.6 });
-    figs.forEach((f) => io.observe(f));
-  }
+  // Each catalogue as the effects she turned on lay it out (the mosaic, the strip, the parallax).
+  document.querySelectorAll('.gallery').forEach((g) => fx('gallery', g));
   document.querySelectorAll('.gallery figure').forEach((f) => {
     const c = ALL[+f.dataset.c];
     f.addEventListener('click', () => openViewer(c));
@@ -1006,7 +891,6 @@ __LOADER_CSS__
     }
   }));
 
-  const stage = document.getElementById('stage');
   if (!ROWS.length) {
     stage.innerHTML = `<p class="empty">${esc(T.empty)}</p>`;
     document.body.classList.add('intro-gone');
@@ -1016,6 +900,8 @@ __LOADER_CSS__
       headNow();
       if (openCreation(h, (id) => { h = id; })) document.body.classList.add('paged');
       document.querySelectorAll('.page').forEach((p) => p.classList.toggle('open', p.id === 'p-' + h));
+      const opened = document.getElementById('p-' + h);
+      if (opened) fx('page', opened);
       document.querySelectorAll('nav a').forEach((a) => (a.dataset.id !== undefined && a.dataset.id === h ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
       document.body.classList.toggle('paged', pages.some((p) => p.id === h));
     };
@@ -1027,7 +913,7 @@ __LOADER_CSS__
 
   // `want` is the column the person is on: a shorter row clamps `v`, not `want`,
   // so going on through it comes back to the same column.
-  let r = 0, v = 0, want = 0, busy = false, current = null, timers = [];
+  let r = 0, v = 0, want = 0, busy = false, timers = [];
   const pad2 = (n) => String(n).padStart(2, '0');
   const pic = (img, cls, alt, first) => (img ? `<img class="${cls}" src="${esc(src(img))}" alt="${esc(alt)}" decoding="async" fetchpriority="${first ? 'high' : 'auto'}">` : '');
 
@@ -1039,87 +925,13 @@ __LOADER_CSS__
     return v ? ` style="${v}"` : '';
   }
 
-  // ── A living scene: layers over the place, set on the cropped picture ──
-  const lay = (L, cls) => (L ? `<img class="${cls}" src="${esc(src(L))}" alt="" decoding="async" style="left:${+L.x}%;top:${+L.y}%;width:${+L.w}%;height:${+L.h}%">` : '');
-  function livingRoom(s, alt) {
-    const L = s.layers;
-    const a = L.potAlive;
-    // The shadows lie on the room, so they move with it; only the piece and the life come forward.
-    return `<div class="lay"><div class="lb"><img class="lplace sa" src="${esc(src(L.room || s.images.place))}" alt="${esc(T.generated)}" decoding="async" fetchpriority="high">${lay(L.shadowPiece, 'lps')}${lay(L.shadowAlive, 'las')}</div>`
-      + `<div class="lg">${lay(L.pot, 'lp')}`
-      + `<canvas class="la" role="img" aria-label="${esc(alt)}" data-src="${esc(src(a))}"${L.sway ? ` data-sway="${esc(src(L.sway))}"` : ''} style="left:${+a.x}%;top:${+a.y}%;width:${+a.w}%;height:${+a.h}%"></canvas></div>`
-      + `<div class="sun"></div></div>`;
-  }
-  // The box the cropped picture fills: object-fit cover, centred across, 70 % down (as .room img).
-  function fitLay(el) {
-    const box = el.querySelector('.lay'), img = box && box.querySelector('.lplace');
-    if (!box || !img || !img.naturalWidth) return;
-    const rw = el.clientWidth, rh = el.clientHeight, r = img.naturalWidth / img.naturalHeight;
-    const w = rw / rh > r ? rw : rh * r, h = w / r;
-    Object.assign(box.style, { width: w + 'px', height: h + 'px', left: (rw - w) * 0.5 + 'px', top: (rh - h) * 0.7 + 'px', right: 'auto', bottom: 'auto' });
-    box.classList.add('fit');
-  }
-  // The life drawn on its canvas; it sways only in the scene on screen, and never for who asked for less motion.
-  function wakeLife(el) {
-    const c = el.querySelector('canvas.la');
-    if (!c || c.dataset.ready) return;
-    c.dataset.ready = '1';
-    const load = (u) => new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = u; });
-    Promise.all([load(c.dataset.src), c.dataset.sway ? load(c.dataset.sway) : null]).then(([img, map]) => {
-      c.width = img.naturalWidth; c.height = img.naturalHeight;
-      const ctx = c.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(img, 0, 0);
-      if (!map || reduced) return;
-      const base = ctx.getImageData(0, 0, c.width, c.height);
-      ctx.clearRect(0, 0, c.width, c.height); ctx.drawImage(map, 0, 0, c.width, c.height);
-      const m = ctx.getImageData(0, 0, c.width, c.height).data;
-      ctx.putImageData(base, 0, 0);
-      c._sway = { ctx, base, m, out: ctx.createImageData(c.width, c.height) };
-    }).catch(() => { c.dataset.ready = ''; });
-  }
-  let swayClock = 0, swayLast = 0;
-  function swayTick(t) {
-    swayClock = requestAnimationFrame(swayTick);
-    // About 30 images a second, and nothing while the page is hidden.
-    if (t - swayLast < 33 || document.hidden) return;
-    swayLast = t;
-    const c = current && current.classList.contains('alive') ? current.querySelector('canvas.la') : null;
-    const sw = c && c._sway;
-    if (!sw) return;
-    const { ctx, base, m, out } = sw, w = base.width, h = base.height, d = base.data;
-    const S = 0.05 * w * Math.sin(t / 700), o = out.data;
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = (y * w + x) * 4, sx = Math.min(w - 1, Math.max(0, x + Math.round(S * (m[i] / 255 - 0.5)))), j = (y * w + sx) * 4;
-      o[i] = d[j]; o[i + 1] = d[j + 1]; o[i + 2] = d[j + 2]; o[i + 3] = d[j + 3];
-    }
-    ctx.putImageData(out, 0, 0);
-  }
-  if (!reduced && [HOME_ROWS, ...STAGES.map((st) => st.rows)].some((rows) => rows.some((row) => row.scenes.some((s) => s.layers && s.layers.sway)))) swayClock = requestAnimationFrame(swayTick);
-  // The pointer moves the room a little against it and the piece a little with it: two depths.
-  if (!reduced) {
-    stage.addEventListener('pointermove', (e) => {
-      if (!current || e.pointerType !== 'mouse') return;
-      const r = current.getBoundingClientRect(), px = (e.clientX - r.left) / r.width * 2 - 1, py = (e.clientY - r.top) / r.height * 2 - 1;
-      const b = current.querySelector('.lb'), g = current.querySelector('.lg');
-      if (b) b.style.transform = `scale(1.04) translate(${-px * 10}px, ${-py * 6}px)`;
-      if (g) g.style.transform = `scale(1.04) translate(${px * 14}px, ${py * 8}px)`;
-    });
-  }
-  stage.addEventListener('pointerleave', () => {
-    if (!current) return;
-    const b = current.querySelector('.lb'), g = current.querySelector('.lg');
-    if (b) b.style.transform = '';
-    if (g) g.style.transform = '';
-  });
-  addEventListener('resize', () => { if (current) fitLay(current); });
-
   function cellEl(ri, vi) {
     const row = ROWS[ri], s = row.scenes[vi];
     const el = document.createElement('section');
     el.className = 'cell';
     // Every staged picture says it is generated in its alt (doc 145 §5); on screen when she chose it.
     const alt = `${s.piece} · ${T.generated}`;
-    el.innerHTML = `<div class="room">${s.layers ? livingRoom(s, alt) : `${pic(s.images.place, 'sa', T.generated, true)}${pic(s.images.piece, 'sb', alt)}${pic(s.images.alive, 'sc', alt)}`}${s.clip ? `<video class="sv" muted playsinline preload="auto" src="${esc(s.clip)}"${s.cut ? ` data-in="${+s.cut.in}" data-out="${+s.cut.out}"` : ''}></video>` : ''}</div>`
+    el.innerHTML = `<div class="room">${fxFirst('room', s, alt) || `${pic(s.images.place, 'sa', T.generated, true)}${pic(s.images.piece, 'sb', alt)}${pic(s.images.alive, 'sc', alt)}`}${s.clip ? `<video class="sv" muted playsinline preload="auto" src="${esc(s.clip)}"${s.cut ? ` data-in="${+s.cut.in}" data-out="${+s.cut.out}"` : ''}></video>` : ''}</div>`
       + `<div class="meta"><div class="index"><b>${pad2(ri + 1)}.${vi + 1}</b> / ${pad2(ROWS.length)}.${row.scenes.length}</div><div class="variant">${esc(s.name)}</div>`
       + `<ol class="steps"><li data-s="1">${esc(T.place)}</li><li data-s="2">${esc(T.piece)}</li><li data-s="3">${esc(T.alive)}</li></ol>${CREDIT}</div>`
       + `<h2 class="roomname">${esc(row.name)}</h2>`
@@ -1131,15 +943,8 @@ __LOADER_CSS__
     timers.forEach(clearTimeout); timers = [];
     prefetch();
     const step = (n, cls, ms) => timers.push(setTimeout(() => { el.classList.add(cls); el.querySelector(`.steps [data-s="${n}"]`).classList.add('on'); }, reduced ? 0 : ms));
-    // A living scene sets its layers on the cropped picture once the place is known.
-    const pl = el.querySelector('.lplace');
-    if (pl) {
-      const fit = () => fitLay(el); pl.complete ? fit() : pl.addEventListener('load', fit, { once: true }); wakeLife(el);
-      // No beats for a living scene: it is shown alive from the start (the cut would show between them).
-      el.classList.add('living', 'lit', 'piece', 'alive');
-      el.querySelectorAll('.steps li').forEach((li) => li.classList.add('on'));
-      return;
-    }
+    // An effect may play the scene its own way (a living scene is shown alive from the start).
+    if (fxFirst('play', el)) return;
     step(1, 'lit', 50);
     step(2, 'piece', 500);
     // With a clip, the living GROWS (the clip ends on its last frame); without, it dissolves in.
@@ -1331,6 +1136,8 @@ __LOADER_CSS__
 
   function openPage(id) {
     document.querySelectorAll('.page').forEach((p) => p.classList.toggle('open', p.id === 'p-' + id));
+    const opened = document.getElementById('p-' + id);
+    if (opened) fx('page', opened);
     document.querySelectorAll('nav a').forEach((a) => (a.dataset.id !== undefined && a.dataset.id === id ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
     document.body.classList.add('paged');
   }

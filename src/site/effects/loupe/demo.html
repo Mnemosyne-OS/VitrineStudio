@@ -1,0 +1,19 @@
+<div class="viewer" id="v"><div><div class="v-main"><img src="__P1__" alt=""></div></div></div>
+<script>
+// A pointer drawn on the card goes over the photo: the lens follows it.
+window.DEMO_D = { rows: [], creations: [], viewer: { loupe: 'lens', frame: 'none' } };
+window.play = (fx, demo) => {
+  const v = document.getElementById('v'), main = v.querySelector('.v-main'), img = main.querySelector('img');
+  const start = () => {
+    fx.viewer({ id: 'demo', images: [img.getAttribute('src')] }, 0, v);
+    if (demo.reduced) return;
+    const turn = (t) => {
+      const r = main.getBoundingClientRect();
+      demo.point(main, r.left + r.width * (0.5 + 0.2 * Math.cos(t / 800)), r.top + r.height * (0.5 + 0.28 * Math.sin(t / 1100)));
+      requestAnimationFrame(turn);
+    };
+    requestAnimationFrame(turn);
+  };
+  if (img.complete) start(); else img.addEventListener('load', start, { once: true });
+};
+</script>

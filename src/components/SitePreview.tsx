@@ -18,10 +18,12 @@ const COLOUR_KEYS = ['ink', 'paper', 'accent'] as const;
  * weight bar hides with one click (a small button brings it back), and full screen
  * puts the preview in real full screen (the host allows it, Escape leaves).
  */
-export function SitePreview({ preview, standalone, onClose, onOpenWindow, colours, onColours, onMenu }: {
+export function SitePreview({ preview, standalone, onClose, onOpenWindow, colours, onColours, onMenu, themed }: {
   /** A menu entry renamed in the preview. */
   onMenu?: (change: MenuChange) => void;
   preview: Preview;
+  /** The site wears its theme's own colours (Design › Theme): hers are not the ones shown, so the palette is not offered here. */
+  themed?: boolean;
   /** The site's colours now; the palette changes them live on the page shown. */
   colours: SiteColours;
   /** Saves the colours chosen, when the colour menu closes. */
@@ -100,7 +102,7 @@ export function SitePreview({ preview, standalone, onClose, onOpenWindow, colour
       {full ? null : bar ? (
         <div className="site-preview-bar">
           <span className="pill glass"><strong>{t('preview.title')}</strong> · {t('preview.weight', { total: formatWeight(preview.size.bytes), images: formatWeight(preview.size.imageBytes), clips: formatWeight(preview.size.clipBytes) })}</span>
-          <button className={`pill glass ${palette ? 'on' : ''}`} onClick={togglePalette} title={t('site.colours.title')} aria-label={t('site.colours.title')}><Palette className="ico solo" aria-hidden /></button>
+          {!themed && <button className={`pill glass ${palette ? 'on' : ''}`} onClick={togglePalette} title={t('site.colours.title')} aria-label={t('site.colours.title')}><Palette className="ico solo" aria-hidden /></button>}
           <button className="pill glass" onClick={toggleFull} title={t(full ? 'preview.exitFull' : 'preview.full')} aria-label={t(full ? 'preview.exitFull' : 'preview.full')}>{full ? <Minimize className="ico solo" aria-hidden /> : <Maximize className="ico solo" aria-hidden />}</button>
           {!standalone && <button className="pill glass" onClick={onOpenWindow}><AppWindow className="ico" aria-hidden />{t('preview.window')}</button>}
           <button className="pill glass" onClick={() => setBar(false)} title={t('preview.hideBar')} aria-label={t('preview.hideBar')}><ChevronUp className="ico solo" aria-hidden /></button>

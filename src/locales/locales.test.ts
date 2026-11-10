@@ -16,7 +16,12 @@ const SOURCES = import.meta.glob<string>(['../**/*.{ts,tsx}', '!../**/*.test.{ts
 
 /** Keys built at runtime from a literal prefix, expanded to their real values. */
 const DYNAMIC: Record<string, string[]> = {
-  'tab.': ['scenes', 'pieces', 'film', 'logo', 'site', 'hosting', 'costs', 'settings'],
+  'tab.': ['scenes', 'pieces', 'film', 'blog', 'pages', 'about', 'contact', 'legal', 'logo', 'design', 'site', 'hosting', 'costs', 'settings'],
+  'space.': ['content', 'design', 'online', 'contentHint', 'designHint', 'onlineHint'],
+  'design.part.': ['theme', 'identity', 'effects', 'details'],
+  'effects.where.': ['gallery', 'creation', 'scene', 'page'],
+  'design.pick.': ['logo', 'words', 'menu', 'title', 'gallery', 'viewer', 'scene', 'map', 'loader'],
+  'theme.colours.': ['own', 'theme', 'ownHint', 'themeHint'],
   'logo.mode.': ['logo', 'both', 'name'],
   'logo.anims.': ['none', 'fade', 'rise', 'blur', 'reveal', 'zoom', 'spin', 'slide', 'letters', 'draw', 'breathe'],
   'logo.speed.': ['slow', 'normal', 'fast'],
@@ -61,11 +66,11 @@ const DYNAMIC: Record<string, string[]> = {
   'clip.light.': ['steady', 'sun'],
   'scenes.': ['makeAll', 'makeRest', 'decorMoved', 'decorStill'],
   'bar.stage.': ['checking', 'unconnected', 'never', 'pending', 'failed', 'current', 'behind', 'unknown'],
-  'site.section.': ['online', 'look', 'connect', 'copies'],
+  'site.section.': ['online', 'seo', 'languages', 'connect', 'copies'],
   'room.group.': ['menu', 'scenes', 'creations', 'about', 'blog', 'contact', 'pages', 'legal'],
   'room.state.': ['missing', 'stale', 'proposed', 'read', 'edited'],
 };
-const COUNTED = ['app.unreadable', 'app.folderReread', 'pieces.count', 'scenes.count', 'scenes.onSite', 'site.go.exported', 'film.makeImages', 'film.makeFilm', 'takeaway.done', 'site.heavyClips', 'takeaway.restored', 'takeaway.kept', 'takeaway.failed', 'film.wizard.createAndMake', 'remove.deleteHint', 'remove.left', 'upscale.run', 'site.quality.notEnlarged', 'costs.calls', 'costs.unmeasured', 'costs.aheadImages', 'costs.aheadClips', 'upscale.keepAll', 'vector.elements', 'vector.cutClear', 'parts.selected', 'kit.pages', 'kit.added'];
+const COUNTED = ['app.unreadable', 'app.folderReread', 'pieces.count', 'scenes.count', 'scenes.onSite', 'site.go.exported', 'film.makeImages', 'film.makeFilm', 'takeaway.done', 'site.heavyClips', 'design.trial.count', 'takeaway.restored', 'takeaway.kept', 'takeaway.failed', 'film.wizard.createAndMake', 'remove.deleteHint', 'remove.left', 'upscale.run', 'site.quality.notEnlarged', 'costs.calls', 'costs.unmeasured', 'costs.aheadImages', 'costs.aheadClips', 'upscale.keepAll', 'vector.elements', 'vector.cutClear', 'parts.selected', 'kit.pages', 'kit.added'];
 
 function wanted(): Set<string> {
   const keys = new Set<string>();

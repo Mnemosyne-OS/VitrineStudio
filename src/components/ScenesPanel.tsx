@@ -1,4 +1,4 @@
-import { Check, Eye, EyeOff, Maximize2, Play, Plus, Settings, Square, Video } from 'lucide-react';
+import { Check, Eye, EyeOff, Maximize2, Palette, Play, Plus, Square, Video } from 'lucide-react';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { readMedia } from '../data/host';
 import { errorText } from './errors';
@@ -11,8 +11,6 @@ import { useArmed } from '../hooks/useArmed';
 import { nextBeat } from '../model/records';
 import { Thumb } from './Thumb';
 import { CategoryDock } from './CategoryDock';
-import { SceneMapSettings } from './SceneMapSettings';
-import type { SceneMap } from '../model/sceneMap';
 import { moveId } from '../model/showcase';
 
 const SCENE_DRAG = 'application/x-atelier-scene';
@@ -59,8 +57,8 @@ interface Props {
   /** The scenes' new order, every id. */
   onReorder: (ids: string[]) => void;
   /** The site's little map of the places: its model and colour. */
-  sceneMap: SceneMap;
-  onSceneMap: (next: SceneMap) => void;
+  /** The map of the places and the scenes' names are set on the Design screen: this opens it there. */
+  onDesign: () => void;
   /** Opens the scene full screen on this beat. */
   onOpen: (scene: Scene, beat: Beat) => void;
   /** Asks how the scene leaves the studio (archive or delete for good). */
@@ -101,11 +99,10 @@ function readView(): { size: CardSize; place: string | null } {
   }
 }
 
-export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll, onValidate, onMove, onReorder, sceneMap, onSceneMap, onOpen, onRemove, costs, imageModel }: Props) {
+export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll, onValidate, onMove, onReorder, onDesign, onOpen, onRemove, costs, imageModel }: Props) {
   const { t } = useI18n();
   const all = [...new Set(scenes.map((s) => s.universe || t('scenes.noUniverse')))];
   const [view, setView] = useState(readView);
-  const [mapOpen, setMapOpen] = useState(false);
   const change = (next: Partial<typeof view>) => {
     const v = { ...view, ...next };
     setView(v);
@@ -163,7 +160,7 @@ export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll,
           {/* After the places, what is done to them: a new one, and the page as the visitor sees it. */}
           <div className="scenes-actions">
             <button className="primary new-btn" onClick={onNew}><Plus className="ico" aria-hidden />{t('scenes.new')}</button>
-            <button className={`icon-btn glass ${mapOpen ? 'on' : ''}`} aria-pressed={mapOpen} aria-label={t('sceneMap.title')} data-tip={t('sceneMap.title')} onClick={() => setMapOpen((o) => !o)}><Settings className="ico solo" aria-hidden /></button>
+            <button className="icon-btn glass" aria-label={t('design.open.map')} data-tip={t('design.open.map')} onClick={onDesign}><Palette className="ico solo" aria-hidden /></button>
           </div>
           <nav className="segmented glass" aria-label={t('scenes.size')}>
             {SIZES.map((sz) => (
@@ -172,7 +169,6 @@ export function ScenesPanel({ scenes, pieces, profileOf, work, onNew, onMakeAll,
           </nav>
         </div>
       )}
-      {mapOpen && scenes.length > 0 && <SceneMapSettings value={sceneMap} onChange={onSceneMap} />}
       <div className={`scenes-view size-${view.size}`}>
       {universes.map((u) => {
         const inPlace = scenes.filter((s) => (s.universe || t('scenes.noUniverse')) === u);

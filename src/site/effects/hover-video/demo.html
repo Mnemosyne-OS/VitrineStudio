@@ -1,0 +1,43 @@
+<div class="gallery" id="g"><figure data-id="a"><div class="ph"><img class="g0" src="__P1__" alt=""></div></figure><figure data-id="b"><div class="ph"><img class="g0" src="__P2__" alt=""></div></figure><figure data-id="c"><div class="ph"><img class="g0" src="__P3__" alt=""></div></figure></div>
+<script>
+// A clip is needed and the card has none of hers: a short one is made here, her own photo drawn closer
+// and closer. Then a pointer drawn on the card goes from one creation to the next: each plays under it.
+window.DEMO_D = { rows: [], creations: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] };
+window.play = (fx, demo) => {
+  const g = document.getElementById('g');
+  const figs = [...g.querySelectorAll('figure')];
+  if (demo.reduced || !window.MediaRecorder) return;
+  const clipOf = (img) => new Promise((done) => {
+    const c = document.createElement('canvas'); c.width = 240; c.height = 300;
+    const ctx = c.getContext('2d');
+    let rec;
+    try { rec = new MediaRecorder(c.captureStream(24)); } catch (err) { console.warn('no recorder for the demonstration:', err); done(''); return; }
+    const parts = [];
+    rec.ondataavailable = (e) => parts.push(e.data);
+    rec.onstop = () => done(URL.createObjectURL(new Blob(parts, { type: rec.mimeType })));
+    const t0 = performance.now();
+    const draw = (t) => {
+      const z = 1 + Math.min(1, (t - t0) / 1400) * 0.35, w = c.width * z, h = c.height * z;
+      const r = Math.max(w / img.naturalWidth, h / img.naturalHeight), iw = img.naturalWidth * r, ih = img.naturalHeight * r;
+      ctx.drawImage(img, (c.width - iw) / 2, (c.height - ih) / 2, iw, ih);
+      if (t - t0 < 1500) requestAnimationFrame(draw); else rec.stop();
+    };
+    rec.start();
+    requestAnimationFrame(draw);
+  });
+  const ready = (img) => (img.complete && img.naturalWidth ? Promise.resolve() : new Promise((ok) => { img.onload = ok; img.onerror = ok; }));
+  Promise.all(figs.map((f) => ready(f.querySelector('img')).then(() => clipOf(f.querySelector('img'))))).then((clips) => {
+    clips.forEach((clip, i) => { if (clip) window.DEMO_D.creations[i].clip = clip; });
+    fx.gallery(g);
+    let at = -1;
+    const hop = () => {
+      if (at >= 0) figs[at].dispatchEvent(new PointerEvent('pointerleave', { pointerType: 'mouse' }));
+      at = (at + 1) % figs.length;
+      const r = figs[at].getBoundingClientRect();
+      demo.point(figs[at], r.left + r.width / 2, r.top + r.height / 2, 'pointerenter');
+    };
+    hop();
+    setInterval(hop, 2000);
+  });
+};
+</script>

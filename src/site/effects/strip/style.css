@@ -1,0 +1,17 @@
+/* The strip: one large photo at a time, swiped or stepped, the next ones small under it. */
+.strip-wrap { grid-column: 1 / -1; position: relative; min-width: 0; }
+.gallery.layout-strip { display: flex; gap: var(--gap, 16px); overflow-x: auto; scroll-snap-type: x mandatory; scroll-behavior: smooth; scrollbar-width: none; padding: 0 8%; }
+.gallery.layout-strip::-webkit-scrollbar { display: none; }
+.gallery.layout-strip figure { flex: 0 0 min(84%, 960px); scroll-snap-align: center; margin-bottom: 12px; }
+.gallery.layout-strip .ph { aspect-ratio: 4 / 3; }
+.gallery.layout-strip .ph img { object-fit: contain; }
+.strip-go { position: absolute; top: 40%; z-index: 2; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: color-mix(in srgb, var(--paper) 80%, transparent); color: var(--ink); font-size: 22px; line-height: 1; cursor: pointer; transition: color .3s, border-color .3s; }
+.strip-go:hover { color: var(--accent); border-color: var(--accent); }
+.strip-go.prev { left: 0; } .strip-go.next { right: 0; }
+.strip-thumbs { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: safe center; overflow-x: auto; scrollbar-width: none; padding: 6px 2px; }
+.strip-thumbs button { flex: 0 0 64px; height: 64px; padding: 0; border: 0; border-radius: 6px; overflow: hidden; opacity: .5; cursor: pointer; transition: opacity .3s, outline-color .3s; outline: 2px solid transparent; outline-offset: 2px; }
+.strip-thumbs button.on { opacity: 1; outline-color: var(--accent); }
+.strip-thumbs img { width: 100%; height: 100%; object-fit: cover; display: block; }
+@media (hover: none) { .strip-go { display: none; } }
+/* The strip glides from one photo to the next; for who asked for less motion it steps. */
+@media (prefers-reduced-motion: reduce) { .gallery.layout-strip { scroll-behavior: auto; } }

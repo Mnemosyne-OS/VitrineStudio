@@ -1,0 +1,12 @@
+<div class="viewer" id="v"><div><div class="v-main"><img src="__P1__" alt=""></div></div></div>
+<script>
+// The divider goes from one photo to the other and back, as a hand would move it.
+window.play = (fx, demo) => {
+  const v = document.getElementById('v');
+  fx.viewer({ id: 'demo', alt: '', images: ['__P1__', '__P2__'] }, 0, v);
+  const range = v.querySelector('.ba-range');
+  if (!range || demo.reduced) return;
+  const turn = (t) => { range.value = String(50 + 38 * Math.sin(t / 900)); range.dispatchEvent(new Event('input')); requestAnimationFrame(turn); };
+  requestAnimationFrame(turn);
+};
+</script>

@@ -1,0 +1,18 @@
+<section class="page" id="p"><h1>&nbsp;</h1><div class="cols"><div class="gallery"><figure><div class="ph"><img class="g0" src="__P1__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P2__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P3__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P4__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P5__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P6__" alt=""></div></figure></div></div></section>
+<script>
+// The page scrolls down by itself, its creations rise into place as they come, then it starts again.
+window.play = (fx, demo) => {
+  const page = document.getElementById('p');
+  if (demo.reduced) return;
+  const run = () => {
+    page.scrollTop = 0;
+    page.querySelectorAll('.rv').forEach((x) => { x.classList.remove('rv', 'rv-in'); });
+    fx.page(page);
+    const t0 = performance.now(), far = page.scrollHeight - page.clientHeight;
+    const scroll = (t) => { const k = Math.min(1, Math.max(0, (t - t0 - 900) / 2600)); page.scrollTop = far * k; if (k < 1) requestAnimationFrame(scroll); };
+    requestAnimationFrame(scroll);
+  };
+  run();
+  setInterval(run, 5600);
+};
+</script>

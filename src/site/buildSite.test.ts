@@ -496,33 +496,47 @@ describe('a living scene on the site', () => {
     swayMap: 'C:/l/map.png', room: 'C:/l/room.webp', pivot: { x: 50, y: 40 }, made: LAYERS_MADE, madeAt: '2026-10-12T00:00:00Z',
   });
 
-  it('opens ON its life: no place-then-piece beats, which showed the cut (field, 2026-10-12)', async () => {
+  /** The page as exported for a site with one living scene: the living effect is written into it (src/site/effects/living). */
+  const livingPage = async () => {
     const tpl = (await import('./template.html?raw')).default;
+    const data = buildSiteData({ brand, lang: 'fr', today: '2026-01-01', untitled: 'x', scenes: [scene('1', { motion: 'living', layers: layers('1') })], pieces: [piece('p1')] });
+    expect(data.rows[0]!.scenes[0]!.layers).toBeDefined();
+    return { tpl, page: fillShell(tpl, brand, 'fr', data) };
+  };
+
+  it('opens ON its life: no place-then-piece beats, which showed the cut (field, 2026-10-12)', async () => {
+    const { tpl, page } = await livingPage();
+    // The page asks the effects before its timed steps: an effect that plays the scene ends there.
     const play = tpl.slice(tpl.indexOf('function play(el)'), tpl.indexOf("step(1, 'lit', 50);"));
-    // The living branch sets every beat at once and returns before the timed steps.
-    expect(play).toContain("el.classList.add('living', 'lit', 'piece', 'alive');");
-    expect(play).toMatch(/el\.classList\.add\('living'[^]*return;\s*\}\s*$/);
+    expect(play).toMatch(/if \(fxFirst\('play', el\)\) return;\s*$/);
+    // The living effect sets every beat at once, and says it played the scene.
+    const own = page.slice(page.indexOf("effect('living'"));
+    const hook = own.slice(own.indexOf('play(el) {'), own.indexOf('return true;') + 'return true;'.length);
+    expect(hook).toContain("el.classList.add('living', 'lit', 'piece', 'alive');");
+    expect(hook).toContain("if (!pl) return false;");
     // Its layers appear without a fade: no empty room, no piece laid on it.
-    expect(tpl).toContain('.cell.living .room .la, .cell.living .room .las { opacity: 1; transition: none; }');
-    expect(tpl).toContain('.cell.living .room .lp, .cell.living .room .lps { opacity: 0; transition: none; }');
+    expect(page).toContain('.cell.living .room .la, .cell.living .room .las { opacity: 1; transition: none; }');
+    expect(page).toContain('.cell.living .room .lp, .cell.living .room .lps { opacity: 0; transition: none; }');
   });
 
   it('lays the shadows on the room and both depths at one scale, so nothing slides beside its place at rest', async () => {
-    const tpl = (await import('./template.html?raw')).default;
+    const { tpl, page } = await livingPage();
     // The shadows are in the room's depth, the piece and the life in the other.
-    expect(tpl).toMatch(/<div class="lb"><img class="lplace sa"[^`]*\$\{lay\(L\.shadowPiece, 'lps'\)\}\$\{lay\(L\.shadowAlive, 'las'\)\}<\/div>/);
-    expect(tpl).toContain("`<div class=\"lg\">${lay(L.pot, 'lp')}`");
-    expect(tpl).toContain('.room .lay .lb, .room .lay .lg { transform: scale(1.04);');
+    expect(page).toMatch(/<div class="lb"><img class="lplace sa"[^`]*\$\{lay\(L\.shadowPiece, 'lps'\)\}\$\{lay\(L\.shadowAlive, 'las'\)\}<\/div>/);
+    expect(page).toContain("`<div class=\"lg\">${lay(L.pot, 'lp')}`");
+    expect(page).toContain('.room .lay .lb, .room .lay .lg { transform: scale(1.04);');
     // Moved by the pointer, each keeps that scale.
-    expect(tpl).toContain("b.style.transform = `scale(1.04) translate(");
-    expect(tpl).toContain("g.style.transform = `scale(1.04) translate(");
+    expect(page).toContain("b.style.transform = `scale(1.04) translate(");
+    expect(page).toContain("g.style.transform = `scale(1.04) translate(");
     // Arriving, before its picture is known: the room covers the cell, cropped like any picture, the layers hidden.
-    expect(tpl).toContain('.room .lay { position: absolute; inset: 0; }');
-    expect(tpl).toContain('.room .lay:not(.fit) .lb > .lplace { object-fit: cover; object-position: 50% 70%; }');
-    expect(tpl).toContain('.room .lay:not(.fit) .lg { visibility: hidden; }');
-    expect(tpl).toContain("box.classList.add('fit');");
-    // The next rooms' own pictures are fetched ahead, a living room's room and layers included.
+    expect(page).toContain('.room .lay { position: absolute; inset: 0; }');
+    expect(page).toContain('.room .lay:not(.fit) .lb > .lplace { object-fit: cover; object-position: 50% 70%; }');
+    expect(page).toContain('.room .lay:not(.fit) .lg { visibility: hidden; }');
+    expect(page).toContain("box.classList.add('fit');");
+    // The next rooms' own pictures are fetched ahead, a living room's room and layers included (the page's own, whatever the effects).
     expect(tpl).toContain('s.layers ? [s.layers.room, s.layers.potAlive');
+    // The scene's room is the effect's when it answers, the three pictures otherwise.
+    expect(tpl).toContain("${fxFirst('room', s, alt) || `${pic(s.images.place, 'sa', T.generated, true)}");
   });
 
   it('names every file a living room needs, so a light preview never shows it empty', () => {

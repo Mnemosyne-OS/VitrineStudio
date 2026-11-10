@@ -2,6 +2,17 @@ import { allCreations, buildSiteData, onlineScenes, type SiteInput, type SiteSet
 import { withSeo, type SeoCfg } from '../site/seo';
 import type { Piece, Scene } from './types';
 
+/** What the studio is doing with the site now: writing it, sending it, or what the last of those left. */
+export type SiteWork =
+  | { kind: 'idle' }
+  | { kind: 'exporting'; done: number; total: number }
+  | { kind: 'exported'; files: number }
+  /** Sent to Vercel at `since` (ms): the host gives no count, the bar shows the time it has taken. */
+  | { kind: 'publishing'; since: number }
+  /** Vercel said READY: said until the site changes again. */
+  | { kind: 'published' }
+  | { kind: 'error'; key: string; raw?: string };
+
 /** What the last publish left: Vercel's own answer, and the print of the site it sent. */
 export type LastPublish = NonNullable<SiteSettings['lastPublish']>;
 
@@ -74,12 +85,12 @@ export function siteFields(site: SiteSettings) {
   return {
     brand: site.brand, identity: site.identity, showcase: site.showcase, hover: site.creationsHover, currency: site.currency, menu: site.menu,
     menuOrder: site.menuOrder, pieceOrder: site.pieceOrder, sceneOrder: site.sceneOrder, categories: site.categories, sceneMap: site.sceneMap,
-    pages: site.pages, viewer: site.viewer, legal: site.legal, analytics: !!site.analytics, seo: site.seo,
+    pages: site.pages, viewer: site.viewer, legal: site.legal, analytics: !!site.analytics, seo: site.seo, effects: site.effects, theme: site.theme,
   } satisfies Partial<SiteInput>;
 }
 
 /** JSON with its keys sorted at every level: the same value always gives the same text. */
-function stableJson(value: unknown): string {
+export function stableJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`;
   if (value && typeof value === 'object') {
     return `{${Object.keys(value).sort().filter((k) => (value as Record<string, unknown>)[k] !== undefined)

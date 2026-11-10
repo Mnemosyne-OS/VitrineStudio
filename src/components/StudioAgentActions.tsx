@@ -3,6 +3,7 @@ import { sdk } from '../data/host';
 import { useI18n } from '../i18n';
 import { newId, nextBeat } from '../model/records';
 import { pageIdFor, PAGE_TYPES, type PageType } from '../model/pages';
+import { SPACES } from '../model/spaces';
 import { BEATS, CLIP_CAMERAS, CLIP_LIGHTS, SCENE_MOTIONS, type Beat, type ClipStyle, type Piece, type Scene, type SceneMotion, type StudioSettings } from '../model/types';
 import type { Studio } from '../hooks/useStudio';
 import type { useScenes } from '../hooks/useScenes';
@@ -22,8 +23,13 @@ type PieceActions = ReturnType<typeof usePieces>;
 
 const str = (v: unknown): string => (typeof v === 'string' ? v.trim() : '');
 
-/** The studio's own screens, in the order of its menu; `hosting` is kept for agents and opens Site › Online (doc 145 §10.20). */
-export const AGENT_TABS = ['pieces', 'scenes', 'blog', 'about', 'contact', 'film', 'logo', 'site', 'hosting', 'costs', 'settings'] as const;
+/**
+ * The studio's own screens. The names of before stay entries (doc 145 §10.20, §10.25): `hosting`
+ * opens Online › Online, `site` the Online space, `logo` Design › Identity (model/spaces.ts leads each one).
+ */
+export const AGENT_TABS = ['pieces', 'scenes', 'film', 'blog', 'about', 'contact', 'legal', 'pages', 'design', 'logo', 'site', 'hosting', 'costs', 'settings'] as const;
+/** A space asked by its name opens on its first screen. */
+const SPACE_OPENS = { content: 'pieces', design: 'design', online: 'site' } as const;
 /** The picture sizes the settings offer. */
 export const AGENT_ASPECTS = ['16:9', '9:16', '1:1', '4:3', '3:4'] as const;
 /** What the person's « About » and « Contact » say, as an agent may write it. */
@@ -295,7 +301,8 @@ export function StudioAgentActions({ studio, sceneActions, siteActions, pieceAct
       showTab: (args) => {
         const { studio: st, openTab: open, view: v, t: tr } = latest.current;
         const asked = fold(str(args.tab));
-        const builtIn = AGENT_TABS.find((x) => x === asked || fold(tr(`tab.${x}`)) === asked);
+        const space = SPACES.find((x) => x === asked || fold(tr(`space.${x}`)) === asked);
+        const builtIn = AGENT_TABS.find((x) => x === asked || fold(tr(`tab.${x}`)) === asked) ?? (space ? SPACE_OPENS[space] : undefined);
         const target = builtIn ?? `page:${findNamed(st.siteRef.current.pages.map((p) => ({ item: p, id: p.id, names: [p.name], label: p.name })), str(args.tab), { code: 'NO_TAB', noun: 'page' }).id}`;
         v.closeAll();
         open(target);

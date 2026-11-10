@@ -136,6 +136,58 @@ export function withMenuEditing(html: string): string {
   return at < 0 ? html + MENU_EDIT_SCRIPT : html.slice(0, at) + MENU_EDIT_SCRIPT + html.slice(at);
 }
 
+/** The message the Design screen's preview sends when a part of the site is clicked. */
+export const DESIGN_PICKED = 'atelier-studio:design-picked';
+
+/**
+ * The parts of the page a click can lead to a setting for, the first match winning
+ * (model/design.ts names them). A selector the page does not have is simply never hit.
+ */
+const DESIGN_PICKS: ReadonlyArray<readonly [string, string]> = [
+  ['.loader', 'loader'], ['.viewer:not([hidden])', 'viewer'], ['header .brand', 'logo'], ['header nav', 'menu'], ['.intro-text', 'words'], ['.page h1', 'title'],
+  ['.map', 'map'], ['.hint', 'map'], ['.first-hint', 'map'],
+  ['.strip-wrap', 'gallery'], ['.strip-thumbs', 'gallery'], ['.cats', 'gallery'], ['.gallery', 'gallery'], ['.cell', 'scene'],
+];
+
+/**
+ * The Design screen's preview (doc 145 §10.25): a part of the site under the
+ * pointer is framed and named, and a click on it tells the studio, which opens
+ * that part's setting. The click still does what it does on the site (a link
+ * opens its page, a creation opens large): nothing is blocked, the panel
+ * follows. Only in that preview: the exported page never has it.
+ * `labels` are the studio's words for each part (a part without a word is not offered);
+ * `colour` is the studio's own, so the frame reads the same on any site.
+ */
+export function withDesignPicking(html: string, labels: Readonly<Record<string, string>>, colour: string): string {
+  const safe = /^#[0-9a-fA-F]{3,8}$|^rgba?\([\d\s.,%/]+\)$/.test(colour.trim()) ? colour.trim() : 'currentColor';
+  const script = `<script>(() => {
+  const PICKS = ${JSON.stringify(DESIGN_PICKS)};
+  const LABELS = ${JSON.stringify(labels).replace(/</g, '\\u003c')};
+  const css = document.createElement('style');
+  css.textContent = '.dz-box{position:fixed;z-index:9999;pointer-events:none;border:2px dashed ${safe};border-radius:10px;opacity:0;transition:opacity .15s}.dz-box.on{opacity:1}.dz-box span{position:absolute;left:6px;top:6px;padding:3px 10px;border-radius:99px;background:${safe};color:#fff;font:500 12px/1.4 system-ui,sans-serif;letter-spacing:0;text-transform:none;white-space:nowrap}';
+  document.head.appendChild(css);
+  const box = document.createElement('div'); box.className = 'dz-box'; box.innerHTML = '<span></span>';
+  document.body.appendChild(box);
+  const find = (el) => { if (!(el instanceof Element)) return null; for (const [sel, id] of PICKS) { if (!LABELS[id]) continue; const hit = el.closest(sel); if (hit) return [hit, id]; } return null; };
+  const frame = (hit) => {
+    if (!hit) { box.classList.remove('on'); return; }
+    const r = hit[0].getBoundingClientRect();
+    const x = Math.max(4, r.left - 4), y = Math.max(4, r.top - 4);
+    const w = Math.min(innerWidth - 4, r.right + 4) - x, h = Math.min(innerHeight - 4, r.bottom + 4) - y;
+    if (w < 8 || h < 8) { box.classList.remove('on'); return; }
+    Object.assign(box.style, { left: x + 'px', top: y + 'px', width: w + 'px', height: h + 'px' });
+    box.firstChild.textContent = LABELS[hit[1]];
+    box.classList.add('on');
+  };
+  document.addEventListener('pointerover', (e) => { if (e.pointerType === 'mouse') frame(find(e.target)); }, true);
+  document.documentElement.addEventListener('pointerleave', () => frame(null));
+  addEventListener('scroll', () => frame(null), true);
+  document.addEventListener('click', (e) => { const hit = find(e.target); if (hit) parent.postMessage({ type: ${JSON.stringify(DESIGN_PICKED)}, target: hit[1] }, '*'); }, true);
+})();</script>`;
+  const at = html.lastIndexOf('</body>');
+  return at < 0 ? html + script : html.slice(0, at) + script + html.slice(at);
+}
+
 /**
  * What the page's own script threw, kept on the page (`__previewErrors`) for the
  * studio to read: a page whose script stops stays white and says nothing (field,

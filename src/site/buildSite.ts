@@ -31,6 +31,11 @@ import type { SitePost } from '../data/blogIO';
 import { base64Bytes, dataUrlPayload, utf8Base64 } from '../data/bytes';
 import type { Lang } from '../model/profiles';
 import type { SeoSettings } from '../model/seo';
+import type { EffectsSettings } from '../model/effects';
+import { activeEffects, EFFECTS } from './effects';
+import { paletteOf, themeClasses, themeOf } from './themes';
+import { tokensCss } from './themes/contract';
+import { STARTING_THEME, type ThemeSettings } from '../model/theme';
 import { fillPage, homeImage, seoFiles, type SiteSeo } from './seo';
 import type { FilmStep } from '../model/film';
 import { filmComplete, type Film } from '../model/filmRecord';
@@ -156,6 +161,10 @@ export interface SiteSettings {
   translation?: SiteTranslation;
   /** How the site is found: its addresses, what search engines and AI crawlers may read (model/seo.ts). */
   seo: SeoSettings;
+  /** The effects she turned on or off, and the creations some play on (model/effects.ts). */
+  effects: EffectsSettings;
+  /** The site's theme (model/theme.ts); `{}` = the starting theme with her own colours. */
+  theme: ThemeSettings;
 }
 
 /** Any weight the person wants (Tony: « si il veut des photos de 800 Ko, c'est son choix »). */
@@ -379,11 +388,20 @@ export interface SiteData {
     /** A sold piece: said on its page and in its structured data. */
     sold?: true;
     /** A piece she marked for sale: the only case its structured data says « in stock ». */
-    available?: true }>;
+    available?: true;
+    /** The clip of one of its scenes, already on the site: played over its photo by the effect that asked for it. */
+    clip?: string }>;
   /** Sold pieces whose page stays online, marked sold (model/seo.ts); never in a gallery. */
   sold?: SiteData['creations'];
   /** The site's addresses and what its head says (site/seo.ts); absent on a preview. */
   seo?: SiteSeo;
+  /**
+   * The effects she turned on that the page cannot read from another setting, by id: `true` for the
+   * whole site, or the creations each plays on. Absent when she turned none on (a site of before).
+   */
+  effects?: Record<string, true | string[]>;
+  /** The theme she chose (src/site/themes) and whose colours paint the site. Absent = the starting theme, her colours. */
+  theme?: ThemeSettings;
   /** What a creation does under the pointer. */
   creationsHover?: CreationsHover;
   /** The blog, newest first: its HTML made at export from the post's Markdown. Absent when no post is online. */
@@ -460,7 +478,7 @@ export function onlineScenes(scenes: Scene[], pieces: Piece[]): Scene[] {
 }
 
 /** The scenes that go online, grouped in rows by place, in the order she set (then the order they were made). */
-export function siteRows(scenes: Scene[], pieces: Piece[], untitled: string, order: readonly string[] = []): SiteData['rows'] {
+export function siteRows(scenes: Scene[], pieces: Piece[], untitled: string, order: readonly string[] = [], stillLife = false): SiteData['rows'] {
   const rows: SiteData['rows'] = [];
   const shown = inPieceOrder(onlineScenes(scenes, pieces), order);
   for (const s of shown) {
@@ -468,7 +486,8 @@ export function siteRows(scenes: Scene[], pieces: Piece[], untitled: string, ord
     let row = rows.find((r) => r.name === name);
     if (!row) rows.push((row = { name, scenes: [] }));
     const images: SiteData['rows'][number]['scenes'][number]['images'] = {};
-    const living = livingOnSite(s);
+    // The living scenes turned off for the whole site (Design › Effects) show their three pictures.
+    const living = !stillLife && livingOnSite(s);
     // A living scene's piece and life ARE its layers: its pictures 2 and 3 do not travel.
     for (const b of (living ? ['place'] : ['place', 'piece', 'alive']) as Beat[]) {
       if (s.images[b]) images[b] = { s: sceneAsset(s.id, b, 's'), l: sceneAsset(s.id, b, 'l') };
@@ -502,12 +521,15 @@ export function postWhen(day: string, lang: Lang): string {
   return new Date(`${day}T12:00:00`).toLocaleDateString(lang, { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]; pieces: Piece[]; posts?: SitePost[]; today: string; untitled: string; film?: ReturnType<typeof filmSources>; identity?: Identity; links?: Array<{ title: string; href: string }>; beats?: Record<Beat, string>; showcase?: Record<string, PieceShow>; hover?: CreationsHover; currency?: CurrencySettings; menu?: MenuNames; menuOrder?: MenuKey[]; pieceOrder?: string[]; sceneOrder?: string[]; categories?: Category[]; sceneMap?: SceneMap; pages?: SitePage[]; viewer?: ViewerSettings; legal?: Legal; analytics?: boolean; seo?: SeoSettings }): SiteData {
+export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]; pieces: Piece[]; posts?: SitePost[]; today: string; untitled: string; film?: ReturnType<typeof filmSources>; identity?: Identity; links?: Array<{ title: string; href: string }>; beats?: Record<Beat, string>; showcase?: Record<string, PieceShow>; hover?: CreationsHover; currency?: CurrencySettings; menu?: MenuNames; menuOrder?: MenuKey[]; pieceOrder?: string[]; sceneOrder?: string[]; categories?: Category[]; sceneMap?: SceneMap; pages?: SitePage[]; viewer?: ViewerSettings; legal?: Legal; analytics?: boolean; seo?: SeoSettings; effects?: EffectsSettings; theme?: ThemeSettings }): SiteData {
   const loupe = !!input.viewer && input.viewer.loupe !== 'none';
+  // The loupe on some creations only, when it is not on for the whole site.
+  const loupeOnly = new Set(loupe ? [] : input.effects?.only?.loupe ?? []);
+  const stillLife = input.effects?.state?.living === 'off';
   const pages = input.pages ?? [];
   // The rooms of some scenes, with the words over each, read from its piece's record at build time.
   const sceneRows = (list: Scene[]) => {
-    const rows = siteRows(list, input.pieces, input.untitled, input.sceneOrder);
+    const rows = siteRows(list, input.pieces, input.untitled, input.sceneOrder, stillLife);
     for (const row of rows) for (const cell of row.scenes) {
       const scene = input.scenes.find((x) => x.id === cell.id);
       const lines = scene ? captionLines(scene.caption, input.pieces.find((p) => p.id === scene.pieceId), input.showcase?.[scene.pieceId], input.lang, input.currency ?? DEFAULT_CURRENCY) : null;
@@ -545,7 +567,7 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
         ...((sh.cats ?? []).filter((id) => (input.categories ?? []).some((c) => c.id === id)).length ? { cats: (sh.cats ?? []).filter((id) => (input.categories ?? []).some((c) => c.id === id)) } : {}),
         images: [creationAsset(p.id), ...extra],
         // A loupe reads a large copy of each picture.
-        ...(loupe ? { zoom: [creationZoomAsset(p.id, 0), ...extra.map((_, n) => creationZoomAsset(p.id, n + 1))] } : {}),
+        ...(loupe || loupeOnly.has(p.id) ? { zoom: [creationZoomAsset(p.id, 0), ...extra.map((_, n) => creationZoomAsset(p.id, n + 1))] } : {}),
       };
   };
   const creations = creationsOf(onPage(input.pieces, null, pages));
@@ -634,6 +656,22 @@ export function buildSiteData(input: { brand: Brand; lang: Lang; scenes: Scene[]
     const sold = input.pieces.filter((p) => p.status === 'sold' && p.photoPath && seo.slugs?.[`c:${p.id}`] && !shown.has(p.id)).map((p) => creationOf(p));
     if (sold.length) data.sold = sold;
   }
+  // The effects she turned on: for the whole site, or on the creations of her list that the site shows.
+  // An effect she never touched writes nothing here: a site of before keeps its data as it was.
+  const plays: NonNullable<SiteData['effects']> = {};
+  for (const [id, state] of Object.entries(input.effects?.state ?? {})) if (state === 'on') plays[id] = true;
+  const onSite = new Set([...allCreations(data), ...(data.sold ?? [])].map((c) => c.id));
+  for (const [id, ids] of Object.entries(input.effects?.only ?? {})) {
+    if (plays[id] === true || (id === 'loupe' && loupe)) continue;
+    const some = ids.filter((x) => onSite.has(x));
+    if (some.length) plays[id] = some;
+  }
+  if (Object.keys(plays).length) data.effects = plays;
+  // The theme she chose; the starting one with her own colours writes nothing (a site of before keeps its data).
+  const theme: ThemeSettings = { ...(input.theme?.id && input.theme.id !== STARTING_THEME ? { id: input.theme.id } : {}), ...(input.theme?.colours === 'theme' ? { colours: 'theme' as const } : {}) };
+  if (Object.keys(theme).length) data.theme = theme;
+  // What an effect that is on needs in the data, beside its switch.
+  for (const e of EFFECTS) if (e.prepare && e.on(data)) e.prepare(data, { scenes: input.scenes });
   // Every site carries its legal notice and privacy page, from her fields and what the site does.
   data.legal = legalPages(input.legal ?? EMPTY_LEGAL, legalSiteOf(input, data));
   return data;
@@ -658,18 +696,32 @@ export const ANALYTICS_SCRIPT = '<script defer src="/_vercel/insights/script.js"
 
 export function fillShell(template: string, brand: Brand, lang: Lang, data?: SiteData, made: { share?: string; icon?: string } = {}): string {
   const hex = (c: string | undefined, fallback: string) => (c && /^#[0-9a-fA-F]{6}$/.test(c) ? c : fallback);
-  const accent = hex(brand.accent, DEFAULT_ACCENT);
+  // The theme's tokens on the one template; her colours, unless she asked for the theme's own.
+  const theme = themeOf(data?.theme?.id);
+  const palette = paletteOf(data?.theme, brand);
+  const classes = themeClasses(theme);
+  const accent = hex(palette.accent, DEFAULT_ACCENT);
   // "</" closes a script element whatever its type: escaped inside the JSON.
   const inline = data ? JSON.stringify(data).replace(/</g, '\\u003c') : 'null';
+  // A data with no rooms' list is not a site's (a stub): it carries no effect.
+  const fx = data && Array.isArray(data.rows) ? activeEffects(data) : [];
   const shell = template
     .replace('__LANG__', () => lang)
     .replace('__TITLE__', () => escapeHtml(brand.tagline ? `${brand.name} · ${brand.tagline}` : brand.name))
     .replace('__DESCRIPTION__', () => escapeHtml(brand.tagline || brand.about.slice(0, 160)))
+    .replace('__THEME_CLASS__', () => (classes ? ` class="${classes}"` : ''))
+    // The font file travels only with a theme that reads it (before `__FONT__` below, which this rule names).
+    .replace('__FONT_FACE__', () => (theme.font === 'jost' ? '  @font-face { font-family: Jost; src: url("__FONT__") format("woff2"); font-weight: 300 500; font-style: normal; font-display: swap; }\n' : ''))
+    .replace('__TOKENS__', () => tokensCss(theme.tokens))
     .replace('__ACCENT__', () => accent)
-    .replace(/__INK__/g, () => hex(brand.ink, DEFAULT_INK))
-    .replace(/__PAPER__/g, () => hex(brand.paper, DEFAULT_PAPER))
+    .replace(/__INK__/g, () => hex(palette.ink, DEFAULT_INK))
+    .replace(/__PAPER__/g, () => hex(palette.paper, DEFAULT_PAPER))
     .replace('__LOGO_CSS__', () => LOGO_CSS)
     .replace('__LOADER_CSS__', () => LOADER_CSS)
+    // Only the effects the site has on: each one's CSS and script, in the catalogue's order. A shell
+    // without its data carries none.
+    .replace('/*__EFFECTS_CSS__*/', () => fx.map((e) => `/* ${e.id} */\n${e.css}`).join('\n'))
+    .replace('/*__EFFECTS_JS__*/', () => fx.map((e) => e.js).join('\n'))
     // The loading screen is in the HTML itself: on the first paint, before any script runs.
     .replace('<body>', () => (brand.loader ? `<body>\n${loaderMarkup(brand.loader, brand.name)}` : '<body>'))
     // Vercel's visit counter, only when she turned it on: it sets no cookie, and the privacy page says it is there.

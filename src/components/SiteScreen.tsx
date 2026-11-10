@@ -1,18 +1,16 @@
-import { FolderOutput, Globe, HardDriveDownload, Link2, Palette, Search, type LucideIcon } from 'lucide-react';
+import { FolderOutput, Globe, HardDriveDownload, Languages, Link2, Search, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useI18n } from '../i18n';
-import type { SiteWork } from './SitePanel';
+import { SITE_SECTIONS, type SiteSection } from '../model/spaces';
+import type { SiteWork } from '../model/publish';
 
-/** The Site screen's parts, in the order they are needed after the first day. */
-const SITE_SECTIONS = ['online', 'look', 'seo', 'connect', 'copies'] as const;
-export type SiteSection = (typeof SITE_SECTIONS)[number];
-const ICON: Record<SiteSection, LucideIcon> = { online: Globe, look: Palette, seo: Search, connect: Link2, copies: HardDriveDownload };
+const ICON: Record<SiteSection, LucideIcon> = { online: Globe, seo: Search, languages: Languages, connect: Link2, copies: HardDriveDownload };
 
 /**
- * The site, apart from the work (doc 145 §10.20): one screen where there were
- * two (Site and Hosting, whose buttons repeated each other), its four parts
- * behind one row of tabs. Sending the site is not here: it is
- * the site bar's, on every screen.
+ * The Online space (doc 145 §10.20, §10.25): whether the site is found. Its
+ * parts behind one row of tabs: its state and address, search, its languages,
+ * the connection, the copies. How it looks left for the Design space. Sending
+ * the site is not here: it is the site bar's, on every screen.
  */
 export function SiteScreen({ section, onSection, connected, children }: {
   section: SiteSection;
@@ -24,7 +22,7 @@ export function SiteScreen({ section, onSection, connected, children }: {
   const { t } = useI18n();
   return (
     <section className="site-page">
-      <nav className="segmented glass site-sections" aria-label={t('tab.site')}>
+      <nav className="segmented glass site-sections" aria-label={t('space.online')}>
         {SITE_SECTIONS.map((s) => {
           const Icon = ICON[s];
           return (

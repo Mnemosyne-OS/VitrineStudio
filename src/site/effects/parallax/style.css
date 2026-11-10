@@ -1,0 +1,4 @@
+/* The parallax: under the pointer each photo drifts a little, at its own depth. */
+.gallery.parallax .ph img { scale: 1.1; translate: calc(var(--px, 0) * var(--d, 8px)) calc(var(--py, 0) * var(--d, 8px)); transition: transform .7s var(--ease), opacity .5s ease, translate .8s var(--ease); }
+.gallery.parallax figure:nth-child(3n + 1) { --d: 6px; } .gallery.parallax figure:nth-child(3n + 2) { --d: 12px; } .gallery.parallax figure:nth-child(3n) { --d: 9px; }
+@media (prefers-reduced-motion: reduce), (hover: none) { .gallery.parallax .ph img { translate: none; scale: none; } }

@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ViewerSettings } from './ViewerSettings';
-import type { ViewerSettings as Viewer } from '../model/viewer';
-import type { CreationsHover } from '../model/showcase';
-import { History, AlignLeft, Check, Settings, Euro, Eye, EyeOff, ImagePlus, Images, ImageUp, Ruler, Trash2, Type, Wand2, Weight, X, type LucideIcon } from 'lucide-react';
+import { History, AlignLeft, Check, Palette, Euro, Eye, EyeOff, ImagePlus, Images, ImageUp, Ruler, Trash2, Type, Wand2, Weight, X, type LucideIcon } from 'lucide-react';
 import { saveDroppedPhoto } from '../data/photos';
 import { newId } from '../model/records';
 import { describeError, errorText } from './errors';
@@ -10,6 +7,9 @@ import { pickImage } from '../data/host';
 import { defaultShow, measure, moveId, onCreationsPage, PHOTOS_MAX, type Category, type PieceShow } from '../model/showcase';
 import { CategoryBar } from './CategoryBar';
 import { CategoryDock } from './CategoryDock';
+
+/** An effect a creation can have for itself: on for the whole site (set in Design), or on this one. */
+interface PieceEffect { id: string; name: string; site: boolean; on: boolean }
 
 /** A piece's tile dragged in the studio, told apart from a file. */
 const PIECE_DRAG = 'application/x-atelier-piece';
@@ -28,7 +28,7 @@ import { Thumb } from './Thumb';
  * piece's photo. Staging needs a photo of the real piece, so a piece without
  * one is flagged, never hidden.
  */
-export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove, onEvolution, showcase, onShow, priceSymbol, online, viewer, onViewer, hover, onHover, onReorder, categories, onCategories }: {
+export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove, onEvolution, showcase, onShow, priceSymbol, online, onDesign, effectsOf, onEffect, onReorder, categories, onCategories }: {
   pieces: Piece[];
   busy: boolean;
   uploads: Upload[];
@@ -50,19 +50,17 @@ export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSe
   priceSymbol: string;
   /** The pieces with a scene online: the Creations page's own choice when she made none. */
   online: ReadonlySet<string>;
-  /** A creation opened large on the site: its loupe and its frame. */
-  viewer: Viewer;
-  onViewer: (next: Viewer) => void;
-  /** What a creation's picture does under the pointer on the site. */
-  hover: CreationsHover;
-  onHover: (next: CreationsHover) => void;
+  /** How the catalogue shows (its layout, the loupe, the frame) is set on the Design screen: this opens it there. */
+  onDesign: () => void;
+  /** The effects a creation can have for itself alone, with what each is now for this one. */
+  effectsOf: (pieceId: string) => PieceEffect[];
+  onEffect: (piece: Piece, effectId: string, on: boolean) => void;
   /** The pieces in a new order, all of them, by id. */
   onReorder: (ids: string[]) => void;
   categories: Category[];
   onCategories: (next: Category[]) => void;
 }) {
   const { t } = useI18n();
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const onPage = pieces.filter((p) => onCreationsPage(p, showcase[p.id], online)).length;
   const [cat, setCat] = useState('');
   const inCat = (p: Piece, id: string) => (showcase[p.id]?.cats ?? []).includes(id);
@@ -94,13 +92,12 @@ export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSe
       {pieces.length > 0 && (
         <div className="row spaced pieces-bar">
           <span className="small muted">{t('pieces.onPageCount', { count: onPage, total: pieces.length })}</span>
-          <button className={`icon-btn glass ${settingsOpen ? 'on' : ''}`} aria-pressed={settingsOpen} aria-label={t('viewer.title')} data-tip={t('viewer.title')} onClick={() => setSettingsOpen((o) => !o)}><Settings className="ico solo" aria-hidden /></button>
+          <button className="icon-btn glass" aria-label={t('design.open.viewer')} data-tip={t('design.open.viewer')} onClick={onDesign}><Palette className="ico solo" aria-hidden /></button>
         </div>
       )}
-      {settingsOpen && pieces.length > 0 && <ViewerSettings value={viewer} onChange={onViewer} hover={hover} onHover={onHover} />}
       {pieces.length > 0 && <CategoryBar categories={categories} counts={counts} active={cat} onActive={setCat} onChange={onCategories} />}
       <section className="tiles">
-        {seen.map((p) => <PieceTile key={p.id} piece={p} onSetPhoto={onSetPhoto} onPickPhoto={onPickPhoto} onEdit={onEdit} onRemove={onRemove} onImprove={onImprove} onEvolution={onEvolution} show={showcase[p.id] ?? defaultShow()} onShow={onShow} priceSymbol={priceSymbol} shown={onCreationsPage(p, showcase[p.id], online)}
+        {seen.map((p) => <PieceTile key={p.id} piece={p} onSetPhoto={onSetPhoto} onPickPhoto={onPickPhoto} onEdit={onEdit} onRemove={onRemove} onImprove={onImprove} onEvolution={onEvolution} show={showcase[p.id] ?? defaultShow()} onShow={onShow} effects={effectsOf(p.id)} onEffect={onEffect} priceSymbol={priceSymbol} shown={onCreationsPage(p, showcase[p.id], online)}
           onMove={(id, after) => onReorder(moveId(pieces.map((x) => x.id), id, p.id, after))} categories={categories}
           onDragging={(on) => setDragging(on ? p.id : null)} />)}
       </section>
@@ -114,7 +111,7 @@ export function PiecesPanel({ pieces, busy, uploads, onAddFiles, onPickNew, onSe
 /** What a piece can show on the site, each as an icon named on hover. */
 const SHOWN: ReadonlyArray<readonly [keyof PieceShow['show'], LucideIcon]> = [['name', Type], ['description', AlignLeft], ['dimensions', Ruler], ['weight', Weight], ['price', Euro], ['photos', Images]];
 
-function PieceTile({ piece, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove, onEvolution, show, onShow, priceSymbol, shown, onMove, categories, onDragging }: {
+function PieceTile({ piece, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove, onEvolution, show, onShow, effects, onEffect, priceSymbol, shown, onMove, categories, onDragging }: {
   piece: Piece;
   onSetPhoto: (piece: Piece, file: File) => void;
   onPickPhoto: (piece: Piece) => void;
@@ -125,6 +122,8 @@ function PieceTile({ piece, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove
   onEvolution: (piece: Piece) => void;
   show: PieceShow;
   onShow: (piece: Piece, next: PieceShow) => void;
+  effects: PieceEffect[];
+  onEffect: (piece: Piece, effectId: string, on: boolean) => void;
   priceSymbol: string;
   /** On the site's Creations page now. */
   shown: boolean;
@@ -291,6 +290,17 @@ function PieceTile({ piece, onSetPhoto, onPickPhoto, onEdit, onRemove, onImprove
             )}
           </div>
           {photoError && <span className="error small">{photoError}</span>}
+          {/* The effects this creation can have for itself: one on for the whole site is said, and set there. */}
+          {effects.length > 0 && (
+            <div className="tile-label"><span>{t('effects.onPiece.title')}</span>
+              <div className="tile-cats">
+                {effects.map((e) => (
+                  <button key={e.id} className={`cat-chip small ${e.site || e.on ? 'chosen' : ''}`} aria-pressed={e.site || e.on} disabled={e.site}
+                    data-tip={e.site ? t('effects.onPiece.site') : undefined} onClick={() => onEffect(piece, e.id, !e.on)}>{e.name}</button>
+                ))}
+              </div>
+            </div>
+          )}
           <button className="primary small-btn" onClick={save}>{t('pieces.done')}</button>
         </div>
       ) : (

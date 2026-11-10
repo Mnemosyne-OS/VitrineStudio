@@ -1,7 +1,7 @@
 {
   "name": "@mnemosyne-plugins/artisan-studio",
   "displayName": "Vitrine Studio",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "vendor": "Mnemosyne OS",
   "category": "Productivity",
   "icon": "icon.svg",
@@ -284,12 +284,12 @@
     {
       "id": "showTab",
       "summary": "Show one of the studio's screens, as a click on its menu does.",
-      "details": "pieces (the creations), scenes, blog, about, contact, film, logo, site, hosting, costs, settings, or the name of a page she added. Closes what was open over the screen.",
+      "details": "pieces (the creations), scenes, film, blog, about, contact, legal, design (how the site looks), site (the Online space), costs, settings, the name of a page she added, or a space (content, design, online). The names of before still open something: hosting is Online, logo is Design. Closes what was open over the screen.",
       "effect": "write",
       "params": {
         "tab": {
           "type": "string",
-          "description": "The screen: pieces, scenes, blog, about, contact, film, logo, site, hosting, costs, settings, or an added page's name.",
+          "description": "The screen: pieces, scenes, film, blog, about, contact, legal, design, site, costs, settings, a space (content, design, online), or an added page's name.",
           "maxLength": 80
         }
       },

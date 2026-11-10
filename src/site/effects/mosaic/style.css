@@ -1,0 +1,7 @@
+/* The mosaic: columns, each photo at its own shape, so the rows fall staggered. */
+.gallery.layout-mosaic { display: block; columns: var(--tile, 220px); column-gap: var(--gap, 16px); }
+.gallery.layout-mosaic figure { break-inside: avoid; margin: 0 0 22px; }
+.gallery.layout-mosaic .ph { aspect-ratio: auto; }
+.gallery.layout-mosaic .ph img.g0 { position: relative; height: auto; }
+.gallery.layout-mosaic.frame-frame .ph { padding: 12px; }
+.gallery.layout-mosaic.frame-frame .ph img.g0 { inset: auto; width: 100%; height: auto; }

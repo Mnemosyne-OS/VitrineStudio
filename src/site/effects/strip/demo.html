@@ -1,0 +1,15 @@
+<div class="page"><div class="cols"><div class="gallery" id="g" data-hover="none"><figure><div class="ph"><img class="g0" src="__P1__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P2__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P3__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P4__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P5__" alt=""></div></figure></div></div></div>
+<script>
+// The strip steps on by itself, then comes back to its first photo.
+window.play = (fx, demo) => {
+  const g = document.getElementById('g');
+  [...g.querySelectorAll('figure')].forEach((f, i) => { f.dataset.c = String(i); });
+  fx.gallery(g);
+  if (demo.reduced) return;
+  let at = 0;
+  setInterval(() => {
+    at = (at + 1) % 5;
+    if (at === 0) g.scrollTo({ left: 0 }); else document.querySelector('.strip-go.next').click();
+  }, 2200);
+};
+</script>

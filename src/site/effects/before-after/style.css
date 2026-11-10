@@ -1,0 +1,7 @@
+/* Before / after: the second photo over the first, cut at the divider; the divider is a range input, so a mouse, a finger and the keyboard all move it. */
+.viewer .v-main.ba { --ba: 50%; overflow: hidden; touch-action: pan-y; }
+.viewer .v-main.ba .ba-after { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; clip-path: inset(0 0 0 var(--ba)); pointer-events: none; }
+.viewer .v-main.ba .ba-line { position: absolute; top: 0; bottom: 0; left: var(--ba); width: 2px; margin-left: -1px; background: var(--paper); box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 25%, transparent); pointer-events: none; }
+.viewer .v-main.ba .ba-line::after { content: "\2194"; position: absolute; top: 50%; left: 50%; width: 38px; height: 38px; margin: -19px 0 0 -19px; display: grid; place-items: center; border-radius: 50%; background: var(--paper); color: var(--ink); font-size: 18px; line-height: 1; box-shadow: 0 6px 18px -8px rgb(0 0 0 / .5), 0 0 0 1px color-mix(in srgb, var(--ink) 18%, transparent); }
+.viewer .v-main.ba .ba-range { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: ew-resize; }
+.viewer .v-main.ba .ba-range:focus-visible + .ba-line::after { outline: 2px solid var(--accent); outline-offset: 2px; }

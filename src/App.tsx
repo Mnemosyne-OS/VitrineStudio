@@ -1,5 +1,5 @@
-import { Coins, Globe, Plus, Settings, X, type LucideIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { X } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 import { getLanguage, useI18n } from './i18n';
 import { MODEL_FOR_QUALITY, openVideoSettings, pickImage } from './data/host';
 import { saveDroppedPhoto } from './data/photos';
@@ -8,7 +8,7 @@ import { filesOwnedBy } from './data/removeScene';
 import { newId } from './model/records';
 import { profileById } from './model/profiles';
 import { firstSitePhoto, latestPicture } from './model/scenePhotos';
-import { livingFallsBack, normalizeMenu, normalizeMenuOrder, onlineScenes, slugify, type MenuChange } from './site/buildSite';
+import { livingFallsBack, MENU_KEYS, menuDefaults, normalizeMenu, normalizeMenuOrder, onlineScenes, slugify, type MenuChange } from './site/buildSite';
 import type { Beat, Piece, Scene } from './model/types';
 import { errorText } from './components/errors';
 import { Ambient } from './components/Ambient';
@@ -18,9 +18,11 @@ import { SceneWizard, type SceneWizardInitial } from './components/SceneWizard';
 import { SettingsPanel } from './components/SettingsPanel';
 import { Lightbox } from './components/Lightbox';
 import { EvolutionView } from './components/EvolutionView';
-import { SiteLook } from './components/SitePanel';
 import { SiteBar, type SeeWhat } from './components/SiteBar';
-import { SiteCopies, SiteScreen, type SiteSection } from './components/SiteScreen';
+import { SiteCopies, SiteScreen } from './components/SiteScreen';
+import { SpaceRail } from './components/SpaceRail';
+import { PagesList } from './components/PagesList';
+import { CONTENT_NAV, contentEntryOf, destinationOf, isPageScreen, openingOf, spaceOf, type DesignPart, type Screen, type SiteSection, type Space } from './model/spaces';
 import { PreviewLayer, type PreviewProgress } from './components/PagePreview';
 import { siteLink } from './model/publish';
 import { originOf } from './model/seo';
@@ -32,7 +34,11 @@ import { FilmWizard } from './components/FilmWizard';
 import { filmOf } from './model/film';
 import { estimateImage, formatUsd } from './model/costs';
 import { UpscaleCard } from './components/UpscaleCard';
-import { LogoPanel } from './components/LogoPanel';
+import { DesignScreen } from './components/DesignScreen';
+import { designOf, draftCount, keepDesign, rebaseDesign, type DesignDraft } from './model/design';
+import { useDemoPhotos } from './hooks/useDemoPhotos';
+import { EFFECTS } from './site/effects';
+import { withEffectOn } from './model/effects';
 import { SitePreview, type SiteColours } from './components/SitePreview';
 import { LegalCard } from './components/LegalCard';
 import { PhotoSources } from './model/photoSources';
@@ -69,7 +75,6 @@ import { TextPagePanel } from './components/TextPagePanel';
 import { FormPagePanel } from './components/FormPagePanel';
 import { AddPageDialog } from './components/AddPageDialog';
 import { withIdentityChange } from './site/logo';
-import { PAGE_ICON } from './components/pageIcons';
 import { PageBar } from './components/PageBar';
 import { PhotoWorkbench } from './components/PhotoWorkbench';
 import { AboutPanel } from './components/AboutPanel';
@@ -77,17 +82,12 @@ import { ContactPanel } from './components/ContactPanel';
 import type { Brand } from './site/buildSite';
 
 type Kind = 'scenes' | 'pieces' | 'blog';
-/** A built-in screen, or an added page by its id. */
-type Tab = Kind | 'about' | 'contact' | 'film' | 'logo' | 'legal' | 'site' | 'hosting' | 'costs' | 'settings' | `page:${string}`;
-// Her order of work: what she makes first, then its scenes, the words; her added pages; then the film and the logo (Tony).
-const CONTENT_TABS: Tab[] = ['pieces', 'scenes', 'blog', 'about', 'contact'];
-// The legal pages have their own tab: at the bottom of Contact, an artisan never found them (02/11).
-const AFTER_TABS: Tab[] = ['film', 'logo', 'legal'];
+/** A built-in screen, or an added page by its id (model/spaces.ts files each one in its space). */
+type Tab = Screen;
+/** The effects a creation's own card can turn on for it alone. */
+const PIECE_EFFECTS = EFFECTS.filter((e) => e.perCreation);
 /** The built-in screen that edits an added page, by its model. */
 const KIND_OF: Partial<Record<PageType, Kind>> = { catalogue: 'pieces', scenes: 'scenes', blog: 'blog' };
-// The tools, apart from the work, as icons: they are not part of her order of work.
-// One for the site: its hosting is a part of the Site screen (doc 145 §10.20); `hosting` still opens it, on Online.
-const TOOL_TABS: Array<[Tab, LucideIcon]> = [['site', Globe], ['costs', Coins], ['settings', Settings]];
 
 /**
  * Vitrine Studio: stage your own pieces in generated rooms (doc 145).
@@ -97,13 +97,30 @@ const TOOL_TABS: Array<[Tab, LucideIcon]> = [['site', Globe], ['costs', Coins], 
 export default function App() {
   const { t, tc } = useI18n();
   const [tab, setTab] = useState<Tab>('pieces');
-  // The Site screen's part; null = the one that matters now (Connection until it is made, then Online).
+  // The Online space's part; null = the one that matters now (Connection until it is made, then Online).
   const [siteSection, setSiteSection] = useState<SiteSection | null>(null);
-  /** A screen opened by a click, the agent door or the site bar: `hosting` is Site › Online. */
-  const go = (x: Tab, section: SiteSection | null = null) => {
-    if (x === 'hosting') { setTab('site'); setSiteSection('online'); return; }
-    if (x === 'site') setSiteSection(section);
+  // The Design screen's part, and what is tried there and not kept yet (it survives a look at another screen).
+  const [designPart, setDesignPart] = useState<DesignPart>('theme');
+  const [designDraft, setDesignDraft] = useState<DesignDraft>({});
+  // The screen last seen in each space, and the last of her pages: a space opens where she left it.
+  const lastSeen = useRef<Partial<Record<Space, Screen>>>({});
+  const lastPage = useRef<Screen>('about');
+  const open = (x: Tab) => {
+    const sp = spaceOf(x);
+    if (sp) lastSeen.current[sp] = x;
+    if (isPageScreen(x)) lastPage.current = x;
     setTab(x);
+  };
+  /**
+   * A screen opened by its name, from a click, the agent door or the site bar. The names of
+   * before still lead somewhere (model/spaces.ts): `hosting` is Online › Online, `logo` and
+   * Site › Look are Design › Identity.
+   */
+  const go = (name: string, part?: string) => {
+    const d = destinationOf(name, part);
+    if (d.screen === 'site') setSiteSection(d.section ?? null);
+    if (d.part) setDesignPart(d.part);
+    open(d.screen);
   };
   // This page as on the site, opened from the site bar's « See »; its error is said in the bar.
   const [seeing, setSeeing] = useState<{ make: (p: PreviewProgress) => Promise<string>; hash: string; n: number } | null>(null);
@@ -147,6 +164,16 @@ export default function App() {
   // The first-launch kit card, put aside for this session by "later".
   const [kitLater, setKitLater] = useState(false);
   const { folder, loaded, notice, setNotice, pieces, scenes, settings, changeSettings, site, saveSite, patchSite, film, fail } = studio;
+  // The site changed by another door while a trial waits (a creation's card, an agent, the preview's
+  // palette): the trial follows it, so « Keep » never undoes what that door wrote.
+  const siteSeen = useRef(site);
+  useEffect(() => {
+    const before = siteSeen.current;
+    siteSeen.current = site;
+    if (before !== site) setDesignDraft((draft) => rebaseDesign(before, site, draft));
+  }, [site]);
+  // Her creations' photos, small, for the demonstrations of Design › Effects: read only once that screen is open.
+  const { photos: demoPhotos, pending: demoPending } = useDemoPhotos(tab === 'design' ? pieces.flatMap((p) => (p.photoPath ? [p.photoPath] : [])) : []);
   /** A menu entry renamed, or the menu reordered, in a preview: saved with the site. */
   // The site's one address, kept with the search settings as soon as the host gives it: the sitemap
   // and every canonical address are written from it. One she wrote herself is never replaced, and
@@ -192,7 +219,7 @@ export default function App() {
 
   if (IS_PREVIEW_WINDOW) {
     const { preview, previewError, previewWork } = siteActions;
-    return preview ? <SitePreview preview={preview} standalone onClose={() => {}} onOpenWindow={() => {}} colours={site.brand} onColours={setColours} onMenu={renameMenu} /> : (
+    return preview ? <SitePreview preview={preview} standalone onClose={() => {}} onOpenWindow={() => {}} colours={site.brand} onColours={setColours} themed={site.theme.colours === 'theme'} onMenu={renameMenu} /> : (
       <main className="app"><Ambient />
         {previewError
           ? <p className="error">{errorText(previewError)}</p>
@@ -202,6 +229,16 @@ export default function App() {
   }
 
   const profile = profileById(settings.profileId);
+  // The space in sight (null on a tool's screen), and the Content entry lit under it.
+  const space = spaceOf(tab);
+  const entry = contentEntryOf(tab);
+  const inPages = isPageScreen(tab);
+  /** A screen kept from before, unless it is a page she removed since. */
+  const known = (x: Screen, fallback: Screen): Screen => (x.startsWith('page:') && !site.pages.some((p) => `page:${p.id}` === x) ? fallback : x);
+  const openSpace = (sp: Space) => {
+    if (sp === 'online') setSiteSection(null);
+    open(known(openingOf(sp, lastSeen.current), openingOf(sp, {})));
+  };
   const profileOf = (s: Scene) => profileById(s.profileId ?? settings.profileId);
   const validated = scenes.filter((s) => s.validated);
   const online = onlineScenes(scenes, pieces);
@@ -247,37 +284,28 @@ export default function App() {
     ] : undefined;
     void patchSite((cur) => ({ ...cur, pages: [...cur.pages, { id, type, name, ...(fields ? { fields } : {}) }] }));
     setAddingPage(false);
-    setTab(`page:${id}`);
+    open(`page:${id}`);
   };
 
   return (
     <PhotoSources.Provider value={photoSources}>
-    <main className="app">
+    <main className="app shell">
       <Ambient path={latestPicture(scenes)} />
+      <SpaceRail space={space} tool={tab === 'costs' || tab === 'settings' ? tab : null} onSpace={openSpace} onTool={open} onlineDot={siteConnected === false} trialDot={loaded && draftCount(site, designDraft) > 0} />
+      <div className="work">
       <header className="top">
         <div className="title-block">
           <h1>{t('app.title')}</h1>
           <p className="muted small">{profile.label[getLanguage()]} · {tc('pieces.count', pieces.length)} · {tc('scenes.count', scenes.length)} · {tc('scenes.onSite', validated.length)}</p>
         </div>
-        <nav className="segmented glass" aria-label={t('app.title')}>
-          {CONTENT_TABS.map((x) => (
-            <button key={x} className={tab === x ? 'on' : ''} aria-current={tab === x ? 'page' : undefined} onClick={() => setTab(x)}>{t(`tab.${x}`)}</button>
-          ))}
-          {site.pages.map((p) => {
-            const Icon = PAGE_ICON[p.type];
-            const key: Tab = `page:${p.id}`;
-            return <button key={p.id} className={`tab-page ${tab === key ? 'on' : ''}`} aria-current={tab === key ? 'page' : undefined} onClick={() => setTab(key)}><Icon className="ico" aria-hidden />{p.name}</button>;
-          })}
-          <button className="tab-add" aria-label={t('page.add')} data-tip={t('page.add')} onClick={() => setAddingPage(true)}><Plus className="ico solo" aria-hidden /></button>
-          {AFTER_TABS.map((x) => (
-            <button key={x} className={tab === x ? 'on' : ''} aria-current={tab === x ? 'page' : undefined} onClick={() => setTab(x)}>{t(`tab.${x}`)}</button>
-          ))}
-        </nav>
-        <nav className="top-tools" aria-label={t('app.tools')}>
-          {TOOL_TABS.map(([x, Icon]) => (
-            <button key={x} className={`icon-btn glass ${tab === x ? 'chosen' : ''}`} aria-current={tab === x ? 'page' : undefined} aria-label={t(`tab.${x}`)} data-tip={t(`tab.${x}`)} onClick={() => go(x)}><Icon className="ico solo" aria-hidden /></button>
-          ))}
-        </nav>
+        {/* What she shows, in her order of work; her pages are one entry, a list (doc 145 §10.25). */}
+        {space === 'content' && (
+          <nav className="segmented glass sub-nav" aria-label={t('space.content')}>
+            {CONTENT_NAV.map((x) => (
+              <button key={x} className={entry === x ? 'on' : ''} aria-current={entry === x ? 'page' : undefined} onClick={() => open(x === 'pages' ? known(lastPage.current, 'about') : x)}>{t(`tab.${x}`)}</button>
+            ))}
+          </nav>
+        )}
       </header>
       {loaded && (
         <SiteBar stage={siteActions.stage} tokenUnread={siteActions.tokenUnread} onRetryToken={siteActions.rereadToken}
@@ -285,7 +313,7 @@ export default function App() {
           staleLiving={livingFallsBack(online)} see={seeWhat} seeing={siteActions.previewWork} seeError={seeError ?? siteActions.previewError}
           onSee={see} onPublish={() => void siteActions.publishNow()} onOpen={siteActions.openLink}
           onConnect={() => go('site', 'connect')}
-          onFix={(item) => (item === 'name' ? go('site', 'look') : setTab('scenes'))} />
+          onFix={(item) => (item === 'name' ? go('site', 'look') : open('scenes'))} />
       )}
       {notice && (
         <p className={`notice glass ${notice.kind}`}>
@@ -299,19 +327,23 @@ export default function App() {
       {/* Records written into the folder by someone else (an agent, another app) show without reopening the studio. */}
       {loaded && folder && <FolderWatch folder={folder} onChange={studio.refresh} />}
       {/* What an agent may do here (doc 149): the studio's own functions, served while it is open. */}
-      {loaded && folder && <StudioAgentActions studio={studio} sceneActions={sceneActions} siteActions={siteActions} pieceActions={pieceActions} openTab={(x) => go(x as Tab)}
+      {loaded && folder && <StudioAgentActions studio={studio} sceneActions={sceneActions} siteActions={siteActions} pieceActions={pieceActions} openTab={(x) => go(x)}
         view={{
           showScene: (id, beat) => { setEvolving(null); setViewing({ id, beat }); },
           showPiece: (id) => { setViewing(null); setEvolving(id); },
           closeAll: () => { setViewing(null); setEvolving(null); setImproving(null); setWizard(null); setFilmWizard(false); setAddingPage(false); setSeeing(null); siteActions.closePreview(); siteActions.closeCheck(); },
           // The « new scene » button's own wizard, on the screen that has the button.
-          newScene: (initial) => { setViewing(null); setEvolving(null); setImproving(null); if (kind !== 'scenes') setTab('scenes'); openWizard(initial); },
+          newScene: (initial) => { setViewing(null); setEvolving(null); setImproving(null); if (kind !== 'scenes') open('scenes'); openWizard(initial); },
         }} />}
       {/* Pictures an agent asked for, made one scene at a time while the studio is open. */}
       {loaded && folder && (
         <AgentMakes folder={folder} scenesRef={studio.scenesRef} saveScene={studio.saveScene} replaceScene={studio.replaceScene} makeAll={sceneActions.makeAll}
           busy={(id) => sceneBusy(sceneActions.work, id)} making={() => anyMaking(sceneActions.work)} />
       )}
+      <div className={inPages ? 'pages-screen' : undefined}>
+      {/* Her pages, one list: About, Contact, the legal pages and the ones she added. */}
+      {loaded && inPages && <PagesList current={tab} pages={site.pages} onOpen={open} onAdd={() => setAddingPage(true)} />}
+      <div className="screen-body">
       {/* First launch of an empty studio: the site kit someone prepared, dropped once. */}
       {loaded && tab === 'pieces' && !site.kit && !kitLater && scenes.length === 0 && pieces.length === 0 && (
         <KitCard welcome kit={kitActions} installed={site.kit} pagesFolder={site.kitSource} onLater={() => setKitLater(true)} />
@@ -319,7 +351,8 @@ export default function App() {
       {loaded && activePage && (
         <PageBar page={activePage} count={activePage.type === 'catalogue' ? pagePieces.length : activePage.type === 'scenes' ? pageScenes.length : blog.posts.length}
           onRename={(name) => void patchSite((cur) => ({ ...cur, pages: cur.pages.map((p) => (p.id === activePage.id ? { ...p, name } : p)) }))}
-          onRemove={() => { const home = KIND_OF[activePage.type] ?? 'pieces'; void patchSite((cur) => ({ ...cur, pages: cur.pages.filter((p) => p.id !== activePage.id) })); setTab(home); }} />
+          // Its content went back to the built-in page of its kind: that page opens; a page of words leaves her among her pages.
+          onRemove={() => { const home = KIND_OF[activePage.type] ?? 'about'; void patchSite((cur) => ({ ...cur, pages: cur.pages.filter((p) => p.id !== activePage.id) })); open(home); }} />
       )}
       {loaded && kind === 'scenes' && (
         <ScenesPanel scenes={inPieceOrder(pageScenes, site.sceneOrder)} pieces={pieces}
@@ -330,7 +363,7 @@ export default function App() {
           onValidate={(s, v) => void sceneActions.validate(s, v)}
           onMove={(s, u) => void sceneActions.moveTo(s, u)}
           onOpen={(s, b) => setViewing({ id: s.id, beat: b })}
-          sceneMap={site.sceneMap} onSceneMap={(next) => void patchSite((cur) => ({ ...cur, sceneMap: next }))}
+          onDesign={() => go('design', 'details')}
           onRemove={(s) => setRemoving(s)}
           costs={settings.showCosts ? studio.costs : null}
           imageModel={MODEL_FOR_QUALITY[settings.quality]} />
@@ -349,7 +382,15 @@ export default function App() {
           showcase={site.showcase}
           priceSymbol={currencySymbol(site.currency.main, getLanguage())}
           online={new Set(online.map((s) => s.pieceId))}
-          viewer={site.viewer} onViewer={(viewer) => void patchSite((cur) => ({ ...cur, viewer }))} hover={site.creationsHover} onHover={(creationsHover) => void patchSite((cur) => ({ ...cur, creationsHover }))}
+          onDesign={() => go('design', 'effects')}
+          // An effect on this creation only, from its card: the whole-site switch is the catalogue's (Design › Effects).
+          effectsOf={(id) => {
+            const sh = site.showcase[id];
+            const facts = { photos: 1 + (sh?.show.photos ? sh.photos.length : 0), clip: online.some((s) => s.pieceId === id && !!s.clipPath && s.motion !== 'living' && s.motion !== 'images') };
+            // Offered where it can play; one already put on this creation stays in sight, to be taken off.
+            return PIECE_EFFECTS.map((e) => ({ id: e.id, name: e.name[getLanguage()], site: e.get(designOf(site)), on: (site.effects.only?.[e.id] ?? []).includes(id), fits: e.fits?.(facts) ?? true })).filter((e) => e.fits || e.on);
+          }}
+          onEffect={(p, id, on) => void patchSite((cur) => ({ ...cur, effects: withEffectOn(cur.effects, id, p.id, on) }))}
           onShow={(p, next) => void patchSite((cur) => ({ ...cur, showcase: { ...cur.showcase, [p.id]: next } }))} />
       )}
       {loaded && activePage?.type === 'text' && (
@@ -391,13 +432,22 @@ export default function App() {
               const made = await filmActions.createFilm(start);
               // A film that could not be written is not opened: the wizard says why and stays.
               if (!made) throw new Error('WRITE_FAILED');
-              setTab('film');
+              open('film');
               if (makeNow) setMakeFilmOf(made.id);
             }} />
         );
       })()}
-      {loaded && tab === 'logo' && (
-        <LogoPanel identity={site.identity} brand={site.brand} makePage={siteActions.previewHome} onChange={(identity) => void patchSite((cur) => ({ ...cur, identity: withIdentityChange(cur.identity, site.identity, identity) }))} />
+      {loaded && tab === 'design' && (
+        <DesignScreen site={site} draft={designDraft} onDraft={setDesignDraft} part={designPart} onPart={setDesignPart}
+          // Kept: only the settings she changed, laid on the site as it is NOW; what another door wrote meanwhile stays.
+          onKeep={() => patchSite((cur) => keepDesign(cur, site, designDraft))}
+          onMeasured={(ratio) => void patchSite((cur) => ({ ...cur, identity: withIdentityChange(cur.identity, site.identity, { ...site.identity, ratio }) }))}
+          make={siteActions.previewDesign} demoPhotos={demoPhotos} demoPending={demoPending} samplePhoto={firstSitePhoto(online)}
+          // The themes' thumbnails are made of her own name, menu and photos.
+          themeSample={{ name: site.brand.name || t('logo.sampleName'), menu: (site.menuOrder.length ? site.menuOrder : MENU_KEYS).map((k) => ({ ...menuDefaults(getLanguage()), ...site.menu })[k]), title: site.menu.creations || menuDefaults(getLanguage()).creations, photos: inPieceOrder(pieces, site.pieceOrder).flatMap((p) => (p.photoPath ? [p.photoPath] : [])) }} onlineCount={online.length}
+          enlarged={online.filter((s) => s.enlarged && Object.keys(s.enlarged).length > 0).length}
+          busy={siteActions.work.kind === 'exporting' || siteActions.work.kind === 'publishing'}
+          onCheck={(tried) => void siteActions.checkCompression(tried)} checking={siteActions.checking} />
       )}
       {loaded && kind === 'blog' && <BlogPanel blog={blog} pieces={pieces} onPreview={siteActions.previewPost} onMenu={renameMenu} />}
       {loaded && tab === 'costs' && (
@@ -411,12 +461,7 @@ export default function App() {
               onConnect={() => setSiteSection('connect')}
               onVideoSettings={() => void openVideoSettings().catch((err: unknown) => console.warn('[vitrine-studio] video settings not opened:', err))} />
           )}
-          {section === 'look' && (
-            <SiteLook settings={site} onlineCount={online.length} enlarged={online.filter((s) => s.enlarged && Object.keys(s.enlarged).length > 0).length}
-              samplePhoto={firstSitePhoto(online)} busy={siteActions.work.kind === 'exporting' || siteActions.work.kind === 'publishing'}
-              onSave={(s) => void saveSite(s)} onCheck={() => void siteActions.checkCompression()} checking={siteActions.checking} />
-          )}
-          {section === 'look' && (
+          {section === 'languages' && (
             <TranslationCard translation={site.translation} words={siteActions.translationWords}
               onChange={(update) => void patchSite((cur) => { const next = { ...cur }; const tr = update(cur.translation); if (tr) next.translation = tr; else delete next.translation; return next; })} />
           )}
@@ -430,7 +475,7 @@ export default function App() {
                 if (ok) await patchSite((cur) => { const sh = cur.showcase[p.id] ?? defaultShow(); return { ...cur, showcase: { ...cur.showcase, [p.id]: { ...sh, show: { ...sh.show, description: true } } } }; });
                 return ok;
               }}
-              onGo={(where) => (where === 'look' ? go('site', 'look') : setTab(where))} />
+              onGo={(where) => (where === 'look' ? go('site', 'look') : open(where))} />
           )}
           {section === 'connect' && (
             <ConnectionCard settings={site} token={siteActions.token} onSave={(s) => void saveSite(s)}
@@ -454,6 +499,9 @@ export default function App() {
           <TakeawayCard run={takeaway.run} kinds={['scenes']} />
         </SettingsPanel>
       )}
+      </div>
+      </div>
+      </div>
       {viewing && viewed && (
         <Lightbox scene={viewed} profile={profileOf(viewed)} start={viewing.beat} onClose={() => setViewing(null)}
           tools={{
@@ -485,7 +533,7 @@ export default function App() {
       )}
       {seeing && <PreviewLayer key={seeing.n} make={seeing.make} hash={seeing.hash} onError={(err) => setSeeError(describeError(err))} onMenu={renameMenu} onClose={() => setSeeing(null)} />}
       {siteActions.preview && <SitePreview preview={siteActions.preview} standalone={false} onClose={siteActions.closePreview}
-        onOpenWindow={() => void siteActions.previewInWindow()} colours={site.brand} onColours={setColours} onMenu={renameMenu} />}
+        onOpenWindow={() => void siteActions.previewInWindow()} colours={site.brand} onColours={setColours} themed={site.theme.colours === 'theme'} onMenu={renameMenu} />}
       {siteActions.check && <CompressionCheck before={siteActions.check.before} after={siteActions.check.after} onClose={siteActions.closeCheck} />}
       {/* The scene is held here, not looked up: once removed it leaves the list, and the dialog may still have files to tell about. */}
       {removingPiece && (

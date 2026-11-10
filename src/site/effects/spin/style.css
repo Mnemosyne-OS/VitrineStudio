@@ -1,0 +1,5 @@
+/* Turn by dragging: the photo follows the pointer or the finger sideways; a slider under it does the same from the keyboard. */
+.viewer .v-main.spin { touch-action: pan-y; cursor: grab; user-select: none; -webkit-user-select: none; }
+.viewer .v-main.spin.turning { cursor: grabbing; }
+.viewer .v-main.spin img { -webkit-user-drag: none; pointer-events: none; }
+.viewer .v-main.spin .spin-range { position: absolute; left: 50%; bottom: 10px; width: min(60%, 260px); margin: 0; transform: translateX(-50%); accent-color: var(--accent); cursor: ew-resize; }

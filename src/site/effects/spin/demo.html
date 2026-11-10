@@ -1,0 +1,20 @@
+<div class="viewer" id="v"><div><div class="v-main"><img src="__P1__" alt=""></div></div></div>
+<script>
+// A pointer drawn on the card drags the photo to and fro: her photos go by.
+window.play = (fx, demo) => {
+  const v = document.getElementById('v'), main = v.querySelector('.v-main');
+  fx.viewer({ id: 'demo', alt: '', images: ['__P1__', '__P2__', '__P3__', '__P4__', '__P5__', '__P6__'] }, 0, v);
+  if (demo.reduced) return;
+  let down = false;
+  const turn = (t) => {
+    const r = main.getBoundingClientRect();
+    const x = r.left + r.width * (0.5 + 0.36 * Math.sin(t / 1100)), y = r.top + r.height * 0.5;
+    if (!down) { down = true; demo.point(main, x, y, 'pointerdown'); }
+    demo.point(main, x, y);
+    requestAnimationFrame(turn);
+  };
+  // A drawn pointer has no capture to take: the page's own call is left out for it.
+  main.setPointerCapture = () => {};
+  requestAnimationFrame(turn);
+};
+</script>

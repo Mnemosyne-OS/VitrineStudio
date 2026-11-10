@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { SiteBar } from './SiteBar';
 import type { PublishStage } from '../model/publish';
-import type { SiteWork } from './SitePanel';
+import type { SiteWork } from '../model/publish';
 
 function bar(stage: PublishStage, over: Partial<Parameters<typeof SiteBar>[0]> = {}) {
   const props = {

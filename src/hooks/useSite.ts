@@ -18,12 +18,12 @@ import { filmOnSite } from '../model/filmRecord';
 import { firstSitePhoto } from '../model/scenePhotos';
 import { businessOf, publishStage, siteFields, sitePrint } from '../model/publish';
 import { legalMarkdown } from '../site/legalPages';
-import { allCreations, allRows, blogAssets, buildSiteData, cellFiles, legalSiteOf, aboutPhotoAsset, pagePhotoAsset, PORTRAIT_ASSET, EXPORT_QUALITY, exportSite, fillShell, seoPictures, filmSources, onlineScenes, slugify, withSharpCopies, type ExportDeps, type SiteInput } from '../site/buildSite';
+import { allCreations, allRows, blogAssets, buildSiteData, cellFiles, clipAsset, legalSiteOf, aboutPhotoAsset, pagePhotoAsset, PORTRAIT_ASSET, EXPORT_QUALITY, exportSite, fillShell, seoPictures, filmSources, onlineScenes, slugify, withSharpCopies, type ExportDeps, type SiteInput, type SiteSettings } from '../site/buildSite';
 import { buildPreview, swapAsset, withErrorWatch, withMenuEditing, type Preview } from '../site/preview';
 import { LOGO_ASSET } from '../site/logo';
 import siteTemplate from '../site/template.html?raw';
 import { describeError } from '../components/errors';
-import type { SiteWork } from '../components/SitePanel';
+import type { SiteWork } from '../model/publish';
 import type { Studio } from './useStudio';
 
 /** A window opened for the site preview only (plugins.detach, instance in the URL). */
@@ -208,16 +208,16 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     }
   };
 
-  /** The first picture of the site, as it is and as the export would write it now. */
-  const checkCompression = async () => {
+  /** The first picture of the site, as it is and as the export would write it at a quality and a weight (the site's own, or those tried). */
+  const checkCompression = async (of: Pick<SiteSettings, 'quality' | 'imageKb'> = site) => {
     const path = firstSitePhoto(onlineScenes(scenes, pieces));
     if (!path) return;
     setChecking(true);
     setPreviewError(null);
     try {
       const before = await readMedia(path);
-      const q = EXPORT_QUALITY[site.quality];
-      const b64 = await toWebp(before, q.large, q.webp, site.imageKb === null ? undefined : site.imageKb * 1000);
+      const q = EXPORT_QUALITY[of.quality];
+      const b64 = await toWebp(before, q.large, q.webp, of.imageKb === null ? undefined : of.imageKb * 1000);
       if (alive.current) setCheck({ before, after: `data:image/webp;base64,${b64}` });
     } catch (err) {
       console.error('[vitrine-studio] the compression check stopped:', err);
@@ -459,16 +459,45 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
     return pageUrl(data, lang, [...(site.brand.portrait ? [{ name: PORTRAIT_ASSET, path: site.brand.portrait }] : []), ...about, ...pagePhotos()], progress);
   };
 
+  /**
+   * The whole site as it would look with a trial of the Design screen laid on it (`tried`), quickly:
+   * every page, each picture read as it is, nothing encoded and nothing written. The rooms keep
+   * their pictures and leave their clips (heavy, and not what is judged there); the home film is
+   * left out for the same reason. `dress` adds the click-to-set layer.
+   */
+  const previewDesign = async (tried: SiteSettings, dress: (html: string) => string): Promise<string> => {
+    const lang = getLanguage();
+    // A post Notes cannot give now is left out of this preview: it is the look that is judged here.
+    const posts = await readSitePosts(tried.posts, hostIO).catch((err: unknown) => { console.warn('[vitrine-studio] the posts were not read for the design preview:', err); return [] as SitePost[]; });
+    const data = buildSiteData({ ...siteFields(tried), lang, today: new Date().toISOString().slice(0, 10), untitled: t('scenes.noUniverse'), beats: beatsOf(lang), scenes, pieces, posts });
+    for (const row of allRows(data)) for (const cell of row.scenes) { delete cell.clip; delete cell.cut; }
+    const rooms = allRows(data).flatMap((row) => row.scenes.flatMap((cell) => {
+      const scene = scenes.find((x) => x.id === cell.id);
+      return scene ? cellFiles(cell, scene) : [];
+    }));
+    const about = (tried.brand.aboutPhotos ?? []).filter(Boolean).map((path, i) => ({ name: aboutPhotoAsset(i), path }));
+    // A creation that plays its scene's clip on hover: that clip alone is read, for the effect to be judged.
+    const clips = allCreations(data).flatMap((c) => { const from = c.clip && scenes.find((x) => clipAsset(x.id) === c.clip)?.clipPath; return c.clip && from ? [{ name: c.clip, path: from }] : []; });
+    const files = [...rooms, ...clips, ...creationFiles(data), ...pagePhotos(), ...(tried.brand.portrait ? [{ name: PORTRAIT_ASSET, path: tried.brand.portrait }] : []), ...about, ...blogAssets(posts, pieces)];
+    // One name once: a piece shown on the Creations page and in a post is read once.
+    const once = files.filter((f, i) => files.findIndex((g) => g.name === f.name) === i);
+    return pageUrl(data, lang, once, undefined, tried, dress);
+  };
+
   /** The two legal pages as the site would write them now, for the editor to start from. */
   const legalDrafts = (): { notice: string; privacy: string } => {
     const input = siteInput(getLanguage(), { scenes, pieces });
     return legalMarkdown(site.legal, legalSiteOf(input, buildSiteData(input)));
   };
 
-  /** A page held in memory: its pictures read as they are and the logo, swapped in for their names. */
-  const pageUrl = async (data: ReturnType<typeof buildSiteData>, lang: ReturnType<typeof getLanguage>, files: Array<{ name: string; path: string }>, progress?: PreviewProgress): Promise<string> => {
-    let html = fillShell(siteTemplate, site.brand, lang, data);
-    const all = [...files, ...(data.identity?.logoSrc && site.identity.logoPath ? [{ name: LOGO_ASSET, path: site.identity.logoPath }] : [])];
+  /**
+   * A page held in memory: its pictures read as they are and the logo, swapped in for their names.
+   * `of` is the site it is a page of when that is not the site as kept (a trial of the Design screen);
+   * `dress` replaces the menu's in-place renaming with what that preview adds to the page.
+   */
+  const pageUrl = async (data: ReturnType<typeof buildSiteData>, lang: ReturnType<typeof getLanguage>, files: Array<{ name: string; path: string }>, progress?: PreviewProgress, of: SiteSettings = site, dress: (html: string) => string = withMenuEditing): Promise<string> => {
+    let html = fillShell(siteTemplate, of.brand, lang, data);
+    const all = [...files, ...(data.identity?.logoSrc && of.identity.logoPath ? [{ name: LOGO_ASSET, path: of.identity.logoPath }] : [])];
     let done = 0;
     progress?.(0, all.length);
     for (const f of all) {
@@ -478,7 +507,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
       if (url) html = swapAsset(html, f.name, url);
       progress?.(++done, all.length);
     }
-    return URL.createObjectURL(new Blob([withErrorWatch(withMenuEditing(html))], { type: 'text/html' }));
+    return URL.createObjectURL(new Blob([withErrorWatch(dress(html))], { type: 'text/html' }));
   };
 
   const openLink = (url: string) => {
@@ -494,7 +523,7 @@ export function useSite(studio: Studio, siteTabOpen: boolean) {
   return {
     translationWords,
     token, tokenUnread, rereadToken: readToken, clearPreviewError: () => setPreviewError(null), work, preview, previewWork, previewError, check, checking, stage, missing, connected,
-    chooseSiteFolder, previewNow, previewPost, previewCreations, previewScenes, previewInfo, previewHome, legalDrafts, exportSiteTo, closePreview: () => showPreview(null), previewInWindow, checkCompression,
+    chooseSiteFolder, previewNow, previewPost, previewCreations, previewScenes, previewInfo, previewHome, previewDesign, legalDrafts, exportSiteTo, closePreview: () => showPreview(null), previewInWindow, checkCompression,
     closeCheck: () => setCheck(null), exportNow, publishNow, saveToken, forgetToken, openLink, seoData,
   };
 }

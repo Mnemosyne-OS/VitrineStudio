@@ -1,0 +1,7 @@
+/* Reveal on scroll: what a page holds waits a little lower, clear, and rises into place once it is in sight.
+   The class is put on by the script alone: without it, or for who asked for less motion, everything is simply there. */
+.rv { opacity: 0; translate: 0 22px; transition: opacity .7s ease, translate .8s var(--ease); transition-delay: var(--rv-d, 0ms); }
+.rv.rv-in { opacity: 1; translate: none; }
+/* A catalogue's tile keeps its own transitions (the filters, the hover): the reveal is added to them. */
+.gallery figure.rv { transition: transform .5s var(--ease), opacity .7s ease, translate .8s var(--ease); transition-delay: var(--rv-d, 0ms); }
+@media (prefers-reduced-motion: reduce) { .rv { opacity: 1; translate: none; transition: none; } }

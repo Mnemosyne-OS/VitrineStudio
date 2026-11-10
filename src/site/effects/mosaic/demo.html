@@ -1,0 +1,9 @@
+<div class="gallery" id="g"><figure><div class="ph"><img class="g0" src="__P1__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P2__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P3__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P4__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P5__" alt=""></div></figure><figure><div class="ph"><img class="g0" src="__P6__" alt=""></div></figure></div>
+<script>
+// The same six photos, even grid then mosaic, turn about: the difference is the effect.
+window.play = (fx, demo) => {
+  const g = document.getElementById('g');
+  fx.gallery(g);
+  if (!demo.reduced) setInterval(() => g.classList.toggle('layout-mosaic'), 2600);
+};
+</script>

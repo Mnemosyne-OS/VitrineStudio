@@ -4,7 +4,7 @@ import { useI18n } from '../i18n';
 import { useCopy } from '../hooks/useCopy';
 import { errorText } from './errors';
 import { bareAddress, type PublishStage } from '../model/publish';
-import type { SiteWork } from './SitePanel';
+import type { SiteWork } from '../model/publish';
 
 /** What « See » opens on this screen: this page as on the site, or the whole site. */
 export type SeeWhat = 'page' | 'site';
@@ -48,7 +48,7 @@ export function SiteBar({ stage, tokenUnread = false, missing, link, work, stale
   onOpen: (url: string) => void;
   /** Site › Connection, where the folder, the token and the address are set. */
   onConnect: () => void;
-  /** The screen where a missing item is set: the name (Site › Look), a scene online (Scenes). */
+  /** The screen where a missing item is set: the name (Design › Identity), a scene online (Scenes). */
   onFix: (item: 'scene' | 'name' | 'living') => void;
   onRetryToken?: () => void;
   /** The error under the address is put away (a preview or a picture check that stopped). */

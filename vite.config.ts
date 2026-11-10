@@ -28,6 +28,10 @@ export default defineConfig({
     // {ts,tsx}, never `.test.ts` alone: a rendering test written in a .tsx
     // would be collected by NOBODY, and the suite would stay green while
     // never running it. Keep both extensions here and in tsconfig's exclude.
-    include: ['src/**/*.test.{ts,tsx}']
+    include: ['src/**/*.test.{ts,tsx}'],
+    // The effects' stylesheets are read as text (`style.css?raw`, src/site/effects) and written into the
+    // exported site. Vitest empties every CSS import by default, `?raw` included: the export under test
+    // would carry no effect CSS at all, and say nothing.
+    css: true
   }
 } as UserConfig & { test: Record<string, unknown> });

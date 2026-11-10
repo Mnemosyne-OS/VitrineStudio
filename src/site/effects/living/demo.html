@@ -1,0 +1,29 @@
+<main id="stage"><section class="cell" id="c"></section></main>
+<script>
+// A drawn room and a drawn plant: a living scene is made of layers, which no photo of hers has by itself.
+// The plant sways as on the site; a pointer drawn on the card moves the two depths.
+window.DEMO_SCENE = {
+  images: {},
+  layers: {
+    room: { l: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 250' width='800' height='500'%3E%3Crect width='400' height='250' fill='%23e9e4db'/%3E%3Crect y='180' width='400' height='70' fill='%23cdbfa9'/%3E%3Crect x='250' y='20' width='110' height='130' fill='%23f6f2ea'/%3E%3Cpath d='M250 20h110v130H250z' fill='none' stroke='%23bcae98' stroke-width='3'/%3E%3Cellipse cx='150' cy='186' rx='70' ry='8' fill='%23000' opacity='.12'/%3E%3C/svg%3E" },
+    pot: { l: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 130' width='240' height='260'%3E%3Cpath d='M30 10h60l-8 110c0 12-44 12-44 0z' fill='%23b9a48a'/%3E%3Cellipse cx='60' cy='12' rx='30' ry='7' fill='%238d7a63'/%3E%3C/svg%3E", x: 22.5, y: 24, w: 30, h: 52 },
+    potAlive: { l: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 250' width='240' height='500'%3E%3Cpath d='M30 130h60l-8 110c0 12-44 12-44 0z' fill='%23b9a48a'/%3E%3Cellipse cx='60' cy='132' rx='30' ry='7' fill='%238d7a63'/%3E%3Cg fill='none' stroke='%2355713f' stroke-width='4' stroke-linecap='round'%3E%3Cpath d='M60 130C58 90 40 60 26 30'/%3E%3Cpath d='M60 130C62 86 82 56 98 22'/%3E%3Cpath d='M60 130C60 96 60 70 62 40'/%3E%3C/g%3E%3Cg fill='%236f8f52'%3E%3Cellipse cx='24' cy='28' rx='14' ry='8' transform='rotate(-40 24 28)'/%3E%3Cellipse cx='100' cy='20' rx='14' ry='8' transform='rotate(40 100 20)'/%3E%3Cellipse cx='62' cy='36' rx='8' ry='14'/%3E%3Cellipse cx='42' cy='66' rx='12' ry='7' transform='rotate(-30 42 66)'/%3E%3Cellipse cx='84' cy='60' rx='12' ry='7' transform='rotate(30 84 60)'/%3E%3C/g%3E%3C/svg%3E", x: 22.5, y: -24, w: 30, h: 100 },
+    sway: { l: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 250' width='240' height='500'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='1' x2='0' y2='0'%3E%3Cstop offset='.5' stop-color='%23808080'/%3E%3Cstop offset='1' stop-color='%23ffffff'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='120' height='250' fill='url(%23g)'/%3E%3C/svg%3E" },
+    pivot: { x: 37.5, y: 76 },
+  },
+};
+window.DEMO_D = { rows: [{ name: '', scenes: [window.DEMO_SCENE] }], creations: [] };
+window.play = (fx, demo) => {
+  const cell = document.getElementById('c');
+  cell.innerHTML = '<div class="room">' + fx.room(window.DEMO_SCENE, '') + '</div><ol class="steps"></ol>';
+  fx.play(cell);
+  if (demo.reduced) return;
+  const stage = document.getElementById('stage');
+  const turn = (t) => {
+    const r = stage.getBoundingClientRect();
+    demo.point(stage, r.left + r.width * (0.5 + 0.4 * Math.cos(t / 1300)), r.top + r.height * (0.5 + 0.3 * Math.sin(t / 900)));
+    requestAnimationFrame(turn);
+  };
+  requestAnimationFrame(turn);
+};
+</script>
